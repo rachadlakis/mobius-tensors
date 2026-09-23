@@ -1,0 +1,2 @@
+Drop a short test video here as sample.mp4 (a few seconds of people/vehicles is enough).
+detect.py defaults to reading server/data/sample.mp4 — override with --source <path>.
