@@ -1,15 +1,32 @@
 # Default: pretrained YOLOX-Nano (COCO, 80 classes) on CPU via ONNX Runtime.
 # Get the model with: uv run src/download_model.py yolox_nano
 
-source: 0  # webcam index, image/video path, or rtsp/http URL
+source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name below
 
 model:
   backend: yolox_onnx
   path: models/yolox_nano.onnx
-  input_size: [416, 416]    # 416 for nano/tiny, 640 for s/m/l/x
+  input_size: null          # null = read from the model (only needed for dynamic-shape models)
   conf_threshold: 0.35
   nms_threshold: 0.45
   class_agnostic_nms: false ## Whether to apply NMS across all classes or per class
   num_threads: 0            # 0 = let ONNX Runtime decide
   classes: null             # e.g. [person, car, truck] to keep only these
   class_names: null         # null = COCO; set a list for a custom-trained model
+
+# IP cameras (e.g. PoE cameras on a switch plugged into this machine), used by name:
+#   uv run src/main.py --source gate --show
+# Keep passwords out of this file: ${VAR} is read from the environment or .env.
+# Find cameras:  uv run src/cameras.py discover   (or: uv run src/cameras.py scan 192.168.1.0/24)
+# Check one:     uv run src/cameras.py test gate --save data/gate.jpg
+cameras:
+  # gate:
+  #   vendor: hikvision      # hikvision | dahua | reolink | uniview | axis, or set `path`
+  #   host: 192.168.1.64
+  #   username: admin
+  #   password: ${GATE_CAM_PASSWORD}
+  #   stream: sub            # sub = low resolution: plenty for detection, far cheaper to decode
+  #   channel: 1             # NVR channel (1 for a standalone camera)
+  #   port: 554
+  # yard:                    # any other camera: give the full URL
+  #   url: rtsp://${YARD_USER}:${YARD_PASS}@192.168.1.108:554/stream1

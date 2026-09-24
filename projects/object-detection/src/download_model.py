@@ -26,7 +26,9 @@ def download(name: str, out_dir: Path) -> Path:
         return target
     url = f"{RELEASE_URL}/{name}.onnx"
     print(f"Downloading {url} -> {target}")
-    urllib.request.urlretrieve(url, target)
+    partial = target.with_suffix(".onnx.part")
+    urllib.request.urlretrieve(url, partial)
+    partial.replace(target)  # only a complete download gets the real name
     return target
 
 

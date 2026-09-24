@@ -103,7 +103,7 @@ class YoloxOnnxDetector:
     def __init__(
         self,
         model_path: str | Path,
-        input_size: tuple[int, int] = (416, 416),
+        input_size: tuple[int, int] | None = None,
         class_names: tuple[str, ...] | list[str] = COCO_CLASSES,
         conf_threshold: float = 0.35,
         nms_threshold: float = 0.45,
@@ -128,8 +128,14 @@ class YoloxOnnxDetector:
             sess_options=options,
             providers=providers or ["CPUExecutionProvider"],
         )
-        self.input_name = self.session.get_inputs()[0].name
-        self.input_size = input_size
+        model_input = self.session.get_inputs()[0]
+        self.input_name = model_input.name
+        # Exported YOLOX models have a fixed input size: trust the model over the config.
+        h, w = model_input.shape[2:4]
+        if isinstance(h, int) and isinstance(w, int):
+            self.input_size = (h, w)
+        else:
+            self.input_size = input_size or (640, 640)
         self.class_names = tuple(class_names)
         self.conf_threshold = conf_threshold
         self.nms_threshold = nms_threshold
@@ -195,10 +201,10 @@ def create_detector(config: dict[str, Any]) -> Detector:
     """Build a detector from the `model` section of a config file."""
     backend = config.get("backend", "yolox_onnx")
     if backend == "yolox_onnx":
-        size = config.get("input_size", (416, 416))
+        size = config.get("input_size")
         return YoloxOnnxDetector(
             model_path=config["path"],
-            input_size=(int(size[0]), int(size[1])),
+            input_size=(int(size[0]), int(size[1])) if size else None,
             class_names=config.get("class_names") or COCO_CLASSES,
             conf_threshold=config.get("conf_threshold", 0.35),
             nms_threshold=config.get("nms_threshold", 0.45),
@@ -209,13 +215,39 @@ def create_detector(config: dict[str, Any]) -> Detector:
     raise ValueError(f"Unknown detector backend: {backend}")
 
 
+def color_for(key: int) -> tuple[int, int, int]:
+    """Stable BGR color per class id / track id."""
+    b, g, r = np.random.default_rng(key).integers(0, 255, 3)
+    return int(b), int(g), int(r)
+
+
+def draw_label(
+    frame: np.ndarray, text: str, anchor: tuple[int, int], color: tuple[int, int, int]
+) -> None:
+    """Text on a filled box whose bottom-left corner sits at `anchor`."""
+    (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+    x, top = anchor[0], max(anchor[1] - th - baseline - 2, 0)
+    cv2.rectangle(frame, (x, top), (x + tw + 4, top + th + baseline + 2), color, -1)
+    text_color = (0, 0, 0) if sum(color) > 380 else (255, 255, 255)
+    cv2.putText(
+        frame, text, (x + 2, top + th + 1),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.5, text_color, 1, cv2.LINE_AA,
+    )
+
+
+def draw_box(
+    frame: np.ndarray, box: tuple[float, float, float, float] | np.ndarray, text: str,
+    color: tuple[int, int, int],
+) -> None:
+    p1, p2 = (int(box[0]), int(box[1])), (int(box[2]), int(box[3]))
+    cv2.rectangle(frame, p1, p2, color, 2)
+    draw_label(frame, text, p1, color)
+
+
 def draw_detections(frame: np.ndarray, detections: list[Detection]) -> np.ndarray:
     for det in detections:
-        color = tuple(int(c) for c in np.random.default_rng(det.class_id).integers(0, 255, 3))
-        p1, p2 = (int(det.x1), int(det.y1)), (int(det.x2), int(det.y2))
-        cv2.rectangle(frame, p1, p2, color, 2)
-        cv2.putText(
-            frame, f"{det.label} {det.score:.2f}", (p1[0], max(p1[1] - 5, 12)),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA,
+        draw_box(
+            frame, (det.x1, det.y1, det.x2, det.y2), f"{det.label} {det.score:.2f}",
+            color_for(det.class_id),
         )
     return frame
