@@ -1,0 +1,15 @@
+# Default: pretrained YOLOX-Nano (COCO, 80 classes) on CPU via ONNX Runtime.
+# Get the model with: uv run src/download_model.py yolox_nano
+
+source: 0  # webcam index, image/video path, or rtsp/http URL
+
+model:
+  backend: yolox_onnx
+  path: models/yolox_nano.onnx
+  input_size: [416, 416]    # 416 for nano/tiny, 640 for s/m/l/x
+  conf_threshold: 0.35
+  nms_threshold: 0.45
+  class_agnostic_nms: false ## Whether to apply NMS across all classes or per class
+  num_threads: 0            # 0 = let ONNX Runtime decide
+  classes: null             # e.g. [person, car, truck] to keep only these
+  class_names: null         # null = COCO; set a list for a custom-trained model

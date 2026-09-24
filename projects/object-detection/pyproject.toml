@@ -1,0 +1,24 @@
+[project]
+name = "object-detection"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "ipython-autotime>=0.3.2",
+    "numpy>=2.4.6",
+    "onnxruntime>=1.30.0",
+    "opencv-python>=5.0.0.93",
+    "python-dotenv>=1.2.3",
+    "pyyaml>=6.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
