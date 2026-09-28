@@ -2,8 +2,7 @@
     "folders": [
         { "name": "mobius-tensors (root)", "path": "." },
         { "name": "object-detection", "path": "projects/object-detection" },
-        { "name": "agents", "path": "projects/agents" },
-        { "name": "mobius-website", "path": "../mobius-website" }
+        { "name": "agents", "path": "projects/agents" }
     ],
     "settings": {
         "python.analysis.extraPaths": ["./src"]
