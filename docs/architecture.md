@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="Images/banner.jpeg" alt="Mobius Tensors banner" width="100%" />
+<img src="../Images/banner.jpeg" alt="Mobius Tensors banner" width="100%" />
 
 # Mobius Tensors — Complete Architecture
 

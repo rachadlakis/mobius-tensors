@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="Images/banner.jpeg" alt="Mobius Tensors banner" width="100%" />
+<img src="../Images/banner.jpeg" alt="Mobius Tensors banner" width="100%" />
 
-<img src="Images/logo.jpeg" alt="Mobius Tensors logo" width="140" />
+<img src="../Images/logo.jpeg" alt="Mobius Tensors logo" width="140" />
 
 # Mobius Tensors — AI Solution Platform
 
