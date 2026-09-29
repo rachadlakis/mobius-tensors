@@ -15,8 +15,22 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.1.1",
     "types-pyyaml>=6.0.12.20260906",
+]
+export = [
+    "onnx>=1.23.0",
+    "open-clip-torch>=3.3.0",
+    "torch>=2.14.0",
+]
+search = [
+    "regex>=2026.9.29",
+]
+server = [
+    "fastapi>=0.141.1",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.53.0",
 ]
 ui = [
     "gradio>=6.28.0",
