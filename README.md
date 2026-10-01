@@ -14,6 +14,7 @@ One reusable AI solution platform, configured per use case.
 | --- | --- |
 | [object-detection](projects/object-detection/) | CPU-only object detection (YOLOX → ONNX Runtime) |
 | [agents](projects/agents/) | Not started |
+| [agent-deployment](projects/agent-deployment/) | Installing and managing AI agents (Claude Code, Cowork, Codex, …) on the customer side |
 
 The website lives in its own repo, next to this one: `../mobius-website`.
 

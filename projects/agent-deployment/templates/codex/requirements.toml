@@ -1,0 +1,8 @@
+# Enforced limits for Codex CLI. Users can't pick values outside these lists.
+allowed_approval_policies = ["on-request"]
+allowed_sandbox_modes = ["read-only", "workspace-write"]
+
+[rules]
+prefix_rules = [
+  { pattern = [{ any_of = ["bash", "sh"] }], decision = "prompt", justification = "Require approval for shell access" },
+]

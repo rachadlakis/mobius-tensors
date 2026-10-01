@@ -1,0 +1,22 @@
+{
+  "security": {
+    "auth": {
+      "enforcedType": "vertex-ai"
+    },
+    "disableYoloMode": true
+  },
+  "tools": {
+    "sandbox": "docker"
+  },
+  "mcp": {
+    "allowed": ["corp-tools"]
+  },
+  "telemetry": {
+    "enabled": true,
+    "target": "gcp",
+    "logPrompts": false
+  },
+  "privacy": {
+    "usageStatisticsEnabled": false
+  }
+}
