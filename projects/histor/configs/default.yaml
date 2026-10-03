@@ -1,0 +1,62 @@
+# Histor: record everything the camera sees, ask about it later.
+# Models are shared with ../object-detection (download them there once, see README).
+#
+#   uv run src/record.py --source gate                  # one recorder per camera
+#   uv run src/record.py --source ../object-detection/data/vtest.avi --camera street --start-time 2026-09-25T14:00
+#   uv run src/ask.py "person with an umbrella yesterday"
+
+source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name below
+
+model:
+  backend: yolox_onnx
+  path: ../object-detection/models/yolox_nano.onnx
+  conf_threshold: 0.25
+  nms_threshold: 0.45
+  class_agnostic_nms: true
+  classes: null              # null = every class the model knows
+
+tracking:
+  track_threshold: 0.45
+  max_missed: 30
+  min_hits: 3
+
+# Same format as ../object-detection/configs/default.yaml; passwords as ${VAR} in .env.
+cameras: {}
+
+store:
+  path: data/store/histor.db   # SQLite, shared by all recorders of a site and by ask.py
+  media_dir: data/store/media
+  retention_days: 30
+  face_retention_days: 7
+
+search:
+  enabled: true
+  clip:
+    image: ../object-detection/models/clip_image.onnx
+    text: ../object-detection/models/clip_text.onnx
+    vocab: ../object-detection/models/clip_bpe_vocab.txt.gz
+  # Every COCO class gets embedded, not only people and vehicles.
+  classes: [
+    person, bicycle, car, motorcycle, airplane, bus, train, truck, boat, traffic light,
+    fire hydrant, stop sign, parking meter, bench, bird, cat, dog, horse, sheep, cow,
+    elephant, bear, zebra, giraffe, backpack, umbrella, handbag, tie, suitcase, frisbee,
+    skis, snowboard, sports ball, kite, baseball bat, baseball glove, skateboard, surfboard,
+    tennis racket, bottle, wine glass, cup, fork, knife, spoon, bowl, banana, apple,
+    sandwich, orange, broccoli, carrot, hot dog, pizza, donut, cake, chair, couch,
+    potted plant, bed, dining table, toilet, tv, laptop, mouse, remote, keyboard,
+    cell phone, microwave, oven, toaster, sink, refrigerator, book, clock, vase, scissors,
+    teddy bear, hair drier, toothbrush,
+  ]
+  object_interval_seconds: 2   # re-embed each tracked object at most this often
+  scene_interval_seconds: 5    # whole frame + tiles: catches what the detector has no class for
+  scene_tiles: 2
+  min_box_height: 40           # smaller crops carry too few pixels for CLIP to describe
+
+# Face prints are biometric data: off unless a client has approved it (see object-detection README).
+faces:
+  enabled: false
+  cameras: []
+  detector: ../object-detection/models/face_detection_yunet_2023mar.onnx
+  recognizer: ../object-detection/models/face_recognition_sface_2021dec.onnx
+  min_face_size: 32
+  interval_seconds: 1
