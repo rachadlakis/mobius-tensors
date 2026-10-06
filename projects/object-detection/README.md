@@ -176,6 +176,7 @@ Open <http://127.0.0.1:8000/docs> to try the API in the browser.
 | `POST /search/face` | form fields `photo` (JPEG/PNG), `when` (e.g. `friday`), `camera` (optional) → *"Yes: seen 2 time(s), first on shop at Fri 25 Sep 10:30."* |
 | `GET /events` | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` |
 | `GET /media/{path}` | snapshots and thumbnails |
+| `GET /recordings/{path}` | main-stream MP4s; events and search results carry a `video_url` (`...mp4#t=37`) that opens the moment, 3 s early |
 | `GET /health`, `GET /cameras`, `POST /maintenance/purge` | status, camera list, apply retention now |
 
 How search works:
@@ -195,7 +196,33 @@ How search works:
   cover the rest.
 - Scores are relative (CLIP similarity ~0.2-0.4): results are ranked, not yes/no.
 - Tiny details (earbuds, rings) are not searchable at CCTV resolution; faces need roughly 32+
-  pixels, which usually means the camera's main stream or a camera placed at the door.
+  pixels, which usually means the camera's main stream (below) or a camera placed at the door.
+
+### Main stream: recording and hi-res crops
+
+Detection runs on the cheap sub stream, but a 640x360 crop of a person 15 m away is a blur to
+CLIP. With a `recording:` section (see `configs/search_example.yaml`), each live camera process
+also opens the camera's **main stream** with one ffmpeg process (`src/mainstream.py`):
+
+- **Recording**: packets are copied to one MP4 per minute (`-c copy`: no decode, no re-encode,
+  almost no CPU) under `recording.dir/<camera>/`. Fragmented MP4, so the file being written plays
+  and survives a power cut. Old files go after `retention_days`, or sooner when the disk has
+  less than `min_free_gb` free.
+- **Hi-res crops**: only keyframes are decoded (`-skip_frame nokey`). Set the camera's
+  main-stream I-frame interval to 1 s (= its FPS) for one per second. Each keyframe is run
+  through the detector once and its boxes are paired with the live tracks (IoU), which gives
+  exact full-resolution boxes whatever the delay between the two streams. Crops for CLIP, faces
+  and scene tiles then come from the keyframe.
+- **Nothing is lost between keyframes**: a new track is still embedded right away from the sub
+  stream; the first keyframe that catches it adds a hi-res crop, and later crops come from
+  keyframes. A far object too small in the sub stream (`min_box_height`) can now be indexed
+  from the main stream alone. On a real-time replay of `vtest.avi`, 28 of 38 tracked people got
+  hi-res crops; the other 10 kept their sub-stream crop.
+
+Cost: one extra detection per second per camera, plus disk: 1080p at 4 Mbit/s is about 43 GB
+per camera per day. Needs ffmpeg >= 5.1 (`sudo apt install ffmpeg`); without it, recording and
+hi-res crops are switched off with an error in the log, and detection carries on. Vendor
+cameras get their main-stream URL from the preset; a camera given by `url:` needs `main_url:`.
 
 ### Face search and privacy
 
@@ -240,6 +267,7 @@ src/
   export_clip.py     One-off: OpenCLIP -> ONNX
   stream.py          Frame sources (webcam, image, video, URL)
   cameras.py         IP cameras: config, live capture with reconnect, discovery
+  mainstream.py      Main stream via ffmpeg: recording to MP4 + keyframes for hi-res crops
   main.py            CLI entry point
   app.py             Gradio test UI
   download_model.py  Fetch pretrained YOLOX ONNX models (and `faces`)

@@ -30,3 +30,5 @@ cameras:
   #   port: 554
   # yard:                    # any other camera: give the full URL
   #   url: rtsp://${YARD_USER}:${YARD_PASS}@192.168.1.108:554/stream1
+  #   main_url: rtsp://${YARD_USER}:${YARD_PASS}@192.168.1.108:554/stream0  # full resolution,
+  #                          # for `recording:` (vendor cameras get it from the preset)

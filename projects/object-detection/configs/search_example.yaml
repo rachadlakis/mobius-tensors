@@ -59,6 +59,17 @@ store:
   retention_days: 30           # events + search index
   face_retention_days: 7       # face prints are kept for a shorter time
 
+# Main stream of each live camera (needs ffmpeg >= 5.1: sudo apt install ffmpeg).
+# The detector keeps reading the cheap sub stream; this opens the full-resolution one too.
+# Set the camera's main-stream I-frame interval to 1 s (= its FPS): one keyframe per second.
+recording:
+  enabled: true                # save the main stream untouched (-c copy, ~no CPU), 1 file/minute
+  dir: data/store/recordings
+  segment_seconds: 60
+  retention_days: 7            # 1080p at 4 Mbit/s = ~43 GB per camera per day
+  min_free_gb: 20              # also delete the oldest files when the disk gets this full
+  hires_crops: true            # crop search/face images from main-stream keyframes (+1 detection/s)
+
 search:
   enabled: true
   clip:

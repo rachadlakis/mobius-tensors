@@ -6,6 +6,11 @@ Per camera, on a background thread (detection never waits for it on live cameras
   * scenes  - every `scene_interval_seconds` the whole frame plus a grid of tiles, so things
               the detector ignores (a box on the floor, an open gate, smoke) are searchable too
   * faces   - only if enabled for this camera: face prints of tracked people
+
+With a main stream (src/mainstream.py), crops come from its full-resolution keyframes when the
+object was matched in one (`HiResFrame`); otherwise from the sub-stream frame, so an object
+that passes between two keyframes is still indexed. A track embedded once in hi-res is then
+re-embedded from keyframes only.
 """
 
 from __future__ import annotations
@@ -37,12 +42,23 @@ class FaceModel(Protocol):
 
 
 @dataclass
+class HiResFrame:
+    """A main-stream keyframe and the tracks found in it (boxes in keyframe pixels)."""
+
+    time: float
+    image: np.ndarray
+    boxes: dict[int, np.ndarray]
+
+
+@dataclass
 class _Job:
     frame: np.ndarray
     time: float
-    objects: list[tuple[int, str, np.ndarray]]  # track id, label, box
-    faces: list[tuple[int, np.ndarray]]  # person track id, box
+    objects: list[tuple[int, str, np.ndarray, np.ndarray | None]]  # id, label, box, hi-res box
+    faces: list[tuple[int, np.ndarray, bool]]  # person track id, box, box is hi-res
     scene: bool
+    hires: np.ndarray | None = None  # keyframe the hi-res boxes refer to
+    scene_image: np.ndarray | None = None  # frame for the scene + tiles (None: `frame`)
 
 
 class SearchIndexer:
@@ -60,11 +76,13 @@ class SearchIndexer:
         face_interval_seconds: float = 1.0,
         blocking: bool = False,
         max_queue: int = 4,
+        keyframe_max_age: float = 3.0,
     ) -> None:
         """
         scene_tiles: n -> the frame is also embedded as an n x n grid (0 = whole frame only).
         blocking: wait when the worker is busy (video files: index everything) instead of
                   dropping the job (live cameras: stay real-time).
+        keyframe_max_age: scenes use the latest main-stream keyframe if it is this recent.
         """
         self.store = store
         self.camera = camera
@@ -77,6 +95,9 @@ class SearchIndexer:
         self.min_box_height = min_box_height
         self.face_interval = face_interval_seconds
         self.blocking = blocking
+        self.keyframe_max_age = keyframe_max_age
+        self._keyframe: HiResFrame | None = None
+        self._hires_tracks: set[int] = set()  # tracks seen in a keyframe at least once
         self._last_object: dict[int, float] = {}
         self._last_face: dict[int, float] = {}
         self._last_scene = -1e18
@@ -108,30 +129,44 @@ class SearchIndexer:
 
     # ------------------------------------------------------------ called per frame
 
-    def update(self, frame: np.ndarray, tracks: list[Track], t: float) -> None:
+    def update(self, frame: np.ndarray, tracks: list[Track], t: float,
+               hires: HiResFrame | None = None) -> None:
+        """hires: a main-stream keyframe that arrived since the last call, if any."""
+        if hires is not None:
+            self._keyframe = hires
         objects, faces = [], []
         for track in tracks:
             if track.missed or track.label not in self.classes:
                 continue
             box = np.asarray(track.box, dtype=float)
-            if box[3] - box[1] < self.min_box_height:
+            hbox = hires.boxes.get(track.id) if hires is not None else None
+            sub_ok = box[3] - box[1] >= self.min_box_height
+            hi_ok = hbox is not None and hbox[3] - hbox[1] >= self.min_box_height
+            if not (sub_ok or hi_ok):  # a far object can be big enough in the main stream only
                 continue
-            if t - self._last_object.get(track.id, -1e18) >= self.object_interval:
+            if self._due(self._last_object, track.id, t, self.object_interval, hi_ok):
                 self._last_object[track.id] = t
-                objects.append((track.id, track.label, box))
-            if (self.faces is not None and track.label == "person"
-                    and t - self._last_face.get(track.id, -1e18) >= self.face_interval):
+                objects.append((track.id, track.label, box, hbox if hi_ok else None))
+            if self.faces is not None and track.label == "person" and self._due(
+                    self._last_face, track.id, t, self.face_interval, hi_ok):
                 self._last_face[track.id] = t
-                faces.append((track.id, box))
+                faces.append((track.id, hbox, True) if hi_ok else (track.id, box, False))
+            if hi_ok:
+                self._hires_tracks.add(track.id)
         if len(self._last_object) > 5000:  # forget objects not seen for 10 minutes
             self._last_object = {k: v for k, v in self._last_object.items() if t - v < 600}
             self._last_face = {k: v for k, v in self._last_face.items() if t - v < 600}
+            self._hires_tracks &= set(self._last_object)
         scene = t - self._last_scene >= self.scene_interval
         if scene:
             self._last_scene = t
         if not (objects or faces or scene):
             return
-        job = _Job(frame.copy(), t, objects, faces, scene)
+        keyframe = self._keyframe
+        fresh = keyframe is not None and abs(t - keyframe.time) <= self.keyframe_max_age
+        job = _Job(frame.copy(), t, objects, faces, scene,
+                   hires=hires.image if hires is not None else None,
+                   scene_image=keyframe.image if scene and fresh else None)
         if self.blocking:
             self._queue.put(job)
             return
@@ -139,6 +174,16 @@ class SearchIndexer:
             self._queue.put_nowait(job)
         except queue.Full:
             self.dropped += 1  # live: better to skip an index step than to lag behind
+
+    def _due(self, last: dict[int, float], track_id: int, t: float, interval: float,
+             hi_ok: bool) -> bool:
+        """Before any keyframe match: every `interval` from whatever frame we have, plus right
+        away on the first match (upgrade to hi-res). After it: from keyframes only, unless
+        none matched for 3 intervals (e.g. the object now moves too fast to be matched)."""
+        elapsed = t - last.get(track_id, -1e18)
+        if track_id not in self._hires_tracks:
+            return elapsed >= interval or hi_ok
+        return (hi_ok and elapsed >= interval) or elapsed >= 3 * interval
 
     def close(self, timeout: float = 120.0) -> None:
         """Finish queued work (e.g. the end of a video file)."""
@@ -163,8 +208,11 @@ class SearchIndexer:
         images, rows = [], []
         stamp = int(t * 1000)
 
-        for track_id, label, box in job.objects:
-            crop = _crop(frame, box, pad=0.1)
+        for track_id, label, box, hbox in job.objects:
+            if hbox is not None and job.hires is not None:
+                crop = _crop(job.hires, hbox, pad=0.1)
+            else:
+                crop = _crop(frame, box, pad=0.1)
             if crop is None:
                 continue
             images.append(crop)
@@ -173,6 +221,9 @@ class SearchIndexer:
                          "track_id": track_id, "label": label, "box": box, "thumb": thumb})
 
         if job.scene:
+            if job.scene_image is not None:  # main-stream keyframe: tiles keep their detail
+                frame = job.scene_image
+                h, w = frame.shape[:2]
             thumb = self.store.save_image(frame, "scenes", f"{self.camera}_{stamp}", t,
                                           max_height=360, quality=75)
             regions = [np.array([0, 0, w, h], dtype=float)]
@@ -199,8 +250,9 @@ class SearchIndexer:
 
         if self.faces is not None and job.faces:
             face_rows = []
-            for track_id, box in job.faces:
-                person = _crop(frame, box, pad=0.05)
+            for track_id, box, is_hires in job.faces:
+                source = job.hires if is_hires and job.hires is not None else job.frame
+                person = _crop(source, box, pad=0.05)
                 if person is None:
                     continue
                 upper = person[: max(1, int(person.shape[0] * 0.6))]  # faces are in the top part

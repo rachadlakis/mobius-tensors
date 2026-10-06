@@ -10,6 +10,7 @@ Endpoints
     GET  /cameras                         camera names from the config
     GET  /events?camera=&type=&since=&until=&limit=
     GET  /media/{path}                    snapshot / thumbnail JPEGs
+    GET  /recordings/{path}               main-stream MP4s (see `video_url` in results)
     GET  /search?q=red shirt last friday  text search
     POST /search/face (photo, when=friday, camera=shop)   "did this person come in on Friday?"
     POST /maintenance/purge               apply retention now (also runs every hour)
@@ -35,10 +36,12 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from faces import SAME_PERSON_THRESHOLD
+from mainstream import Recordings
 from search import SearchEngine
 from store import EventStore
 
 log = logging.getLogger(__name__)
+VIDEO_LEAD_SECONDS = 3
 
 
 def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> Any:
@@ -63,6 +66,9 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
                            min_face_size=20)  # uploaded photos: accept smaller faces
     cameras = sorted((config.get("cameras") or {}).keys())
     engine = SearchEngine(store, clip, faces, camera_names=cameras)
+    rec_cfg = config.get("recording") or {}
+    recordings = Recordings(rec_cfg.get("dir", "data/store/recordings"),
+                            rec_cfg.get("segment_seconds", 60))
 
     @asynccontextmanager
     async def lifespan(_app: Any):  # hourly retention purge
@@ -85,6 +91,10 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
     def with_urls(items: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
         for item in items:
             item[f"{key}_url"] = media_url(item.get(key))
+            # the moment in the recording, a few seconds early to see it happen
+            found = recordings.find(item["camera"], item["time"] - VIDEO_LEAD_SECONDS)
+            item["video_url"] = (f"/recordings/{found[0]}#t={max(0, int(found[1]))}"
+                                 if found else None)
         return items
 
     @app.get("/health")
@@ -110,6 +120,13 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
         if target is None:
             raise HTTPException(404, "Not found")
         return FileResponse(target, media_type="image/jpeg")
+
+    @app.get("/recordings/{path:path}")
+    def recording(path: str) -> FileResponse:
+        target = recordings.path(path)
+        if target is None:
+            raise HTTPException(404, "Not found")
+        return FileResponse(target, media_type="video/mp4")  # supports range requests (seeking)
 
     @app.get("/search")
     def text_search(q: str, camera: list[str] | None = Query(None),

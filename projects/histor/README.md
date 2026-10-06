@@ -89,7 +89,9 @@ wrong, run with tool calls visible and check which lookups it made.
 ## Cameras
 
 Cameras are declared under `cameras:` in `configs/default.yaml`, the same way as in
-[object-detection](../object-detection/README.md#ip-cameras-poe). For the HTTP API
+[object-detection](../object-detection/README.md#ip-cameras-poe). The `recording:` section saves
+each camera's main stream and crops from its full-resolution keyframes
+([details](../object-detection/README.md#main-stream-recording-and-hi-res-crops)). For the HTTP API
 (`/search`, `/search/face`, `/events`), run object-detection's `src/server.py` with this
 project's config.
 

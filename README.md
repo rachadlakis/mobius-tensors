@@ -21,17 +21,22 @@ The website lives in its own repo, next to this one: `../mobius-website`.
 
 ## Docs
 
-- [Mobius Tensors — AI Solution Platform](docs/Mobius%20Tensors%20—%20AI%20Solution%20Platform.md)
-- [Architecture](docs/architecture.md)
-- [Roadmap](docs/Roadmap.md)
-- [Implementation Plan — From Trained Model to App](docs/Implementation%20Plan%20—%20From%20Trained%20Model%20to%20App.md)
-- [Ideas](docs/Ideas.md)
+Company-wide, in [docs/mobius-tensors](docs/mobius-tensors/):
+
+- [Mobius Tensors — AI Solution Platform](docs/mobius-tensors/Mobius%20Tensors%20—%20AI%20Solution%20Platform.md): company, use cases and ideas, architecture, roadmap and build plan, risks, glossary
+- [Site Installation Guide — IP Cameras, PoE Switch and Server](docs/mobius-tensors/Site%20Installation%20Guide%20—%20IP%20Cameras,%20PoE%20Switch%20and%20Server.md): hands-on install steps for a client site
+
+Per project, in `docs/<project>/`:
+
+- [histor](docs/histor/): product description, presentation (.pptx) and overview (.pdf)
 
 ## Layout
 
 ```
 mobius-tensors/
-├── docs/        company, architecture and roadmap docs
+├── docs/
+│   ├── mobius-tensors/   company, architecture, roadmap and installation docs
+│   └── <project>/        one folder per project (descriptions, presentations)
 ├── Images/      logo, banner and brand kit
 └── projects/    one folder per product, each with its own uv environment
 ```

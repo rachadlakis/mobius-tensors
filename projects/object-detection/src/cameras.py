@@ -95,6 +95,14 @@ def camera_url(camera: dict[str, Any]) -> str:
     return f"rtsp://{auth}{cam['host']}:{port}/{path.lstrip('/')}"
 
 
+def main_stream_url(camera: dict[str, Any]) -> str:
+    """Full-resolution stream of a camera, for recording and hi-res crops: `main_url` if set,
+    else the vendor preset's main stream; a camera given only by `url` has just that stream."""
+    if camera.get("main_url"):
+        return camera_url({"url": camera["main_url"]})
+    return camera_url({**camera, "stream": "main"})
+
+
 def resolve_source(source: str | int, cameras: dict[str, Any] | None) -> str | int:
     """Map a camera name to its URL; any other source is returned unchanged."""
     if cameras and str(source) in cameras:

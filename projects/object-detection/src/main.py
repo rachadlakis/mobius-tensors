@@ -19,7 +19,7 @@ from pathlib import Path
 import cv2
 import yaml
 
-from cameras import mask_url, resolve_source
+from cameras import is_stream_url, main_stream_url, mask_url, resolve_source
 from pipeline import Pipeline
 from stream import is_live, iter_frames
 
@@ -46,10 +46,14 @@ def main() -> None:
     source = args.source if args.source is not None else str(config.get("source", 0))
     # Alerts get the camera name, never the resolved URL (which may hold a password).
     camera_name = args.camera or source
-    source = resolve_source(source, config.get("cameras"))
+    cameras = config.get("cameras") or {}
+    main_url = main_stream_url(cameras[source]) if source in cameras else None
+    source = resolve_source(source, cameras)
+    if main_url is None and is_stream_url(source):
+        main_url = str(source)  # a bare URL: record what we have
     start = datetime.fromisoformat(args.start_time).timestamp() if args.start_time else None
     pipeline = Pipeline.from_config(config, source=camera_name, start_time=start,
-                                    live=is_live(source))
+                                    live=is_live(source), main_url=main_url)
     print(f"Source: {mask_url(source)}")
 
     writer = None
