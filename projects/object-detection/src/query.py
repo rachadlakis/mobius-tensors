@@ -3,6 +3,7 @@
     "red shirt last friday"                  -> "red shirt", Friday 00:00-24:00
     "white van on gate yesterday 6pm to 9pm" -> "white van", yesterday 18:00-21:00, cameras [gate]
     "person with a backpack in the last 2 hours"
+    "anyone at reception after 6pm"          -> "reception" is an alias of camera lobby
 
 Times are the server's local time. Unknown words are kept as the visual description.
 """
@@ -57,7 +58,10 @@ def _at(day: datetime, hour: float) -> datetime:
 
 
 def parse_query(text: str, now: datetime | None = None,
-                camera_names: list[str] | None = None) -> ParsedQuery:
+                camera_names: list[str] | None = None,
+                camera_aliases: dict[str, str] | None = None) -> ParsedQuery:
+    """camera_aliases: other names for a camera, e.g. {"reception": "lobby"} (the cameras'
+    `about.aliases` in the config)."""
     now = now or datetime.now()
     today = now.replace(hour=0, minute=0, second=0, microsecond=0)
     s = " " + text.lower().strip().rstrip("?.!") + " "
@@ -72,11 +76,13 @@ def parse_query(text: str, now: datetime | None = None,
             s = s[: m.start()] + " " + s[m.end():]
         return m
 
-    # --- cameras: "on gate", "camera gate", or a bare camera name
+    # --- cameras: "on gate", "camera gate", a bare camera name or one of its aliases
+    names = {name: name for name in camera_names or []} | dict(camera_aliases or {})
     cameras = []
-    for name in sorted(camera_names or [], key=len, reverse=True):
-        if cut(rf"\b(?:on |at |from |camera |cam )?{re.escape(name.lower())}\b(?: camera| cam)?"):
-            cameras.append(name)
+    for name in sorted(names, key=len, reverse=True):  # longest first: "back gate" before "gate"
+        if cut(rf"\b(?:on |at |in |from |camera |cam )?(?:the )?{re.escape(name.lower())}\b"
+               r"(?: camera| cam)?") and names[name] not in cameras:
+            cameras.append(names[name])
 
     # --- relative spans: "last 2 hours", "past 30 minutes", "last 3 days"
     m = cut(r"\b(?:in )?(?:the )?(?:last|past) (\d+) (minute|min|hour|hr|day)s?\b")
@@ -136,9 +142,12 @@ def parse_query(text: str, now: datetime | None = None,
     elif m := cut(r"\b(?:at|around) " + _TIME + r"\b"):
         centre = _at(base, _hour(*m.group(1, 2, 3)))
         since, until = centre - timedelta(minutes=30), centre + timedelta(minutes=30)
-    elif m := cut(r"\b(?:in the |this )?(" + "|".join(PARTS_OF_DAY) + r")\b"):
-        a, b = PARTS_OF_DAY[m.group(1)]
+    elif m := cut(r"\b(?:in the |(this|last) )?(" + "|".join(PARTS_OF_DAY) + r")\b"):
+        a, b = PARTS_OF_DAY[m.group(2)]
         since, until = _at(base, a), _at(base, b)
+        if day is None and since > now and m.group(1) != "this" and m.group(2) != "tonight":
+            # "last night" asked in the morning: the night that just ended, not tonight
+            since, until = since - timedelta(days=1), until - timedelta(days=1)
     elif day is not None:
         since, until = day, day + timedelta(days=1)
 

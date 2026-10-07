@@ -1,0 +1,72 @@
+# Testing on a laptop: its webcam is the only camera, faces are on, nothing else to set up.
+# Its own store, so test data never mixes with a site's.
+#
+#   uv run --group ui src/ui.py --config configs/laptop.yaml     # http://127.0.0.1:7860
+
+source: 0  # webcam index (1, 2... for a USB camera)
+
+model:
+  backend: yolox_onnx
+  path: ../object-detection/models/yolox_nano.onnx
+  conf_threshold: 0.25
+  nms_threshold: 0.45
+  class_agnostic_nms: true
+  classes: null
+
+tracking:
+  track_threshold: 0.45
+  max_missed: 30
+  min_hits: 3
+
+# The webcam is not an IP camera: no url/host, only what the chat should know about it.
+cameras:
+  laptop:
+    about:
+      description: Laptop webcam on the desk, facing the person using the laptop
+      aliases: [webcam, desk]
+      covers: room
+      faces: good
+
+store:
+  path: data/store/laptop.db
+  media_dir: data/store/laptop_media
+  retention_days: 7
+  face_retention_days: 7
+
+# Visual search by description needs the CLIP models (see ../object-detection README). Without
+# them, objects and faces are still recorded and searchable.
+search:
+  enabled: true
+  clip:
+    image: ../object-detection/models/clip_image.onnx
+    text: ../object-detection/models/clip_text.onnx
+    vocab: ../object-detection/models/clip_bpe_vocab.txt.gz
+  classes: [person, backpack, handbag, suitcase, cell phone, laptop, cup, bottle, book, chair]
+  object_interval_seconds: 2
+  scene_interval_seconds: 5
+  scene_tiles: 2
+  min_box_height: 40
+
+faces:
+  enabled: true
+  cameras: [laptop]
+  detector: ../object-detection/models/face_detection_yunet_2023mar.onnx
+  recognizer: ../object-detection/models/face_recognition_sface_2021dec.onnx
+  min_face_size: 32
+  interval_seconds: 1
+  max_per_track: 5
+  min_sharpness: 15
+  max_turn: 0.6
+
+chat:
+  model: local
+  models:
+    local:
+      api: openai
+      base_url: http://127.0.0.1:11434/v1   # Ollama: `ollama pull qwen3:4b`
+      model: qwen3:4b
+      temperature: 0.2
+    claude:
+      api: anthropic                        # uv sync --group claude; ANTHROPIC_API_KEY in .env
+      model: claude-opus-5-5
+      effort: low

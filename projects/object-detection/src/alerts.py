@@ -1,8 +1,18 @@
-"""Turn zone/line events into alerts: console, JSON-lines file, event store, webhook, email.
+"""Turn zone/line events into alerts: console, JSON-lines file, event store, and channels.
 
-Filtering (event types, cooldown) happens once; every emitted event then goes to all sinks.
-Webhook and email are sent from a background thread so a slow mail server never stalls
-detection. Each event can carry a JPEG snapshot of the frame with the object highlighted.
+Filtering (event types, cooldown) happens once; every emitted event then goes to each channel
+whose own filter (rules, events, labels, hours) accepts it. Channels are sent from a background
+thread so a slow mail server never stalls detection. Each event can carry a JPEG snapshot of the
+frame with the object highlighted.
+
+Channels (config `alerts.channels`, a list; `type` picks the class in CHANNELS):
+
+    webhook   POST the event as JSON (n8n, Zapier, Make, Slack/Teams workflows, your backend)
+    email     SMTP, snapshot attached
+
+A new channel (Telegram, WhatsApp, SMS, a siren relay...) is one Sink subclass with
+`send(payload, jpeg)`, registered in CHANNELS; `alert_message()` gives it the same title/text
+as email.
 """
 
 from __future__ import annotations
@@ -13,7 +23,7 @@ import queue
 import smtplib
 import threading
 import urllib.request
-from datetime import datetime
+from datetime import datetime, time as dtime
 from email.message import EmailMessage
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -41,14 +51,18 @@ class AlertManager:
         source: str | None = None,
         webhook: dict[str, Any] | None = None,
         email: dict[str, Any] | None = None,
+        channels: list[dict[str, Any]] | None = None,
         snapshots: bool = True,
         store: EventStore | None = None,
     ) -> None:
         """
         events: only alert on these event types (e.g. [dwell, cross]); None = all.
         cooldown_seconds: minimum time between two alerts for the same rule + event type.
-        webhook: {url, headers?, timeout?} -> POST JSON (+ snapshot as base64-free URL path).
-        email: {host, port?, username?, password?, sender, to: [..], starttls?, subject_prefix?}
+        channels: [{type: webhook | email, ...settings, rules?, events?, labels?, hours?,
+            cooldown_seconds?}]: the optional filters limit what that one channel receives,
+            e.g. hours: "22:00-06:00". A channel cooldown holds back messages only, while the
+            global cooldown_seconds also skips storing the event.
+        webhook / email: shorthand for one channel of that type (older configs).
         snapshots: save a JPEG per alert (needs a store) and attach it to emails.
         """
         self.console = console
@@ -58,11 +72,12 @@ class AlertManager:
         self.source = source
         self.store = store
         self.snapshots = snapshots
-        self.sinks: list[Sink] = []
+        configs = list(channels or [])
         if webhook:
-            self.sinks.append(WebhookSink(**webhook))
+            configs.append({"type": "webhook", **webhook})
         if email:
-            self.sinks.append(EmailSink(**email))
+            configs.append({"type": "email", **email})
+        self.sinks: list[Sink] = [make_channel(c) for c in configs]
         self._dispatcher = Dispatcher(self.sinks) if self.sinks else None
         self._last: dict[tuple[str, str], float] = {}
         if self.jsonl:
@@ -153,7 +168,72 @@ def _safe(name: str) -> str:
     return "".join(c if c.isalnum() or c in "-_." else "_" for c in name)
 
 
+def alert_message(payload: dict[str, Any], prefix: str = "") -> tuple[str, str]:
+    """(title, text) for a person: shared by email and any future chat/SMS channel."""
+    what = payload.get("direction") or payload.get("dwell_seconds") or ""
+    title = (f"{prefix} {payload['type']} {payload['rule']} - "
+             f"{payload.get('label')} on {payload['camera']}").strip()
+    text = "\n".join([
+        f"Camera: {payload['camera']}",
+        f"Time:   {payload['iso_time']}",
+        f"Event:  {payload['type']} ({payload['rule']}) {what}".rstrip(),
+        f"Object: {payload.get('label')} #{payload.get('track_id')}",
+    ])
+    return title, text
+
+
+def _hours(spec: str) -> tuple[dtime, dtime]:
+    try:
+        start, end = (dtime.fromisoformat(part.strip()) for part in spec.split("-"))
+    except ValueError:
+        raise ValueError(f"hours must look like '22:00-06:00', got {spec!r}") from None
+    return start, end
+
+
+class ChannelFilter:
+    """Which alerts one channel receives. Empty = all of them.
+
+    cooldown_seconds: at most one message per rule + event type in that time, for this channel
+    only (the event store still gets every event).
+    """
+
+    def __init__(self, rules: list[str] | None = None, events: list[str] | None = None,
+                 labels: list[str] | None = None, hours: str | None = None,
+                 cooldown_seconds: float = 0.0) -> None:
+        self.rules = set(rules or [])
+        self.events = set(events or [])
+        self.labels = set(labels or [])
+        self.hours = _hours(hours) if hours else None  # wraps past midnight when start > end
+        self.cooldown = cooldown_seconds
+        self._last: dict[tuple[str, str], float] = {}
+
+    def accepts(self, payload: dict[str, Any]) -> bool:
+        if self.rules and payload.get("rule") not in self.rules:
+            return False
+        if self.events and payload.get("type") not in self.events:
+            return False
+        if self.labels and payload.get("label") not in self.labels:
+            return False
+        if self.hours:
+            start, end = self.hours
+            now = datetime.fromtimestamp(payload["time"]).time()
+            inside = start <= now < end if start <= end else (now >= start or now < end)
+            if not inside:
+                return False
+        if self.cooldown:
+            key = (payload.get("rule", ""), payload.get("type", ""))
+            if payload["time"] - self._last.get(key, -1e18) < self.cooldown:
+                return False
+            self._last[key] = payload["time"]
+        return True
+
+
 class Sink:
+    filter = ChannelFilter()
+
+    def accepts(self, payload: dict[str, Any]) -> bool:
+        return self.filter.accepts(payload)
+
     def send(self, payload: dict[str, Any], jpeg: bytes | None) -> None:
         raise NotImplementedError
 
@@ -191,17 +271,10 @@ class EmailSink(Sink):
 
     def send(self, payload: dict[str, Any], jpeg: bytes | None) -> None:
         msg = EmailMessage()
-        what = payload.get("direction") or payload.get("dwell_seconds") or ""
-        msg["Subject"] = (f"{self.subject_prefix} {payload['type']} {payload['rule']} - "
-                          f"{payload.get('label')} on {payload['camera']}").strip()
+        title, text = alert_message(payload, self.subject_prefix)
+        msg["Subject"] = title
         msg["From"], msg["To"] = self.sender, ", ".join(self.to)
-        lines = [
-            f"Camera: {payload['camera']}",
-            f"Time:   {payload['iso_time']}",
-            f"Event:  {payload['type']} ({payload['rule']}) {what}".rstrip(),
-            f"Object: {payload.get('label')} #{payload.get('track_id')}",
-        ]
-        msg.set_content("\n".join(lines))
+        msg.set_content(text)
         if jpeg:
             msg.add_attachment(jpeg, maintype="image", subtype="jpeg", filename="snapshot.jpg")
         smtp_cls = smtplib.SMTP_SSL if self.ssl else smtplib.SMTP
@@ -211,6 +284,22 @@ class EmailSink(Sink):
             if self.username:
                 smtp.login(self.username, self.password or "")
             smtp.send_message(msg)
+
+
+CHANNELS: dict[str, type[Sink]] = {"webhook": WebhookSink, "email": EmailSink}
+FILTER_KEYS = ("rules", "events", "labels", "hours", "cooldown_seconds")
+
+
+def make_channel(config: dict[str, Any]) -> Sink:
+    """{type, ...settings, rules?, events?, labels?, hours?, cooldown_seconds?} -> a Sink."""
+    config = dict(config)
+    kind = config.pop("type", None)
+    if kind not in CHANNELS:
+        raise ValueError(f"Unknown alert channel {kind!r}; available: {', '.join(CHANNELS)}")
+    filters = {k: config.pop(k) for k in FILTER_KEYS if k in config}
+    sink = CHANNELS[kind](**config)
+    sink.filter = ChannelFilter(**filters)
+    return sink
 
 
 class Dispatcher:
@@ -240,6 +329,8 @@ class Dispatcher:
                 return
             payload, jpeg = item
             for sink in self.sinks:
+                if not sink.accepts(payload):
+                    continue
                 for attempt in range(self.retries + 1):
                     try:
                         sink.send(payload, jpeg)

@@ -16,6 +16,7 @@ from typing import Any
 import yaml
 
 import shared  # noqa: F401
+from cameras import camera_aliases
 from clip_onnx import ClipEncoder
 from search import SearchEngine
 from store import EventStore
@@ -26,8 +27,20 @@ def build_engine(config: dict[str, Any]) -> SearchEngine:
     if store is None:
         raise SystemExit("The config needs a `store:` section (see configs/default.yaml)")
     clip_cfg = (config.get("search") or {}).get("clip") or {}
-    clip = ClipEncoder(image=None, text=clip_cfg["text"], vocab=clip_cfg["vocab"])
-    return SearchEngine(store, clip, camera_names=sorted((config.get("cameras") or {}).keys()))
+    clip = None
+    if Path(clip_cfg["text"]).exists() and Path(clip_cfg["vocab"]).exists():
+        clip = ClipEncoder(image=None, text=clip_cfg["text"], vocab=clip_cfg["vocab"])
+    else:  # objects, alerts and face search still work
+        print(f"{clip_cfg['text']} not found: visual search by description is off")
+    faces_cfg = config.get("faces") or {}
+    faces = None
+    if faces_cfg.get("enabled"):  # face search with attached photos (chat.py /photo)
+        from faces import FaceEngine
+
+        faces = FaceEngine.from_config(faces_cfg, for_photos=True)
+    cameras = config.get("cameras") or {}
+    return SearchEngine(store, clip, faces, camera_names=sorted(cameras),
+                        camera_aliases=camera_aliases(cameras))
 
 
 def format_answer(answer: dict[str, Any], media_dir: Path) -> str:
@@ -60,7 +73,7 @@ def main() -> None:
         if args.question:
             ask(" ".join(args.question))
             return
-        while question := input("histor> ").strip():
+        while question := input("argus> ").strip():
             ask(question)
     except (EOFError, KeyboardInterrupt):
         print()

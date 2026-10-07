@@ -110,6 +110,34 @@ def resolve_source(source: str | int, cameras: dict[str, Any] | None) -> str | i
     return source
 
 
+FACE_VIEWS = ("good", "poor", "none")
+
+
+def camera_about(cameras: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """What each camera looks at, from its `about:` entry (filled in at install time):
+    description, aliases, location, covers, faces (good | poor | none), hours, notes, zones.
+    The chat reads it to pick the right camera and to explain its answers."""
+    out = {}
+    for name, cam in (cameras or {}).items():
+        about = dict((cam or {}).get("about") or {})
+        if about.get("faces") is not None and str(about["faces"]).lower() not in FACE_VIEWS:
+            raise ValueError(f"Camera {name}: about.faces must be one of {', '.join(FACE_VIEWS)}")
+        out[name] = about
+    return out
+
+
+def camera_aliases(cameras: dict[str, Any] | None) -> dict[str, str]:
+    """alias (lower case) -> camera name, from each camera's `about.aliases`."""
+    out: dict[str, str] = {}
+    for name, about in camera_about(cameras).items():
+        for alias in about.get("aliases") or []:
+            alias = str(alias).strip().lower()
+            if out.get(alias, name) != name:
+                raise ValueError(f"Alias {alias!r} is used by cameras {out[alias]} and {name}")
+            out[alias] = name
+    return out
+
+
 def is_stream_url(source: str | int) -> bool:
     return isinstance(source, str) and source.lower().startswith(STREAM_SCHEMES)
 

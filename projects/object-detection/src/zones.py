@@ -72,14 +72,18 @@ class Rule:
         raise NotImplementedError
 
 
+FULL_FRAME = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
+
+
 class Zone(Rule):
     kind = "zone"
 
     def __init__(
-        self, name: str, points: list[list[float]], classes: list[str] | None = None,
+        self, name: str, points: list[list[float]] | None = None, classes: list[str] | None = None,
         dwell_seconds: float | None = None, confirm_frames: int = 2,
         anchor: str = "bottom_center",
     ) -> None:
+        points = points or FULL_FRAME  # no points = the whole picture ("seen anywhere")
         super().__init__(name, points, classes, anchor)
         if len(points) < 3:
             raise ValueError(f"Zone {name!r} needs at least 3 points")

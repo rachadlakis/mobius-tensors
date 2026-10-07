@@ -1,25 +1,25 @@
-# Histor — Product Description
+# Argus — Product Description
 
-*Greek ἵστωρ: "witness, one who knows by having seen". The root of "history".*
+*After Argus Panoptes, the hundred-eyed watchman of Greek myth (πανόπτης, "all-seeing"), who never closed all his eyes at once.*
 
-Every claim below was checked against the code in [projects/histor](../../projects/histor/) and the
+Every claim below was checked against the code in [projects/argus](../../projects/argus/) and the
 object-detection modules it reuses (October 2026). Keep it that way when editing: if a feature is
 on the roadmap, say so.
 
 ## One line
 
-Histor lets you ask your cameras what happened, in plain language, and answers with the frames
+Argus lets you ask your cameras what happened, in plain language, and answers with the frames
 as evidence.
 
 ## Short (website, brochure, LinkedIn)
 
-Most camera AI answers one question: "is X happening right now?". Histor answers a different one:
+Most camera AI answers one question: "is X happening right now?". Argus answers a different one:
 "what happened?". It keeps a searchable memory of what your cameras see (every tracked object,
 plus regular snapshots of each scene), so you can ask later: *"Was there a white van at the gate
 yesterday evening?"*, *"How many cars came in today?"*. It answers in sentences and lists the
 frames it checked. It can also alert you when something happens in an area you choose. It runs on
 your own server, without a GPU, and by default even the language model that answers runs locally.
-Your footage stays in the building.
+Your footage stays in thse building.
 
 ## Full description
 
@@ -29,7 +29,7 @@ Sites record far more video than anyone watches. When something needs finding, a
 you jump to a time, not to a moment: someone scrubs through hours of footage. Alerts help only for
 the rules set up in advance; today's question was usually not one of them.
 
-### What Histor does
+### What Argus does
 
 1. **Record.** One recorder per camera detects and tracks every object across the 80 everyday
    object types the detector knows (people, vehicles, animals, bags, furniture…). Each tracked
@@ -43,10 +43,10 @@ the rules set up in advance; today's question was usually not one of them.
 
 ### Two kinds of answer, and it says which
 
-| Kind | How | Good for |
-| --- | --- | --- |
-| **Counted (exact)** | Straight from the detector and tracker: what, when, how many. One tracked object = one visit. | "How many cars came in today?", "What happened 6pm to 9pm?", "Anyone with a dog this morning?" |
-| **Described (ranked)** | Visual search (CLIP) by appearance, colour, clothing, or things with no detector class. Ranked best matches, not certainties. | "A man in a red jacket near a car?", "A white van at the gate?" |
+| Kind                         | How                                                                                                                           | Good for                                                                                       |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Counted (exact)**    | Straight from the detector and tracker: what, when, how many. One tracked object = one visit.                                 | "How many cars came in today?", "What happened 6pm to 9pm?", "Anyone with a dog this morning?" |
+| **Described (ranked)** | Visual search (CLIP) by appearance, colour, clothing, or things with no detector class. Ranked best matches, not certainties. | "A man in a red jacket near a car?", "A white van at the gate?"                                |
 
 "Together" ("a person with a dog") means the same camera at the same time (within 15 seconds by
 default), not touching in the image.
@@ -71,13 +71,13 @@ default), not touching in the image.
   give sharp crops for search results.
 - **Footprint:** describing one object takes about 55 ms on a laptop CPU; each sighting stores a
   2 KB search vector plus a small thumbnail. Recording at 1080p, 4 Mbit/s is about 43 GB per
-  camera per day. On busy scenes Histor samples more sparsely rather than falling behind.
+  camera per day. On busy scenes Argus samples more sparsely rather than falling behind.
 - **Model choice:** any OpenAI-compatible server (Ollama, llama.cpp, LM Studio, vLLM) is a config
   entry, no code change.
 
 ### Alerts when it matters
 
-Histor also alerts, from the same recorder that builds the memory: alerts for the rules set in
+Argus also alerts, from the same recorder that builds the memory: alerts for the rules set in
 advance, memory for every other question.
 
 - **Areas and lines:** draw zones and tripwires on each camera. Events: an object *enters*,
@@ -85,13 +85,21 @@ advance, memory for every other question.
   (in, out or both directions).
 - **Per customer:** each rule is limited to chosen object types (only `person` in the yard, only
   `truck` at the gate), and every site has its own rules in its config.
-- **Delivery:** webhook (into the client's own systems) or email, with a JPEG snapshot of the
-  moment; a cooldown holds back repeats.
-- **Tested:** zones and lines with Histor's own recorder on the sample street video (2026-10-06):
-  90 events (enter, exit, dwell, cross), stored in Histor's store. Webhook and email delivery come
-  from object-detection and were not part of that run.
-- **Setup:** add `zones:` and `alerts:` sections to `projects/histor/configs/default.yaml` (same
-  format as object-detection, see its README).
+- **Anywhere in the picture:** a zone without points covers the whole frame ("a dog appears").
+- **Delivery:** channels, each with its own filter: which rules, events and objects, at which
+  hours ("22:00-06:00"), and a cooldown so nobody gets flooded. Webhook (into the client's own
+  systems, or Slack/Teams/n8n/Zapier) and email work today, with a JPEG snapshot of the moment.
+- **Ask about alerts:** every event is stored with its snapshot, whatever the channels sent, and
+  the chat has an `alerts` tool: "did any alert go off last night?", "who entered the yard?".
+- **Tested (2026-10-06):** Argus's own recorder on the sample street video, a whole-frame zone
+  and a line: every event stored with a snapshot (102), a webhook channel filtered to the line
+  with a 30 s cooldown received 3 messages, and the chat tool listed the events for "last night".
+  Email is covered by unit tests (no real mail server in that run).
+- **Setup:** the `zones:` and `alerts:` sections in `projects/argus/configs/default.yaml` (empty by
+  default, with commented examples).
+- **Next channels:** Telegram, WhatsApp (Business API, pre-approved templates), SMS and an
+  on-site siren or relay; each is one small class in the shared alert code (overview in the
+  object-detection README).
 
 **Not available yet:** rules only work on the 80 detector types. Fire and smoke, or any object a
 customer names that is not one of the 80, need a model trained for it (the code loads custom
@@ -107,7 +115,7 @@ Weapons are not offered: no model, and both false alarms and misses are costly.
 - Plain-language questions from the command line (`ask.py`), no language model needed.
 - Chat (`chat.py`) with switchable models, local by default; evidence listed as thumbnail files.
 - Main-stream recording with full-resolution crops.
-- Alerts by area and line, per object type, by webhook or email.
+- Alerts by area and line (or anywhere in the picture), per object type, sent to channels with filters (rules, events, objects, hours, cooldown); webhook and email today. The chat answers about past alerts.
 
 **Next**
 

@@ -90,4 +90,7 @@ faces:
   detector: models/face_detection_yunet_2023mar.onnx
   recognizer: models/face_recognition_sface_2021dec.onnx
   min_face_size: 32            # pixels; faces smaller than this are not identifiable
-  interval_seconds: 1
+  interval_seconds: 1          # look for a face on each tracked person this often
+  max_per_track: 5             # keep a person's 5 clearest faces per visit, not one per second
+  min_sharpness: 15            # skip blurred faces (sharp ~30-300, motion blur < 10)
+  max_turn: 0.6                # skip faces turned away (0 = facing the camera, 0.5 ~ 60 deg)

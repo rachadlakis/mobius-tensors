@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS sightings (
     label TEXT,
     box TEXT,                      -- json [x1, y1, x2, y2] in frame pixels
     thumb TEXT,
-    embedding BLOB NOT NULL        -- float32, L2-normalized
+    embedding BLOB NOT NULL        -- float32, L2-normalized; empty when recorded without CLIP
 );
 CREATE INDEX IF NOT EXISTS sightings_time ON sightings(time);
 
@@ -168,21 +168,36 @@ class EventStore:
                 " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 [(r["camera"], r["time"], r["kind"], r.get("track_id"), r.get("label"),
                   json.dumps([round(float(v), 1) for v in r["box"]]) if r.get("box") is not None
-                  else None, r.get("thumb"), _blob(r["embedding"])) for r in rows],
+                  else None, r.get("thumb"), _blob(r.get("embedding"))) for r in rows],
             )
             self._db.commit()
 
-    def add_faces(self, rows: list[dict[str, Any]]) -> None:
-        if not rows:
-            return
+    def add_faces(self, rows: list[dict[str, Any]]) -> list[int]:
+        """rows: camera, time, track_id, quality, thumb, embedding. Returns the new row ids."""
+        ids = []
         with self._lock:
-            self._db.executemany(
-                "INSERT INTO faces (camera, time, track_id, quality, thumb, embedding)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                [(r["camera"], r["time"], r.get("track_id"), r.get("quality"), r.get("thumb"),
-                  _blob(r["embedding"])) for r in rows],
-            )
+            for r in rows:
+                cur = self._db.execute(
+                    "INSERT INTO faces (camera, time, track_id, quality, thumb, embedding)"
+                    " VALUES (?, ?, ?, ?, ?, ?)",
+                    (r["camera"], r["time"], r.get("track_id"), r.get("quality"), r.get("thumb"),
+                     _blob(r["embedding"])))
+                ids.append(int(cur.lastrowid or 0))
             self._db.commit()
+        return ids
+
+    def delete_faces(self, ids: list[int]) -> None:
+        """Delete face prints and their thumbnails (e.g. a track's worse faces)."""
+        if not ids:
+            return
+        marks = ",".join("?" * len(ids))
+        with self._lock:
+            thumbs = [r[0] for r in self._db.execute(
+                f"SELECT thumb FROM faces WHERE id IN ({marks}) AND thumb IS NOT NULL", ids)]
+            self._db.execute(f"DELETE FROM faces WHERE id IN ({marks})", ids)
+            self._db.commit()
+        for rel in thumbs:
+            (self.media_dir / rel).unlink(missing_ok=True)
 
     # ---------------------------------------------------------------- reads
 
@@ -208,10 +223,13 @@ class EventStore:
     def search(self, table: str, query: np.ndarray, since: float | None = None,
                until: float | None = None, cameras: list[str] | None = None,
                kinds: list[str] | None = None, min_score: float | None = None,
-               top_k: int = 50) -> list[Match]:
-        """Cosine similarity of `query` against stored embeddings, best first."""
+               top_k: int | None = 50) -> list[Match]:
+        """Cosine similarity of `query` against stored embeddings, best first.
+
+        query: one vector, or several (one per row: e.g. 3 photos of the same person); a row's
+        score is then its best match among them. top_k None: every row."""
         assert table in {"sightings", "faces"}
-        sql, args = f"SELECT * FROM {table} WHERE 1=1", list[Any]()
+        sql, args = f"SELECT * FROM {table} WHERE length(embedding) > 0", list[Any]()
         sql, args = _filters(sql, args, cameras, since, until)
         if kinds and table == "sightings":
             sql += f" AND kind IN ({','.join('?' * len(kinds))})"
@@ -221,10 +239,11 @@ class EventStore:
         if not rows:
             return []
         matrix = np.stack([np.frombuffer(r["embedding"], dtype=np.float32) for r in rows])
-        q = query.astype(np.float32).ravel()
-        q = q / (np.linalg.norm(q) + 1e-12)
-        scores = matrix @ q
+        q = np.atleast_2d(np.asarray(query, dtype=np.float32))
+        q = q / (np.linalg.norm(q, axis=1, keepdims=True) + 1e-12)
+        scores = (matrix @ q.T).max(axis=1)
         order = np.argsort(-scores)
+        top_k = len(order) if top_k is None else top_k
         out = []
         for i in order[: top_k if min_score is None else len(order)]:
             if min_score is not None and scores[i] < min_score:
@@ -242,6 +261,36 @@ class EventStore:
             if len(out) >= top_k:
                 break
         return out
+
+    def face_counts(self, since: float | None = None, until: float | None = None,
+                    cameras: list[str] | None = None) -> dict[str, int]:
+        """Face prints stored per camera in a time range: what a face search actually checked."""
+        sql, args = _filters("SELECT camera, COUNT(*) FROM faces WHERE 1=1", [], cameras, since,
+                             until)
+        with self._lock:
+            return dict(self._db.execute(sql + " GROUP BY camera", args).fetchall())
+
+    def latest_faces(self, limit: int = 12, camera: str | None = None) -> list[dict[str, Any]]:
+        """The most recently stored faces (time, camera, track, quality, thumb), newest first."""
+        sql, args = _filters("SELECT id, camera, time, track_id, quality, thumb FROM faces "
+                             "WHERE 1=1", [], [camera] if camera else None, None, None)
+        with self._lock:
+            rows = self._db.execute(sql + " ORDER BY id DESC LIMIT ?", [*args, limit]).fetchall()
+        return [dict(r) for r in rows]
+
+    def track_span(self, camera: str, track_id: int, first: float, last: float,
+                   window: float = 1800.0) -> tuple[float, float]:
+        """When a tracked object was in view, from its search-index rows: the person who showed
+        their face at 13:44 may have been seen from behind since 13:40. `window` keeps it to the
+        same visit (track ids start again from 1 when a recorder restarts)."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT MIN(time), MAX(time) FROM sightings WHERE camera = ? AND track_id = ? "
+                "AND kind = 'object' AND time >= ? AND time <= ?",
+                (camera, track_id, first - window, last + window)).fetchone()
+        if row is None or row[0] is None:
+            return first, last
+        return min(first, row[0]), max(last, row[1])
 
     def counts(self) -> dict[str, int]:
         with self._lock:
@@ -275,7 +324,9 @@ class EventStore:
         return deleted
 
 
-def _blob(vector: np.ndarray) -> bytes:
+def _blob(vector: np.ndarray | None) -> bytes:
+    if vector is None:
+        return b""
     v = np.asarray(vector, dtype=np.float32).ravel()
     return (v / (np.linalg.norm(v) + 1e-12)).astype(np.float32).tobytes()
 

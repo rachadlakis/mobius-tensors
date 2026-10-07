@@ -5,7 +5,12 @@ Per camera, on a background thread (detection never waits for it on live cameras
               most every `object_interval_seconds` (so one person is not stored 300 times)
   * scenes  - every `scene_interval_seconds` the whole frame plus a grid of tiles, so things
               the detector ignores (a box on the floor, an open gate, smoke) are searchable too
-  * faces   - only if enabled for this camera: face prints of tracked people
+  * faces   - only if enabled for this camera: face prints of tracked people, checked every
+              `face_interval_seconds`; blurred / tiny / side-on faces are skipped, and only a
+              track's best `max_faces_per_track` are kept (an hour at a desk is not 3600 rows)
+
+Without the CLIP image model, tracked objects are still stored (thumbnail, time, label: what
+the chat's `objects` tool and face search need) but not embedded, and scenes are skipped.
 
 With a main stream (src/mainstream.py), crops come from its full-resolution keyframes when the
 object was matched in one (`HiResFrame`); otherwise from the sub-stream frame, so an object
@@ -19,6 +24,7 @@ import logging
 import queue
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
@@ -37,7 +43,8 @@ class ImageEmbedder(Protocol):
 
 class FaceModel(Protocol):
     def detect(self, image: np.ndarray) -> list[Any]: ...
-    def embed(self, image: np.ndarray, face: Any) -> np.ndarray: ...
+    def analyze(self, image: np.ndarray, face: Any) -> tuple[np.ndarray, Any]: ...
+    def problems(self, quality: Any) -> list[str]: ...
     def crop(self, image: np.ndarray, face: Any) -> np.ndarray: ...
 
 
@@ -66,7 +73,7 @@ class SearchIndexer:
         self,
         store: EventStore,
         camera: str,
-        embedder: ImageEmbedder,
+        embedder: ImageEmbedder | None,
         faces: FaceModel | None = None,
         classes: list[str] | None = None,
         object_interval_seconds: float = 2.0,
@@ -74,6 +81,7 @@ class SearchIndexer:
         scene_tiles: int = 2,
         min_box_height: int = 40,
         face_interval_seconds: float = 1.0,
+        max_faces_per_track: int = 5,
         blocking: bool = False,
         max_queue: int = 4,
         keyframe_max_age: float = 3.0,
@@ -94,6 +102,7 @@ class SearchIndexer:
         self.scene_tiles = scene_tiles
         self.min_box_height = min_box_height
         self.face_interval = face_interval_seconds
+        self.max_faces_per_track = max_faces_per_track
         self.blocking = blocking
         self.keyframe_max_age = keyframe_max_age
         self._keyframe: HiResFrame | None = None
@@ -101,7 +110,11 @@ class SearchIndexer:
         self._last_object: dict[int, float] = {}
         self._last_face: dict[int, float] = {}
         self._last_scene = -1e18
+        # worker thread only: per track, the kept faces as (quality, row id), best first
+        self._best_faces: dict[int, list[tuple[float, int]]] = {}
+        self._face_seen: dict[int, float] = {}
         self.dropped = 0
+        self.faces_skipped = 0  # faces too blurred / small / turned away to store
         self._queue: queue.Queue[_Job | None] = queue.Queue(max_queue)
         self._thread = threading.Thread(target=self._run, daemon=True, name=f"index-{camera}")
         self._thread.start()
@@ -112,19 +125,26 @@ class SearchIndexer:
         from clip_onnx import ClipEncoder
 
         clip_cfg = dict(config.get("clip") or {})
-        embedder = ClipEncoder(image=clip_cfg.get("image", "models/clip_image.onnx"), text=None,
-                               num_threads=clip_cfg.get("num_threads", 0))
+        image_model = clip_cfg.get("image", "models/clip_image.onnx")
+        embedder = None
+        if Path(image_model).exists():
+            embedder = ClipEncoder(image=image_model, text=None,
+                                   num_threads=clip_cfg.get("num_threads", 0))
+        else:
+            log.warning("%s not found: no visual search for camera %s (objects and faces are "
+                        "still recorded). Export it: uv run --group export src/export_clip.py",
+                        image_model, camera)
         face_model = None
         if faces_enabled(faces_config, camera):
             from faces import FaceEngine
 
-            face_model = FaceEngine(**{k: v for k, v in (faces_config or {}).items()
-                                       if k in {"detector", "recognizer", "score_threshold",
-                                                "min_face_size"}})
+            face_model = FaceEngine.from_config(faces_config or {})
             log.info("Face indexing ON for camera %s", camera)
         options = {k: v for k, v in config.items() if k not in {"enabled", "clip"}}
-        if faces_config and "interval_seconds" in faces_config:
-            options["face_interval_seconds"] = faces_config["interval_seconds"]
+        for key, option in (("interval_seconds", "face_interval_seconds"),
+                            ("max_per_track", "max_faces_per_track")):
+            if faces_config and key in faces_config:
+                options[option] = faces_config[key]
         return cls(store, camera, embedder, face_model, blocking=blocking, **options)
 
     # ------------------------------------------------------------ called per frame
@@ -157,7 +177,7 @@ class SearchIndexer:
             self._last_object = {k: v for k, v in self._last_object.items() if t - v < 600}
             self._last_face = {k: v for k, v in self._last_face.items() if t - v < 600}
             self._hires_tracks &= set(self._last_object)
-        scene = t - self._last_scene >= self.scene_interval
+        scene = self.embedder is not None and t - self._last_scene >= self.scene_interval
         if scene:
             self._last_scene = t
         if not (objects or faces or scene):
@@ -242,14 +262,14 @@ class SearchIndexer:
                 rows.append({"camera": self.camera, "time": t, "kind": "scene" if k == 0 else "tile",
                              "box": box, "thumb": thumb})
 
-        if images:
-            vectors = self.embedder.embed_images(images)
-            for row, vector in zip(rows, vectors):
-                row["embedding"] = vector
+        if rows:
+            if self.embedder is not None:
+                vectors = self.embedder.embed_images(images)
+                for row, vector in zip(rows, vectors):
+                    row["embedding"] = vector
             self.store.add_sightings(rows)
 
         if self.faces is not None and job.faces:
-            face_rows = []
             for track_id, box, is_hires in job.faces:
                 source = job.hires if is_hires and job.hires is not None else job.frame
                 person = _crop(source, box, pad=0.05)
@@ -260,13 +280,33 @@ class SearchIndexer:
                 if not found:
                     continue
                 face = found[0]
-                vector = self.faces.embed(upper, face)
-                thumb = self.store.save_thumb(self.faces.crop(upper, face), "faces",
-                                              f"{self.camera}_{stamp}_{track_id}", t)
-                face_rows.append({"camera": self.camera, "time": t, "track_id": track_id,
-                                  "quality": float(face.score) * min(1.0, face.size / 80),
-                                  "thumb": thumb, "embedding": vector})
-            self.store.add_faces(face_rows)
+                vector, quality = self.faces.analyze(upper, face)
+                if self.faces.problems(quality):
+                    self.faces_skipped += 1  # matches everyone a little: worse than nothing
+                    continue
+                self._keep_face(track_id, t, float(quality.value), vector,
+                                self.faces.crop(upper, face), stamp)
+            if len(self._face_seen) > 500:  # forget tracks not seen for 10 minutes
+                gone = [k for k, v in self._face_seen.items() if t - v > 600]
+                for k in gone:
+                    del self._face_seen[k], self._best_faces[k]
+
+    def _keep_face(self, track_id: int, t: float, quality: float, vector: np.ndarray,
+                   crop: np.ndarray, stamp: int) -> None:
+        """Store the face if it is among the track's best `max_faces_per_track`, and delete the
+        one it pushes out."""
+        kept = self._best_faces.setdefault(track_id, [])
+        self._face_seen[track_id] = t
+        if len(kept) >= self.max_faces_per_track and quality <= kept[-1][0]:
+            return
+        thumb = self.store.save_thumb(crop, "faces", f"{self.camera}_{stamp}_{track_id}", t)
+        [row_id] = self.store.add_faces([{"camera": self.camera, "time": t, "track_id": track_id,
+                                          "quality": quality, "thumb": thumb,
+                                          "embedding": vector}])
+        kept.append((quality, row_id))
+        kept.sort(key=lambda k: -k[0])
+        if len(kept) > self.max_faces_per_track:
+            self.store.delete_faces([kept.pop()[1]])
 
 
 def faces_enabled(config: dict[str, Any] | None, camera: str) -> bool:

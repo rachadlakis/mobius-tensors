@@ -1,4 +1,4 @@
-# Histor: record everything the camera sees, ask about it later.
+# Argus: record everything the camera sees, ask about it later.
 # Models are shared with ../object-detection (download them there once, see README).
 #
 #   uv run src/record.py --source gate                  # one recorder per camera
@@ -21,10 +21,28 @@ tracking:
   min_hits: 3
 
 # Same format as ../object-detection/configs/default.yaml; passwords as ${VAR} in .env.
+# `about:` is filled in at install time, standing at the camera: the chat reads it to pick the
+# right camera ("did anyone reach the office") and to explain its answers. Roles, not names.
 cameras: {}
+#  office:
+#    vendor: hikvision
+#    host: 192.168.1.64
+#    username: admin
+#    password: ${OFFICE_CAM_PASSWORD}
+#    stream: sub
+#    about:
+#      description: Inside the manager's office, above the door, looking at the desk
+#      aliases: [manager's office, office 2]   # other names people use (also in ask.py)
+#      location: Ground floor, end of the corridor, past reception
+#      covers: entrance        # entrance | exit | passage | room | outdoor | parking
+#      faces: good             # good | poor | none: is a face big and frontal enough here?
+#      hours: "08:00-18:00"    # normal activity; outside it is "after hours"
+#      notes: Staff only. Cleaners come in around 19:00.
+#      zones:                  # what the alert areas / lines on this camera mean
+#        door: The office door; entering it means entering the office
 
 store:
-  path: data/store/histor.db   # SQLite, shared by all recorders of a site and by ask.py
+  path: data/store/argus.db   # SQLite, shared by all recorders of a site and by ask.py
   media_dir: data/store/media
   retention_days: 30
   face_retention_days: 7
@@ -63,6 +81,46 @@ search:
   scene_tiles: 2
   min_box_height: 40           # smaller crops carry too few pixels for CLIP to describe
 
+# Alerts: rules evaluated live on every tracked object, next to the memory. Off until a rule is
+# listed. Draw areas/lines in object-detection's UI (Zones & lines tab) and paste them here.
+# Points are 0..1 of the frame; a zone without points is the whole picture ("seen anywhere").
+# Every alert is stored (with a snapshot) and the chat can answer about it ("any alerts last night?").
+zones: []
+#  - name: yard                 # someone in the yard: enter / exit, and stays > 60 s
+#    type: zone
+#    points: [[0.10, 0.55], [0.60, 0.50], [0.65, 0.95], [0.05, 0.95]]
+#    classes: [person]
+#    dwell_seconds: 60
+#  - name: gate_line            # vehicles crossing the gate, inbound only
+#    type: line
+#    points: [[0.40, 0.30], [0.40, 0.80]]
+#    classes: [car, truck, bus, motorcycle]
+#    direction: in
+#  - name: anywhere_dog         # no points: anywhere in the picture
+#    classes: [dog]
+
+alerts:
+  console: true
+  events: null                 # e.g. [enter, dwell] to alert on only some event types
+  cooldown_seconds: 0          # 0: store every event (the chat needs them all); hold back
+                               # repeated messages with a cooldown per channel instead
+  snapshots: true
+  # Where alerts are sent. Each channel can filter: rules, events, labels, hours ("22:00-06:00")
+  # and cooldown_seconds (at most one message per rule + event type in that time).
+  # More channels (Telegram, WhatsApp, SMS, siren) plug in the same way: see the README.
+  channels: []
+  #  - type: webhook            # JSON POST: n8n, Zapier, Make, Slack/Teams workflows, your backend
+  #    url: ${ALERT_WEBHOOK_URL}
+  #    cooldown_seconds: 30
+  #  - type: email
+  #    host: smtp.example.com
+  #    sender: alerts@example.com
+  #    to: [security@example.com]
+  #    username: ${SMTP_USER}
+  #    password: ${SMTP_PASSWORD}
+  #    labels: [person]
+  #    hours: "22:00-06:00"     # only people, only at night
+
 # Chat (src/chat.py): which LLM answers questions. Switch with --model <name> or /model <name>.
 chat:
   model: local
@@ -82,10 +140,14 @@ chat:
       effort: low              # low | medium | high: chat questions rarely need more
 
 # Face prints are biometric data: off unless a client has approved it (see object-detection README).
+# When on, the chat can look for a person from a photo: /photo visitor.jpg, then ask.
 faces:
   enabled: false
-  cameras: []
+  cameras: []                  # empty = every camera; better: only those with `about.faces: good`
   detector: ../object-detection/models/face_detection_yunet_2023mar.onnx
   recognizer: ../object-detection/models/face_recognition_sface_2021dec.onnx
   min_face_size: 32
-  interval_seconds: 1
+  interval_seconds: 1          # look for a face on each tracked person this often
+  max_per_track: 5             # keep a person's 5 clearest faces per visit, not one per second
+  min_sharpness: 15            # skip blurred faces (sharp ~30-300, motion blur < 10)
+  max_turn: 0.6                # skip faces turned away (0 = facing the camera, 0.5 ~ 60 deg)

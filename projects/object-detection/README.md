@@ -104,40 +104,79 @@ uv run src/main.py --config configs/zones_example.yaml --show   # demo on data/v
 ```
 
 - Draw shapes in the UI's **Zones & lines** tab and paste the generated YAML into a config.
-- Points are normalized 0..1 (any resolution) or pixels.
+- Points are normalized 0..1 (any resolution) or pixels. A zone without `points` is the whole
+  picture: `{name: anywhere, classes: [dog]}` alerts when a dog appears anywhere.
 - An object counts as inside when its box's bottom-center (feet / wheels) is inside.
 - Events go to the console and `alerts.jsonl` (one JSON object per line), with filters and a cooldown.
-  With a `store:` section they are also saved to SQLite with a JPEG snapshot, and can be sent by
-  **webhook** and **email** (see below).
+  With a `store:` section they are also saved to SQLite with a JPEG snapshot, and can be sent to
+  **channels** such as webhook and email (see below).
 - Objects are tracked across frames (ByteTrack-style IoU tracker), so each gets a stable `#id`,
   survives short occlusions (`tracking.max_missed`), and `car`/`truck` label flicker is smoothed.
 - Use `class_agnostic_nms: true` with zones so one vehicle never yields two boxes.
 
-## Alerts: snapshot, webhook, email
+## Alerts: snapshot and channels
 
 Add to the `alerts:` section of a config (full example: `configs/search_example.yaml`):
 
 ```yaml
 alerts:
-  events: [dwell, cross]
-  cooldown_seconds: 10
+  events: [dwell, cross]              # event types that become alerts (null = all)
+  cooldown_seconds: 0                 # global: also skips storing; prefer per-channel cooldowns
   snapshots: true                     # JPEG with the object boxed, saved + attached to emails
-  webhook:
-    url: https://example.com/hooks/mobius
-    headers: {Authorization: "Bearer ${WEBHOOK_TOKEN}"}
-  email:
-    host: smtp.gmail.com
-    port: 587
-    username: ${SMTP_USER}
-    password: ${SMTP_PASSWORD}         # secrets go in .env, never in the YAML
-    sender: alerts@your-company.com
-    to: [security@client.com]
+  channels:
+    - type: webhook
+      url: https://example.com/hooks/mobius
+      headers: {Authorization: "Bearer ${WEBHOOK_TOKEN}"}
+      cooldown_seconds: 30            # at most one message per rule + event type per 30 s
+    - type: email
+      host: smtp.gmail.com
+      port: 587
+      username: ${SMTP_USER}
+      password: ${SMTP_PASSWORD}       # secrets go in .env, never in the YAML
+      sender: alerts@your-company.com
+      to: [security@client.com]
+      labels: [person]                 # this channel: only people...
+      hours: "22:00-06:00"             # ...and only at night
 ```
+
+Each channel can filter what it receives: `rules` (zone/line names), `events`, `labels`, `hours`
+(wraps past midnight) and `cooldown_seconds`. The event store still gets every event, so the
+history and Argus's chat see everything even when a channel stays quiet. The older shorthand
+`webhook:` / `email:` keys still work (one channel each).
 
 - The webhook receives JSON: `camera, time, iso_time, type, rule, label, track_id, direction /
   dwell_seconds, snapshot` (snapshot = path served by the API at `/media/<path>`).
 - Sending happens on a background thread with 2 retries, so a slow mail server never stalls
   detection; failures are logged, not fatal.
+
+### Integrations: what exists and what comes next
+
+| Channel | Status | How | Needs |
+| --- | --- | --- | --- |
+| Webhook | works | JSON POST to any URL. Also the quick route to Slack, Teams, n8n, Zapier, Make or a client's own system | a URL |
+| Email | works | SMTP, snapshot attached | an SMTP account |
+| Telegram | planned | Bot API `sendPhoto` to a chat or group: snapshot + alert text as caption | a bot token (from @BotFather) and the chat id |
+| WhatsApp | planned | WhatsApp Business Cloud API (Meta). Messages the business starts must use a pre-approved template | a Meta business account, phone number id, access token, an approved template |
+| SMS | planned | an SMS provider's HTTP API (e.g. Twilio) | an account and a sender number |
+| Siren / relay | planned | HTTP call to an IP relay or a camera's alarm output, to sound an alarm on site | a device with an HTTP API |
+
+Adding a channel is one class in `src/alerts.py`, no other change:
+
+```python
+class TelegramSink(Sink):
+    def __init__(self, token: str, chat_id: str):
+        self.token, self.chat_id = expand_env(token), chat_id
+
+    def send(self, payload, jpeg):
+        title, text = alert_message(payload)   # same wording as email
+        ...                                    # one HTTPS request to the service
+
+CHANNELS["telegram"] = TelegramSink        # config: channels: [{type: telegram, token: ..., chat_id: ...}]
+```
+
+Filters, cooldowns, retries and the background thread come for free. Detectors for new things
+(fire and smoke, or any object a customer names) are a model change, not an alert change: once
+the model outputs the label, the same zones and channels apply.
 
 ## Event store, search and the API
 
@@ -173,7 +212,7 @@ Open <http://127.0.0.1:8000/docs> to try the API in the browser.
 | Endpoint | Example |
 | --- | --- |
 | `GET /search?q=` | `/search?q=person in a red top last friday` · `/search?q=white van on gate yesterday 6pm to 9pm` |
-| `POST /search/face` | form fields `photo` (JPEG/PNG), `when` (e.g. `friday`), `camera` (optional) → *"Yes: seen 2 time(s), first on shop at Fri 25 Sep 10:30."* |
+| `POST /search/face` | form fields `photo` (JPEG/PNG), `when` (e.g. `friday`), `camera` and `face` (which face if the photo has several, 1 = leftmost; optional) → *"Yes, likely: 2 visit(s), first on shop at Fri 25 Sep 10:30 (match 0.58)."* |
 | `GET /events` | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` |
 | `GET /media/{path}` | snapshots and thumbnails |
 | `GET /recordings/{path}` | main-stream MP4s; events and search results carry a `video_url` (`...mp4#t=37`) that opens the moment, 3 s early |
@@ -232,8 +271,33 @@ optionally limited to some cameras (`faces.cameras: [shop_entrance]`), and delet
 the client's written approval, and put up camera notices. The API has **no authentication
 yet**: keep it on `127.0.0.1` or behind a reverse proxy with login.
 
-Models: YuNet face detector (MIT) + SFace recognizer (Apache-2.0), both from OpenCV Zoo;
-two photos of the same person score above ~0.36 cosine similarity (`threshold` form field).
+Models: YuNet face detector (MIT) + SFace recognizer (Apache-2.0), both from OpenCV Zoo.
+
+How faces are stored (`src/indexer.py`): about once a second per tracked person, the top of
+the person crop (from the main-stream keyframe when there is one) goes through YuNet, which
+gives a box and 5 landmarks (eyes, nose, mouth corners). The landmarks straighten the face and
+SFace turns it into a 128-number face print. The landmarks themselves are not stored.
+
+- **Quality gate**: a face that is too small (`min_face_size`), blurred (`min_sharpness`,
+  variance of the Laplacian) or turned away (`max_turn`, from the landmarks) is skipped: those
+  match everyone a little and cause most false hits.
+- **Best faces only**: each track keeps its `max_per_track` (5) clearest faces; a better one
+  replaces the worst. An hour at a desk is 5 rows, not 3600.
+
+How a photo is searched (`src/search.py`):
+
+- The photo goes through the same steps. A photo with several faces needs `face=N` unless one
+  face is clearly the subject; a face under 40 px, blurred or turned away is refused with the
+  reason instead of giving a misleading answer.
+- It is compared with every stored face print in the time range (one numpy multiplication;
+  100k prints is ~50 MB and milliseconds, an index only pays off at millions).
+- Matches are grouped per visit (camera + track). A visit's score is the mean of its best 3
+  frames; **likely** at 0.45 and above, **possible** from SFace's 0.363 threshold. Both were
+  set on clear frontal photos, not CCTV: calibrate them on a pilot site's footage.
+- The visit is stretched to the whole person track from the search index: someone seen from
+  behind at 13:40 who shows their face at 13:44 arrived at 13:40 (`face_seen` says 13:44).
+- `checked` gives the face prints stored per camera in the range. No match is not proof the
+  person was not there; no prints at all means the question can't be answered.
 
 ### Models and licences
 

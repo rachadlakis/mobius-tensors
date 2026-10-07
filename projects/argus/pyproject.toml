@@ -1,10 +1,10 @@
 [project]
-name = "histor"
+name = "argus"
 version = "0.1.0"
 description = "Record everything the cameras see as searchable embeddings, then ask about it"
 readme = "README.md"
 requires-python = ">=3.11"
-# Runtime deps of the object-detection modules Histor reuses (detector, tracker, CLIP, store).
+# Runtime deps of the object-detection modules Argus reuses (detector, tracker, CLIP, store).
 dependencies = [
     "numpy>=2.4.6",
     "onnxruntime>=1.30.0",
@@ -21,6 +21,9 @@ claude = [
 dev = [
     "pytest>=9.1.1",
     "types-pyyaml>=6.0.12.20260906",
+]
+ui = [
+    "gradio>=6.28.0",
 ]
 
 [tool.pytest.ini_options]

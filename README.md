@@ -13,7 +13,7 @@ One reusable AI solution platform, configured per use case.
 | Project | Description |
 | --- | --- |
 | [object-detection](projects/object-detection/) | CPU-only object detection (YOLOX → ONNX Runtime) |
-| [histor](projects/histor/) | Record everything cameras see as embeddings, then ask about it (reuses object-detection) |
+| [argus](projects/argus/) | Record everything cameras see as embeddings, then ask about it (reuses object-detection) |
 | [agents](projects/agents/) | Not started |
 | [agent-deployment](projects/agent-deployment/) | Installing and managing AI agents (Claude Code, Cowork, Codex, …) on the customer side |
 
@@ -28,7 +28,7 @@ Company-wide, in [docs/mobius-tensors](docs/mobius-tensors/):
 
 Per project, in `docs/<project>/`:
 
-- [histor](docs/histor/): product description, presentation (.pptx) and overview (.pdf)
+- [argus](docs/argus/): product description, presentation (.pptx) and overview (.pdf)
 
 ## Layout
 

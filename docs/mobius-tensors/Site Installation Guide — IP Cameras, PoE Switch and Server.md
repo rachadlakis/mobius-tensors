@@ -405,7 +405,7 @@ systemctl status 'mobius-*'
 journalctl -u mobius-camera@gate -f               # live logs of one camera
 ```
 
-> **Histor (search/chat over everything seen)** uses the same camera config. To record for Histor instead, point `ExecStart` at `projects/histor` and `src/record.py`. See the [Histor README](../../projects/histor/README.md).
+> **Argus (search/chat over everything seen)** uses the same camera config. To record for Argus instead, point `ExecStart` at `projects/argus` and `src/record.py`. See the [Argus README](../../projects/argus/README.md).
 
 **Check:** reboot the server (`sudo reboot`). Without logging in, every service comes back up. Unplug a camera for 30 seconds and plug it back: its log shows the stream reconnecting by itself.
 

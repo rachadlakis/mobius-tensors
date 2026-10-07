@@ -35,6 +35,7 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
+from cameras import camera_aliases
 from faces import SAME_PERSON_THRESHOLD
 from mainstream import Recordings
 from search import SearchEngine
@@ -61,11 +62,10 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
     if faces is None and faces_cfg.get("enabled"):
         from faces import FaceEngine
 
-        faces = FaceEngine(**{k: v for k, v in faces_cfg.items()
-                              if k in {"detector", "recognizer", "score_threshold"}},
-                           min_face_size=20)  # uploaded photos: accept smaller faces
+        faces = FaceEngine.from_config(faces_cfg, for_photos=True)
     cameras = sorted((config.get("cameras") or {}).keys())
-    engine = SearchEngine(store, clip, faces, camera_names=cameras)
+    engine = SearchEngine(store, clip, faces, camera_names=cameras,
+                          camera_aliases=camera_aliases(config.get("cameras")))
     rec_cfg = config.get("recording") or {}
     recordings = Recordings(rec_cfg.get("dir", "data/store/recordings"),
                             rec_cfg.get("segment_seconds", 60))
@@ -141,14 +141,18 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
     async def face_search(photo: UploadFile = File(...), when: str | None = Form(None),
                           camera: list[str] | None = Form(None),
                           threshold: float | None = Form(None),
+                          face: int | None = Form(None),
                           limit: int = Form(20)) -> dict[str, Any]:
+        """face: which face in a photo with several, 1 = leftmost. A photo whose face is too
+        small, blurred or turned away comes back with face_found false and the reason."""
         if faces is None:
             raise HTTPException(503, "Face search is not enabled (faces.enabled in the config)")
         data = np.frombuffer(await photo.read(), dtype=np.uint8)
         image = cv2.imdecode(data, cv2.IMREAD_COLOR)
         if image is None:
             raise HTTPException(400, "Could not read the photo (send a JPEG or PNG)")
-        result = engine.face(image, when=when, cameras=camera, top_k=limit,
+        cams = [engine.camera_aliases.get(c.lower(), c) for c in camera] if camera else None
+        result = engine.face(image, when=when, cameras=cams, top_k=limit, choice=face,
                              threshold=SAME_PERSON_THRESHOLD if threshold is None else threshold)
         with_urls(result["results"], "thumb")
         return result

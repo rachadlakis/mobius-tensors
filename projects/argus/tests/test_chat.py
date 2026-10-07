@@ -6,7 +6,8 @@ import numpy as np
 import pytest
 
 import shared  # noqa: F401
-from chat import answer, model_config
+from chat import FACE_HELP, answer, model_config, parse_photo_command, system_prompt
+from faces import FaceQuality, PhotoFace
 from llm import Claude, OpenAICompatible, Step, Tool, ToolCall, ToolResult, create_backend
 from search import SearchEngine
 from store import EventStore
@@ -153,7 +154,7 @@ def test_openai_compatible_parses_tool_calls_and_strips_thinking(monkeypatch):
     assert step.text == "" and step.calls == [ToolCall("c1", "objects", {"labels": ["car"]})]
     backend.add_results([ToolResult(step.calls[0], '{"count": 3}')])
     assert backend.step().text == "Three cars."
-    assert [t["function"]["name"] for t in sent[0]["tools"]] == ["objects", "search"]
+    assert [t["function"]["name"] for t in sent[0]["tools"]] == ["objects", "search", "alerts"]
     assert [m["role"] for m in backend.messages] == ["system", "user", "assistant", "tool",
                                                      "assistant"]
 
@@ -190,3 +191,109 @@ def test_model_switch_config(monkeypatch):
         model_config(config, "missing")
     with pytest.raises(ValueError):
         create_backend({"api": "nope"}, "s", [])
+
+
+# ------------------------------------------------------------------ face search + camera context
+
+CAMERAS = {
+    "office": {"url": "rtsp://a", "about": {
+        "description": "Inside the front office, above the door, looking at the desk",
+        "aliases": ["front office"], "covers": "entrance", "faces": "good",
+        "hours": "08:00-18:00", "zones": {"door": "the office door"}}},
+    "lobby": {"url": "rtsp://b", "about": {"description": "Reception", "faces": "poor"}},
+}
+
+
+def face_vec(cos):
+    v = np.zeros(128, dtype=np.float32)
+    v[0], v[1] = cos, np.sqrt(1 - cos * cos)
+    return v
+
+
+class FakeFaces:
+    """A bright photo has one usable face (print = face_vec(1)); a dark one has none."""
+
+    def photo_faces(self, image):
+        if image.mean() < 50:
+            return []
+        return [PhotoFace(face_vec(1.0), (0, 0, 80, 80), FaceQuality(0.9, 80, 0.1, 120), [])]
+
+
+TODAY_1340 = datetime(2026, 10, 3, 13, 40).timestamp()
+
+
+@pytest.fixture
+def face_toolbox(tmp_path):
+    store = EventStore(tmp_path / "f.db")
+    t = TODAY_1340
+    store.add_sightings([row("office", t + s, 7, "person", "o.jpg", unit(1)) for s in (0, 300)])
+    store.add_faces([
+        {"camera": "office", "time": t + 240, "track_id": 7, "thumb": "f7.jpg",
+         "embedding": face_vec(0.8)},
+        {"camera": "office", "time": t + 250, "track_id": 7, "embedding": face_vec(0.7)},
+        {"camera": "lobby", "time": t + 30, "track_id": 3, "embedding": face_vec(0.1)},
+    ])
+    engine = SearchEngine(store, FakeClip(), FakeFaces(), camera_names=["lobby", "office"],
+                          camera_aliases={"front office": "office"})
+    box = Toolbox(engine, now=datetime(2026, 10, 3, 17, 0), cameras=CAMERAS,
+                  faces_config={"enabled": True, "cameras": ["office"]})
+    yield box
+    box.close()
+    store.close()
+
+
+def test_attach_photo(face_toolbox):
+    assert face_toolbox.add_photo([np.zeros((50, 50, 3), np.uint8)]) == (
+        None, "No face found in the photo.")
+    bright = np.full((50, 50, 3), 200, np.uint8)
+    assert face_toolbox.add_photo([bright]) == ("photo1", "Attached as photo1")
+    assert face_toolbox.add_photo([bright, bright])[0] == "photo2"
+    assert len(face_toolbox.photos["photo2"]) == 2
+    assert [t.name for t in face_toolbox.tools][-1] == "face"
+
+
+def test_face_tool(face_toolbox):
+    face_toolbox.add_photo([np.full((50, 50, 3), 200, np.uint8)])
+    r = face_toolbox.run(ToolCall("1", "face", {
+        "photo": "photo1", "since": "2026-10-03 13:00", "until": "2026-10-03 16:00",
+        "camera": "Front Office"}))  # an alias
+    out = json.loads(r.output)
+    assert not r.is_error and out["cameras"] == ["office"] and out["likely"] == 1
+    visit = out["visits"][0]
+    assert (visit["first_seen"], visit["last_seen"]) == ("2026-10-03 13:40:00",
+                                                         "2026-10-03 13:45:00")
+    assert visit["face_seen"] == "2026-10-03 13:44:00" and visit["frames_matched"] == 2
+    assert out["checked"] == [{"camera": "office", "faces_recorded": 2,
+                               "face_recording_on": True, "face_view": "good"}]
+    assert face_toolbox.evidence == ["f7.jpg"]
+    # all cameras: the lobby recorded a face, but not this person, and can't see faces well
+    out = face_toolbox.face("photo1", when="today")
+    assert out["likely"] == 1 and out["checked"][0] == {
+        "camera": "lobby", "faces_recorded": 1, "face_recording_on": False, "face_view": "poor"}
+    assert "Attached: photo1" in face_toolbox.run(ToolCall("2", "face", {"photo": "photo9"})).output
+    assert face_toolbox.run(ToolCall("3", "face", {"photo": "photo1", "camera": "roof"})).is_error
+
+
+def test_face_tool_only_with_face_models(toolbox):
+    assert [t.name for t in toolbox.tools] == ["objects", "search", "alerts"]
+    assert toolbox.run(ToolCall("1", "face", {"photo": "photo1"})).is_error
+    assert FACE_HELP not in system_prompt(toolbox)
+
+
+def test_system_prompt_describes_cameras(face_toolbox):
+    prompt = system_prompt(face_toolbox, now=datetime(2026, 10, 3, 17, 0))
+    assert ("- office (also: front office): Inside the front office, above the door, looking at "
+            "the desk. covers: entrance. faces visible: good. usual hours: 08:00-18:00. "
+            "areas: door = the office door. Recorded 2026-10-03 13:40:00 to 2026-10-03 13:45:00."
+            ) in prompt
+    assert "- lobby: Reception. faces visible: poor. Nothing recorded yet." in prompt
+    assert FACE_HELP in prompt and "Saturday 2026-10-03 17:00" in prompt
+
+
+def test_parse_photo_command():
+    assert parse_photo_command(' a.jpg "my photos/b.jpg"') == (["a.jpg", "my photos/b.jpg"], None)
+    assert parse_photo_command(" group.jpg --face 2") == (["group.jpg"], 2)
+    with pytest.raises(ValueError):
+        parse_photo_command(" --face x")
+    with pytest.raises(ValueError):
+        parse_photo_command("")

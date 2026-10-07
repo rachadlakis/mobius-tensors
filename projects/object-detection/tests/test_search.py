@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from alerts import AlertManager, EmailSink
+from faces import FaceQuality, PhotoFace
 from indexer import SearchIndexer, faces_enabled
 from query import parse_query
 from search import SearchEngine, group_visits
@@ -47,6 +48,10 @@ def store(tmp_path):
     ("dog 2026-09-20", "dog", datetime(2026, 9, 20), datetime(2026, 9, 21)),
     ("woman in black dress this morning", "woman in black dress", datetime(2026, 9, 29, 6),
      datetime(2026, 9, 29, 12)),
+    # a part of the day that has not started yet today means the last one
+    ("person last night", "person", datetime(2026, 9, 28, 21), datetime(2026, 9, 29, 6)),
+    ("dog yesterday night", "dog", datetime(2026, 9, 28, 21), datetime(2026, 9, 29, 6)),
+    ("car this evening", "car", datetime(2026, 9, 29, 17), datetime(2026, 9, 29, 21)),
 ])
 def test_parse_query(text, description, since, until):
     q = parse_query(text, now=NOW)
@@ -214,8 +219,10 @@ class FakeClip:
 
 
 class FakeFaces:
-    def best_face_print(self, image):
-        return (unit(1, 0), None) if image.mean() > 100 else None
+    def photo_faces(self, image):
+        if image.mean() <= 100:
+            return []
+        return [PhotoFace(unit(1, 0), (0, 0, 60, 60), FaceQuality(0.9, 60, 0.1, 80), [])]
 
 
 def test_api_text_and_face_search(tmp_path):
@@ -251,7 +258,7 @@ def test_api_text_and_face_search(tmp_path):
     r = client.post("/search/face", files={"photo": ("p.jpg", photo, "image/jpeg")},
                     data={"when": "2026-09-25"}).json()
     assert r["face_found"] and [x["camera"] for x in r["results"]] == ["shop"]
-    assert r["answer"].startswith("Yes")
+    assert r["answer"].startswith("Yes, likely") and r["checked"] == {"shop": 1, "gate": 1}
     r = client.post("/search/face", files={"photo": ("p.jpg", dark, "image/jpeg")}).json()
     assert r["face_found"] is False
     assert client.get("/media/../../secret").status_code == 404
