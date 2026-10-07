@@ -37,7 +37,7 @@ mobius-tensors/
 ├── docs/
 │   ├── mobius-tensors/   company, architecture, roadmap and installation docs
 │   └── <project>/        one folder per project (descriptions, presentations)
-├── Images/      logo, banner and brand kit
+├── Images/      logo, banner and brand kit (Mobius Tensors in brand-kit/, Argus in argus/)
 └── projects/    one folder per product, each with its own uv environment
 ```
 
