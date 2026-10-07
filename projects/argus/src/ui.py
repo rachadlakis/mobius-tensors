@@ -266,8 +266,8 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                 view = gr.Image(label="Live", interactive=False, height=480, scale=3)
                 with gr.Column(scale=2):
                     stats_md = gr.Markdown()
-                    faces_gallery = gr.Gallery(label="Faces stored (newest first)", columns=4,
-                                               height=360, object_fit="contain")
+                    faces_gallery = gr.Gallery(label="Faces stored (newest first)", columns=3,
+                                               height=360, object_fit="contain", preview=False)
             live_timer = gr.Timer(0.2, active=False)
             stats_timer = gr.Timer(2.0)
             start_btn.click(start, source_box, [status, live_timer])
@@ -293,7 +293,7 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                 with gr.Column(scale=3):
                     answer_md = gr.Markdown()
                     results = gr.Gallery(label="Matching visits (best face of each)",
-                                         columns=4, height=300, object_fit="contain")
+                                         columns=4, height=300, object_fit="contain", preview=False)
                     details = gr.JSON(label="Details")
             snap_btn.click(snapshot, None, photo)
             find_btn.click(find, [photo, face_no, when, cam], [answer_md, results, details])
@@ -305,9 +305,10 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                         "model", models[0] if models else None), label="Model")
                     chat_photo = gr.Image(label="Photo to look for (optional)", type="numpy",
                                           sources=["upload", "clipboard"], height=220)
+                    chat_snap_btn = gr.Button("Take photo from the live camera")
                     chat_face_no = gr.Number(0, label="Face in the photo (0 = automatic)",
                                              precision=0)
-                    attach_btn = gr.Button("Attach photo")
+                    attach_btn = gr.Button("Attach photo", variant="primary")
                     attach_md = gr.Markdown()
                     clear_btn = gr.Button("New conversation")
                 with gr.Column(scale=3):
@@ -316,7 +317,8 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                                                       "how many people today?",
                                           label="Question", submit_btn=True)
                     evidence = gr.Gallery(label="Evidence", columns=6, height=160,
-                                          object_fit="contain")
+                                          object_fit="contain", preview=False)
+            chat_snap_btn.click(snapshot, None, chat_photo)
             attach_btn.click(attach, [chat_photo, chat_face_no], attach_md)
             question.submit(send, [question, chatbot, model], [question, chatbot, evidence])
             clear_btn.click(reset, model, [chatbot, evidence])

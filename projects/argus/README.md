@@ -47,6 +47,29 @@ uv run src/ask.py "person with a bag on street"
 uv run src/ask.py                              # interactive, empty line quits
 ```
 
+## Test on a laptop
+
+A laptop's webcam is enough to try recording, face search and the chat. Models: YOLOX and the
+face models (`uv run src/download_model.py yolox_nano` and `... faces` in object-detection);
+CLIP is optional (without it, everything but search by description works).
+
+```bash
+uv run --group ui src/ui.py          # configs/laptop.yaml, opens http://127.0.0.1:7860
+```
+
+1. **Camera**: *Start recording* (source `0` = the built-in webcam). The live view shows the
+   tracked objects, and *Faces stored* the face prints being kept (best 5 per visit). Leave the
+   frame and come back: that's a second visit.
+2. **Find a person**: upload a photo, or *Take photo from the live camera*, pick a time range
+   (`today`, `last 10 minutes`) and *Search*: likely / possible visits with their best face.
+   No LLM needed.
+3. **Ask**: the chat, with *Attach photo* for face questions. Needs Ollama running
+   (`ollama serve`, `ollama pull qwen3:4b`) or the `claude` model (`uv sync --group claude`,
+   `ANTHROPIC_API_KEY` in `.env`).
+
+The test store is `data/store/laptop.db` (delete `data/store/laptop*` to start over), separate
+from a site's. Video files and camera URLs work as a source too.
+
 ## Chat
 
 The model is a switch in `configs/default.yaml` (`chat.model`, entries under `chat.models`).
@@ -190,6 +213,7 @@ scene gets sampled more sparsely rather than lagging. Tune `object_interval_seco
 
 ```text
 configs/default.yaml   all COCO classes embedded, store in data/store/argus.db
+configs/laptop.yaml    test on a laptop: webcam = camera "laptop", faces on, own store
 src/
   shared.py            puts ../object-detection/src on the import path
   record.py            recorder (object-detection's main.py with this config)
@@ -197,6 +221,7 @@ src/
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
   tools.py             tools the LLM can call: objects (time / class / together), search, alerts
   llm.py               model backends: OpenAI-compatible (local) and Claude
+  ui.py                test UI (Gradio): record, find a person by photo, chat
 tests/                 uv run pytest
 ```
 

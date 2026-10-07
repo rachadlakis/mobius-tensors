@@ -1,6 +1,4 @@
-# Mobius Tensors Partner Program
-
-Oct 5, 2026 · Rachad Lakkis
+# Partner Program
 
 ## The idea
 
@@ -8,12 +6,12 @@ People who bring us a new customer (for Argus or any other solution) get a perce
 
 ## The three levels
 
-| | Silver | Gold | Platinum |
-| --- | --- | --- | --- |
-| Who | Anyone: friends, consultants, freelancers | People who also help sell | CCTV installers and integrators |
-| What they do | Introduce the customer | Introduce and help close the deal | Sell, install and support the customer |
-| What they get | 10% of the first year | 15% of the first year + 5% of the second year | 30% off setup and 25% off the license, every year |
-| How to get there | Sign the agreement | 3 deals in 12 months | 6 deals in 12 months, or pass our installation training |
+|                  | Silver                                    | Gold                                          | Platinum                                                |
+| ---------------- | ----------------------------------------- | --------------------------------------------- | ------------------------------------------------------- |
+| Who              | Anyone: friends, consultants, freelancers | People who also help sell                     | CCTV installers and integrators                         |
+| What they do     | Introduce the customer                    | Introduce and help close the deal             | Sell, install and support the customer                  |
+| What they get    | 10% of the first year                     | 15% of the first year + 5% of the second year | 30% off setup and 25% off the license, every year       |
+| How to get there | Sign the agreement                        | 3 deals in 12 months                          | 6 deals in 12 months, or pass our installation training |
 
 Hardware (cameras, server, switch) earns no commission.
 
@@ -23,12 +21,12 @@ These rates are normal in the market: introducers usually get 10–20% and resel
 
 Assumed price (we have no price list yet): $3,000 setup + $3,840 license a year. That makes $14,520 over 3 years.
 
-| Level | Partner gets over 3 years | We keep |
-| --- | --- | --- |
-| No partner | $0 | $14,520 |
-| Silver | $684 | $13,836 |
-| Gold | $1,218 | $13,302 |
-| Platinum | $3,780 | $10,740 (but the partner does the installation and support) |
+| Level      | Partner gets over 3 years | We keep                                                     |
+| ---------- | ------------------------- | ----------------------------------------------------------- |
+| No partner | $0                        | $14,520                                                     |
+| Silver     | $684                      | $13,836                                                     |
+| Gold       | $1,218                    | $13,302                                                     |
+| Platinum   | $3,780                    | $10,740 (but the partner does the installation and support) |
 
 ## The rules
 

@@ -227,3 +227,18 @@ def test_real_models_quality_and_photo_check():
     _, sharp_q = engine.analyze(image, face)
     _, soft_q = engine.analyze(blurred, face)
     assert soft_q.sharpness < sharp_q.sharpness / 3 and "blurred" in engine.problems(soft_q)
+
+
+def test_indexer_without_clip_still_records_objects_and_faces(store):
+    idx = SearchIndexer(store, "laptop", None, FakeFaceModel([0.5, 0.6]), face_interval_seconds=1,
+                        object_interval_seconds=1, blocking=True)
+    frame = np.full((240, 320, 3), 100, np.uint8)
+    for i in range(2):
+        person = Track(id=3, box=np.array([10, 10, 60, 120], float), score=0.9,
+                       label_votes={"person": 1.0})
+        idx.update(frame, [person], 1000.0 + i)
+    idx.close()
+    counts = store.counts()
+    assert counts["sightings"] == 2 and counts["faces"] == 2  # no scenes without CLIP
+    assert store.track_span("laptop", 3, 1000.5, 1000.5) == (1000.0, 1001.0)
+    assert store.search("sightings", unit(1, 0)) == []  # rows without a vector are not searched
