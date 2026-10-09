@@ -1,6 +1,0 @@
-models/
-data/
-*.pt
-__pycache__/
-.env
-venv/

@@ -4,14 +4,12 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-
-import shared  # noqa: F401
-from chat import FACE_HELP, answer, model_config, parse_photo_command, system_prompt
-from faces import FaceQuality, PhotoFace
-from llm import Claude, OpenAICompatible, Step, Tool, ToolCall, ToolResult, create_backend
-from search import SearchEngine
-from store import EventStore
-from tools import TOOLS, Toolbox
+from argus.chat import FACE_HELP, answer, model_config, parse_photo_command, system_prompt
+from argus.engine.faces import FaceQuality, PhotoFace
+from argus.llm import Claude, OpenAICompatible, Step, Tool, ToolCall, ToolResult, create_backend
+from argus.engine.search import SearchEngine
+from argus.engine.store import EventStore
+from argus.tools import TOOLS, Toolbox
 
 NOW = datetime(2026, 10, 3, 12, 0)
 YESTERDAY = datetime(2026, 10, 2, 18, 0).timestamp()

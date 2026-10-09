@@ -12,8 +12,7 @@ One reusable AI solution platform, configured per use case.
 
 | Project | Description |
 | --- | --- |
-| [object-detection](projects/object-detection/) | CPU-only object detection (YOLOX → ONNX Runtime) |
-| [argus](projects/argus/) | Record everything cameras see as embeddings, then ask about it (reuses object-detection) |
+| [argus](projects/argus/) | Record everything cameras see as embeddings, then ask about it; includes the detection engine (YOLOX → ONNX Runtime) |
 | [agents](projects/agents/) | Not started |
 | [agent-deployment](projects/agent-deployment/) | Installing and managing AI agents (Claude Code, Cowork, Codex, …) on the customer side |
 

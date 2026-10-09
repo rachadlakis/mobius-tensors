@@ -4,13 +4,13 @@
     {
       "name": "argus-ui",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "ui", "src/ui.py", "--no-browser"],
+      "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "ui", "-m", "argus.ui", "--no-browser"],
       "port": 7860
     },
     {
-      "name": "object-detection-ui",
+      "name": "argus-bench",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "--directory", "projects/object-detection", "--group", "ui", "src/app.py"],
+      "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "ui", "-m", "argus.engine.app"],
       "port": 7860
     }
   ]

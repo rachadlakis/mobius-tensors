@@ -1,10 +1,8 @@
 from pathlib import Path
 
 import yaml
-
-import shared  # noqa: F401
-from ask import format_answer
-from detector import COCO_CLASSES
+from argus.ask import format_answer
+from argus.engine.detector import COCO_CLASSES
 
 ROOT = Path(__file__).resolve().parents[1]
 

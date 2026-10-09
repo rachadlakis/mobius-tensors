@@ -13,10 +13,10 @@
 ---
 
 > **Status, October 2026.** This is the plan written in September 2026. The code has since taken a
-> simpler shape: [`projects/object-detection`](../../projects/object-detection/) runs detection
+> simpler shape: [`projects/argus`](../../projects/argus/)'s engine runs detection
 > (YOLOX on ONNX Runtime), tracking, zone/line rules, alerts and search in **one process per
-> camera** ([`src/pipeline.py`](../../projects/object-detection/src/pipeline.py)), and
-> [`projects/argus`](../../projects/argus/) builds video memory and chat on top of it. ZeroMQ
+> camera** ([`pipeline.py`](../../projects/argus/src/argus/engine/pipeline.py)), and
+> the Argus product layer builds video memory and chat on top of it. ZeroMQ
 > services, the FastAPI dashboard backend and the multi-site control plane below are still plans.
 > How to install a site today: [Site Installation Guide](Site%20Installation%20Guide%20—%20IP%20Cameras,%20PoE%20Switch%20and%20Server.md).
 

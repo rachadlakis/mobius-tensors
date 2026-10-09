@@ -1,15 +1,15 @@
 # Argus: record everything the camera sees, ask about it later.
-# Models are shared with ../object-detection (download them there once, see README).
+# Models in models/ (download them once, see README).
 #
-#   uv run src/record.py --source gate                  # one recorder per camera
-#   uv run src/record.py --source ../object-detection/data/vtest.avi --camera street --start-time 2026-09-25T14:00
-#   uv run src/ask.py "person with an umbrella yesterday"
+#   uv run -m argus.record --source gate                # one recorder per camera
+#   uv run -m argus.record --source data/vtest.avi --camera street --start-time 2026-09-25T14:00
+#   uv run -m argus.ask "person with an umbrella yesterday"
 
 source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name below
 
 model:
   backend: yolox_onnx
-  path: ../object-detection/models/yolox_nano.onnx
+  path: models/yolox_nano.onnx
   conf_threshold: 0.25
   nms_threshold: 0.45
   class_agnostic_nms: true
@@ -21,7 +21,7 @@ tracking:
   max_missed: 30
   min_hits: 3
 
-# Same format as ../object-detection/configs/default.yaml; passwords as ${VAR} in .env.
+# Same format as configs/engine/default.yaml; passwords as ${VAR} in .env.
 # `about:` is filled in at install time, standing at the camera: the chat reads it to pick the
 # right camera ("did anyone reach the office") and to explain its answers. Roles, not names.
 cameras: {}
@@ -62,9 +62,9 @@ recording:
 search:
   enabled: true
   clip:
-    image: ../object-detection/models/clip_image.onnx
-    text: ../object-detection/models/clip_text.onnx
-    vocab: ../object-detection/models/clip_bpe_vocab.txt.gz
+    image: models/clip_image.onnx
+    text: models/clip_text.onnx
+    vocab: models/clip_bpe_vocab.txt.gz
   # Every COCO class gets embedded, not only people and vehicles.
   classes: [
     person, bicycle, car, motorcycle, airplane, bus, train, truck, boat, traffic light,
@@ -83,7 +83,7 @@ search:
   min_box_height: 40           # smaller crops carry too few pixels for CLIP to describe
 
 # Alerts: rules evaluated live on every tracked object, next to the memory. Off until a rule is
-# listed. Draw areas/lines in object-detection's UI (Zones & lines tab) and paste them here.
+# listed. Draw areas/lines in the test bench (Zones & lines tab) and paste them here.
 # Points are 0..1 of the frame; a zone without points is the whole picture ("seen anywhere").
 # Every alert is stored (with a snapshot) and the chat can answer about it ("any alerts last night?").
 zones: []
@@ -122,7 +122,7 @@ alerts:
   #    labels: [person]
   #    hours: "22:00-06:00"     # only people, only at night
 
-# Periodic reports (src/report.py, keep it running next to the recorders): at the end of each
+# Periodic reports (src/argus/report.py, keep it running next to the recorders): at the end of each
 # period, exact counts from the store plus a summary written by the chat model, focused on what
 # the owner asked to watch. Saved under data/store/reports/<name>/ (UI Reports tab, --show) and
 # sent to the report's channels. Set up at install time, with the owner.
@@ -150,7 +150,7 @@ reports: []
 #    day: monday
 #    at: "08:00"
 
-# Chat (src/chat.py): which LLM answers questions. Switch with --model <name> or /model <name>.
+# Chat (src/argus/chat.py): which LLM answers questions. Switch with --model <name> or /model <name>.
 chat:
   model: local
   models:
@@ -201,13 +201,13 @@ chat:
       effort: low              # low | medium | high: chat questions rarely need more
       note: Claude Opus 5.5 · Anthropic API (cloud)
 
-# Face prints are biometric data: off unless a client has approved it (see object-detection README).
+# Face prints are biometric data: off unless a client has approved it (see ENGINE.md).
 # When on, the chat can look for a person from a photo: /photo visitor.jpg, then ask.
 faces:
   enabled: false
   cameras: []                  # empty = every camera; better: only those with `about.faces: good`
-  detector: ../object-detection/models/face_detection_yunet_2023mar.onnx
-  recognizer: ../object-detection/models/face_recognition_sface_2021dec.onnx
+  detector: models/face_detection_yunet_2023mar.onnx
+  recognizer: models/face_recognition_sface_2021dec.onnx
   min_face_size: 32
   interval_seconds: 1          # look for a face on each tracked person this often
   max_per_track: 5             # keep a person's 5 clearest faces per visit, not one per second
@@ -217,12 +217,12 @@ faces:
 # Body poses (17 keypoints per tracked person, about once a second): posture, hands up, facing,
 # head down, still / walking / running, bags carried, top / bottom colour, searchable with the chat's `people` tool and GET /people. Not biometric
 # like faces, but a walk can still be recognised: same retention as the search index.
-# Model: `uv run --group export src/export_pose.py` in ../object-detection (ViTPose-B, COCO only,
+# Model: `uv run --group export -m argus.engine.export_pose` (ViTPose-B, COCO only,
 # Apache-2.0). Missing model: everything else is still recorded, with a warning.
 pose:
   enabled: true
   cameras: []                  # empty = every camera
-  model: ../object-detection/models/pose_vitpose_b.onnx   # trials: pose_rtmpose_t.onnx (10x faster)
+  model: models/pose_vitpose_b.onnx   # trials: pose_rtmpose_t.onnx (10x faster)
   interval_seconds: 1          # per tracked person; 3x less often while they stand still
   min_box_height: 80           # pixels: smaller people give unreliable keypoints
   heartbeat_seconds: 10        # a row on every change, and at least this often

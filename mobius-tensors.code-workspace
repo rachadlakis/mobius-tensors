@@ -1,7 +1,6 @@
 {
     "folders": [
         { "name": "mobius-tensors (root)", "path": "." },
-        { "name": "object-detection", "path": "projects/object-detection" },
         { "name": "argus", "path": "projects/argus" },
         { "name": "agents", "path": "projects/agents" },
         { "name": "agent-deployment", "path": "projects/agent-deployment" }

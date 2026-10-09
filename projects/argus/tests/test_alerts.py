@@ -2,13 +2,11 @@ import json
 from datetime import datetime
 
 import pytest
-
-import shared  # noqa: F401
-from chat import system_prompt
-from llm import ToolCall
-from search import SearchEngine
-from store import EventStore
-from tools import TOOLS, Toolbox
+from argus.chat import system_prompt
+from argus.llm import ToolCall
+from argus.engine.search import SearchEngine
+from argus.engine.store import EventStore
+from argus.tools import TOOLS, Toolbox
 
 NOW = datetime(2026, 10, 6, 9, 0)  # Tuesday morning
 

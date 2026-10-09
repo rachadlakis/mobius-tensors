@@ -267,18 +267,18 @@ sudo apt install -y git ffmpeg
 curl -LsSf https://astral.sh/uv/install.sh | sh     # installs uv to ~/.local/bin
 sudo mkdir -p /opt/mobius && sudo chown $USER /opt/mobius
 git clone <repo-url> /opt/mobius/mobius-tensors
-cd /opt/mobius/mobius-tensors/projects/object-detection
-uv sync --group search --group server
-uv run src/download_model.py yolox_nano
-uv run --group export src/export_clip.py           # only if text search is used (~600 MB)
-uv run src/download_model.py faces                 # only if face search is used AND approved
+cd /opt/mobius/mobius-tensors/projects/argus
+uv sync --group server
+uv run -m argus.engine.download_model yolox_nano
+uv run --group export -m argus.engine.export_clip  # only if text search is used (~600 MB)
+uv run -m argus.engine.download_model faces        # only if face search is used AND approved
 ```
 
 ### Step 10 — Find the cameras from the server
 
 ```bash
-uv run src/cameras.py discover                     # ONVIF: lists IP + model of each camera
-uv run src/cameras.py scan 10.50.0.0/24            # fallback: every host with RTSP (554) open
+uv run -m argus.engine.cameras discover            # ONVIF: lists IP + model of each camera
+uv run -m argus.engine.cameras scan 10.50.0.0/24   # fallback: every host with RTSP (554) open
 ```
 
 Every camera in your IP plan must appear. If `discover` finds nothing but `scan` does, ONVIF is off on the camera (that's fine, RTSP is what matters).
@@ -288,7 +288,7 @@ Every camera in your IP plan must appear. If `discover` finds nothing but `scan`
 Copy the example and name it after the site:
 
 ```bash
-cp configs/search_example.yaml configs/site.yaml
+cp configs/engine/search_example.yaml configs/site.yaml
 ```
 
 Declare the cameras in `configs/site.yaml`:
@@ -332,13 +332,13 @@ recording:
   hires_crops: true             # search/face crops from main-stream keyframes
 ```
 
-Then add the site's zones, lines and alert rules (draw them in the test UI's **Zones & lines** tab and paste the YAML; see the [object-detection README](../../projects/object-detection/README.md#zones-lines-and-alerts)).
+Then add the site's zones, lines and alert rules (draw them in the test UI's **Zones & lines** tab and paste the YAML; see the [engine docs](../../projects/argus/ENGINE.md#zones-lines-and-alerts)).
 
 ### Step 12 — Test each camera
 
 ```bash
-uv run src/cameras.py --config configs/site.yaml list                       # URLs, passwords masked
-uv run src/cameras.py --config configs/site.yaml test gate --save data/gate.jpg
+uv run -m argus.engine.cameras --config configs/site.yaml list              # URLs, passwords masked
+uv run -m argus.engine.cameras --config configs/site.yaml test gate --save data/gate.jpg
 ```
 
 Expected: `OK: 640x360, ~15.0 FPS received` and a snapshot in `data/gate.jpg`. Copy the snapshot to your laptop (`scp`) and look at it: right camera, right angle, in focus, not upside down.
@@ -346,7 +346,7 @@ Expected: `OK: 640x360, ~15.0 FPS received` and a snapshot in `data/gate.jpg`. C
 Then run the full pipeline once in the foreground and watch for detections and events:
 
 ```bash
-uv run --group search src/main.py --config configs/site.yaml --source gate
+uv run -m argus.engine.main --config configs/site.yaml --source gate
 ```
 
 Stop it with `Ctrl+C` once it works.
@@ -369,8 +369,8 @@ Wants=network-online.target
 
 [Service]
 User=mobius
-WorkingDirectory=/opt/mobius/mobius-tensors/projects/object-detection
-ExecStart=/home/mobius/.local/bin/uv run --group search src/main.py --config configs/site.yaml --source %i
+WorkingDirectory=/opt/mobius/mobius-tensors/projects/argus
+ExecStart=/home/mobius/.local/bin/uv run -m argus.engine.main --config configs/site.yaml --source %i
 Restart=always
 RestartSec=10
 
@@ -387,8 +387,8 @@ After=network-online.target
 
 [Service]
 User=mobius
-WorkingDirectory=/opt/mobius/mobius-tensors/projects/object-detection
-ExecStart=/home/mobius/.local/bin/uv run --group server --group search src/server.py --config configs/site.yaml
+WorkingDirectory=/opt/mobius/mobius-tensors/projects/argus
+ExecStart=/home/mobius/.local/bin/uv run --group server -m argus.engine.server --config configs/site.yaml
 Restart=always
 RestartSec=10
 
@@ -405,7 +405,7 @@ systemctl status 'mobius-*'
 journalctl -u mobius-camera@gate -f               # live logs of one camera
 ```
 
-> **Argus (search/chat over everything seen)** uses the same camera config. To record for Argus instead, point `ExecStart` at `projects/argus` and `src/record.py`. See the [Argus README](../../projects/argus/README.md).
+> **Argus (search/chat over everything seen)** uses the same camera config. To record for Argus instead (every class embedded), use `-m argus.record` in `ExecStart`. See the [Argus README](../../projects/argus/README.md).
 
 **Check:** reboot the server (`sudo reboot`). Without logging in, every service comes back up. Unplug a camera for 30 seconds and plug it back: its log shows the stream reconnecting by itself.
 

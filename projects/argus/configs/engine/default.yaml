@@ -1,0 +1,41 @@
+# Default: pretrained YOLOX-Nano (COCO, 80 classes) via ONNX Runtime, on the GPU if there is one.
+# Get the model with: uv run -m argus.engine.download_model yolox_nano
+
+source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name below
+
+model:
+  backend: yolox_onnx
+  path: models/yolox_nano.onnx
+  input_size: null          # null = read from the model (only needed for dynamic-shape models)
+  conf_threshold: 0.35
+  nms_threshold: 0.45
+  class_agnostic_nms: false ## Whether to apply NMS across all classes or per class
+  num_threads: 0            # 0 = let ONNX Runtime decide
+  device: auto              # auto = GPU if there is one, else CPU | cpu | cuda | cuda:1 | directml
+  classes: null             # e.g. [person, car, truck] to keep only these
+  class_names: null         # null = COCO; set a list for a custom-trained model
+
+# IP cameras (e.g. PoE cameras on a switch plugged into this machine), used by name:
+#   uv run -m argus.engine.main --config configs/engine/default.yaml --source gate --show
+# Keep passwords out of this file: ${VAR} is read from the environment or .env.
+# Find cameras:  uv run -m argus.engine.cameras discover   (or: uv run -m argus.engine.cameras scan 192.168.1.0/24)
+# Check one:     uv run -m argus.engine.cameras test gate --save data/gate.jpg
+cameras:
+  # gate:
+  #   vendor: hikvision      # hikvision | dahua | reolink | uniview | axis, or set `path`
+  #   host: 192.168.1.64
+  #   username: admin
+  #   password: ${GATE_CAM_PASSWORD}
+  #   stream: sub            # sub = low resolution: plenty for detection, far cheaper to decode
+  #   channel: 1             # NVR channel (1 for a standalone camera)
+  #   port: 554
+  # yard:                    # any other camera: give the full URL
+  #   url: rtsp://${YARD_USER}:${YARD_PASS}@192.168.1.108:554/stream1
+  #   main_url: rtsp://${YARD_USER}:${YARD_PASS}@192.168.1.108:554/stream0  # full resolution,
+  #                          # for `recording:` (vendor cameras get it from the preset)
+  #   about:                 # optional, written at install: what the camera looks at
+  #     description: Back yard and the side gate, seen from the warehouse roof
+  #     aliases: [back yard, side gate]   # other names in questions ("anyone at the side gate")
+  #     covers: outdoor      # entrance | exit | passage | room | outdoor | parking
+  #     faces: none          # good | poor | none
+  #     hours: "07:00-19:00"

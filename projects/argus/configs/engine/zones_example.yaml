@@ -1,0 +1,41 @@
+# Example: tracking + a zone + a counting line on the OpenCV street sample (data/vtest.avi).
+#   uv run -m argus.engine.main --config configs/engine/zones_example.yaml --source data/vtest.avi --show
+#
+# Points are normalized 0..1 (x / width, y / height) so they work at any resolution;
+# pixel coordinates also work. Draw them in the UI's "Zones" tab and paste the YAML here.
+
+source: data/vtest.avi
+
+model:
+  backend: yolox_onnx
+  path: models/yolox_nano.onnx
+  conf_threshold: 0.25       # lower than plain detection: the tracker filters noise
+  nms_threshold: 0.45
+  class_agnostic_nms: true   # one box per object (a van seen as car AND truck must not become 2 tracks)
+  classes: [person, car, truck, bus, motorcycle, bicycle]
+
+tracking:
+  track_threshold: 0.45      # detections >= this can start a track; weaker ones only extend tracks
+  match_iou: 0.3
+  max_missed: 30             # frames an object may disappear (occlusion) and keep its ID
+  min_hits: 3                # frames before a new object gets an ID
+
+zones:
+  - name: junction
+    type: zone
+    points: [[0.729, 0.330], [1.0, 0.260], [1.0, 0.729], [0.729, 0.608]]
+    classes: [person]
+    dwell_seconds: 5         # alert when someone stays > 5 s (e.g. 60+ for a parked car)
+    anchor: bottom_center    # which point of the box must be inside (feet / wheels)
+
+  - name: path_line
+    type: line
+    points: [[0.456, 0.330], [0.456, 0.573]]
+    classes: [person]
+    direction: both          # both | in | out ("in" = direction of the drawn arrow)
+
+alerts:
+  console: true
+  jsonl: data/events.jsonl   # one JSON event per line, easy to ship to a server later
+  events: null               # e.g. [dwell, cross] to only alert on some event types
+  cooldown_seconds: 0

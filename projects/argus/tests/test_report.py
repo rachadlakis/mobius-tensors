@@ -3,13 +3,11 @@ from datetime import datetime, time as dtime
 
 import numpy as np
 import pytest
-
-import shared  # noqa: F401
-import report as report_mod
-from llm import Step, ToolCall
-from report import Reporter, ReportSpec, report_text
-from search import SearchEngine
-from store import EventStore
+from argus import report as report_mod
+from argus.llm import Step, ToolCall
+from argus.report import Reporter, ReportSpec, report_text
+from argus.engine.search import SearchEngine
+from argus.engine.store import EventStore
 
 
 def at(day: int, hour: int, minute: int = 0) -> datetime:

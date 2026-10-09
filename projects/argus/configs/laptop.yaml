@@ -1,13 +1,13 @@
 # Testing on a laptop: its webcam is the only camera, faces are on, nothing else to set up.
 # Its own store, so test data never mixes with a site's.
 #
-#   uv run --group ui src/ui.py --config configs/laptop.yaml     # http://127.0.0.1:7860
+#   uv run --group ui -m argus.ui --config configs/laptop.yaml   # http://127.0.0.1:7860
 
 source: 0  # webcam index (1, 2... for a USB camera)
 
 model:
   backend: yolox_onnx
-  path: ../object-detection/models/yolox_nano.onnx
+  path: models/yolox_nano.onnx
   conf_threshold: 0.25
   nms_threshold: 0.45
   class_agnostic_nms: true
@@ -33,14 +33,14 @@ store:
   retention_days: 7
   face_retention_days: 7
 
-# Visual search by description needs the CLIP models (see ../object-detection README). Without
+# Visual search by description needs the CLIP models (see ENGINE.md). Without
 # them, objects and faces are still recorded and searchable.
 search:
   enabled: true
   clip:
-    image: ../object-detection/models/clip_image.onnx
-    text: ../object-detection/models/clip_text.onnx
-    vocab: ../object-detection/models/clip_bpe_vocab.txt.gz
+    image: models/clip_image.onnx
+    text: models/clip_text.onnx
+    vocab: models/clip_bpe_vocab.txt.gz
   classes: [person, backpack, handbag, suitcase, cell phone, laptop, cup, bottle, book, chair]
   object_interval_seconds: 2
   scene_interval_seconds: 5
@@ -50,15 +50,15 @@ search:
 faces:
   enabled: true
   cameras: [laptop]
-  detector: ../object-detection/models/face_detection_yunet_2023mar.onnx
-  recognizer: ../object-detection/models/face_recognition_sface_2021dec.onnx
+  detector: models/face_detection_yunet_2023mar.onnx
+  recognizer: models/face_recognition_sface_2021dec.onnx
   min_face_size: 32
   interval_seconds: 1
   max_per_track: 5
   min_sharpness: 15
   max_turn: 0.6
 
-# Periodic reports (Reports tab: "Make it now"; on schedule with `uv run src/report.py
+# Periodic reports (Reports tab: "Make it now"; on schedule with `uv run -m argus.report
 # --config configs/laptop.yaml`). No channels: saved only.
 reports:
   - name: hourly
@@ -99,11 +99,11 @@ chat:
       note: Claude Opus 5.5 · Anthropic API (cloud)
 
 # Body poses: the skeleton on the live view, posture / hands up / colours in the store, and a
-# `down` alert after 10 s lying. Model: `uv run --group export src/export_pose.py` in
-# ../object-detection (or the faster trial model: download_model.py pose_rtmpose_t).
+# `down` alert after 10 s lying. Model: `uv run --group export -m argus.engine.export_pose`
+# (or the faster trial model: download_model.py pose_rtmpose_t).
 pose:
   enabled: true
-  model: ../object-detection/models/pose_vitpose_b.onnx
+  model: models/pose_vitpose_b.onnx
   interval_seconds: 1
   min_box_height: 80
   alerts: [down, hands_up]

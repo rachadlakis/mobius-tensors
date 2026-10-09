@@ -7,7 +7,7 @@ later: *"was there a white van at the gate yesterday evening?"*, *"when did some
 by the bench?"*.
 
 Argus is about **memory**: store all of it, ask any question later. It also **alerts**: the
-same recorder runs [object-detection](../object-detection/)'s area and line rules live and sends
+same recorder runs the engine's area and line rules live and sends
 what they catch to channels such as webhook and email (see [Alerts](#alerts)).
 
 ## How it works
@@ -27,42 +27,34 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
 5. **Report** (optional): hourly, daily or weekly, a summary of what the chosen cameras saw,
    focused on what the owner asked to watch for, saved and sent (see [Reports](#reports)).
 
-Argus doesn't copy any code. It imports the detector, tracker, CLIP encoder, store and search
-from `../object-detection/src` (see `src/shared.py`) and uses the models in
-`../object-detection/models`.
+The detector, tracker, CLIP encoder, store and search are the engine in `src/argus/engine/`
+([ENGINE.md](ENGINE.md)); the product modules sit on top in `src/argus/`. One uv environment,
+models in `models/`.
 
 ## Quick start
 
-Models (once, in the object-detection project):
-
-```bash
-cd ../object-detection
-uv run src/download_model.py yolox_nano
-uv run --group export src/export_clip.py      # CLIP -> models/clip_*.onnx (~600 MB)
-```
-
-Then here:
-
 ```bash
 uv sync
-uv run src/record.py --source ../object-detection/data/vtest.avi --camera street --start-time 2026-09-25T14:00
-uv run src/ask.py "person with a bag on street"
-uv run src/ask.py                              # interactive, empty line quits
+uv run -m argus.engine.download_model yolox_nano
+uv run --group export -m argus.engine.export_clip      # CLIP -> models/clip_*.onnx (~600 MB), once
+uv run -m argus.record --source data/vtest.avi --camera street --start-time 2026-09-25T14:00
+uv run -m argus.ask "person with a bag on street"
+uv run -m argus.ask                            # interactive, empty line quits
 ```
 
-The models run on the GPU when there is one (`device: auto`, see GPU in
-`../object-detection/README.md`). NVIDIA machine: `uv sync --no-group cpu --group gpu` here too.
+The models run on the GPU when there is one (`device: auto`, see [GPU](ENGINE.md#gpu)).
+NVIDIA machine: `uv sync --no-group cpu --group gpu`.
 
 ## Test on a laptop
 
 A laptop's webcam is enough to try recording, face search and the chat. Models: YOLOX and the
-face models (`uv run src/download_model.py yolox_nano` and `... faces` in object-detection);
+face models (`uv run -m argus.engine.download_model yolox_nano` and `... faces`);
 CLIP is optional (without it, everything but search by description works), and so is the pose
-model (`uv run --group export src/export_pose.py`): with it, the live view draws each person's
+model (`uv run --group export -m argus.engine.export_pose`): with it, the live view draws each person's
 skeleton, and raising both hands for 3 s or lying down for 10 s fires an alert.
 
 ```bash
-uv run --group ui src/ui.py          # configs/laptop.yaml, opens http://127.0.0.1:7860
+uv run --group ui -m argus.ui        # configs/laptop.yaml, opens http://127.0.0.1:7860
 ```
 
 1. **Camera**: *Start recording* (source `0` = the built-in webcam). The live view shows the
@@ -99,9 +91,9 @@ default stays `qwen3:4b` until the planned evals pick a winner. The UI's *Ask* t
 the selected model's server is up and the model downloaded. `note:` in an entry is shown there.
 
 ```bash
-uv run src/chat.py                                        # interactive
-uv run src/chat.py "how many cars came in yesterday?"
-uv run src/chat.py --model claude "was there a dog on the lawn this morning?"
+uv run -m argus.chat                                      # interactive
+uv run -m argus.chat "how many cars came in yesterday?"
+uv run -m argus.chat --model claude "was there a dog on the lawn this morning?"
 ```
 
 What the model can look up (all tools take a time range in words or exact ISO `since`/`until`
@@ -132,7 +124,7 @@ In the interactive chat, `/model claude` switches model (and starts a new conver
 ### Looking for a person from a photo
 
 Needs `faces.enabled: true` (biometric data: client approval first, see the
-[object-detection README](../object-detection/README.md#face-search-and-privacy)), and only
+[engine docs](ENGINE.md#face-search-and-privacy)), and only
 finds people on cameras that were recording faces at the time.
 
 ```text
@@ -145,7 +137,7 @@ Likely yes: on the office camera from 13:40 to 13:45 (face clearly seen at 13:44
 
 - `/photo a.jpg b.jpg` attaches several photos of the same person (each stored face is
   compared with the best of them); `--face 2` picks a face in a group photo (1 = leftmost).
-  One-shot: `uv run src/chat.py --photo visitor.jpg "did this person come in today?"`.
+  One-shot: `uv run -m argus.chat --photo visitor.jpg "did this person come in today?"`.
 - The photo never leaves the machine and is not saved: its face print is kept in memory for
   the session, and the model only learns its name (`photo1`), also with a cloud model.
 - A photo with a face that is too small, blurred or turned away is refused with the reason.
@@ -189,11 +181,11 @@ alerts:
       hours: "22:00-06:00"
 ```
 
-Draw areas and lines in object-detection's UI (**Zones & lines** tab) and paste the YAML. Each
+Draw areas and lines in the test bench (**Zones & lines** tab) and paste the YAML. Each
 channel filters by `rules`, `events`, `labels`, `hours` and `cooldown_seconds`. Every event goes
 into the store with a snapshot, so the chat answers "did any alert go off last night?" from the
 full list, whatever the channels sent. Channel details and the plan for Telegram, WhatsApp, SMS
-and on-site sirens: [object-detection README](../object-detection/README.md#integrations-what-exists-and-what-comes-next).
+and on-site sirens: [engine docs](ENGINE.md#integrations-what-exists-and-what-comes-next).
 
 Rules work on the detector's 80 classes today. New things to detect (fire and smoke, objects a
 customer names) need a model trained for them; the rules and channels then apply unchanged.
@@ -201,7 +193,7 @@ customer names) need a model trained for them; the rules and channels then apply
 Body poses add two event types: `down` (rule `person_down`: a person lying for 10 s) and
 `hands_up` (both hands above the head for 3 s). Enable them in the `pose:` section
 (`alerts: [down]` by default); they reach the same channels and the same `alerts` tool. Details,
-models and limits: [object-detection README](../object-detection/README.md#body-poses-what-people-were-doing).
+models and limits: [engine docs](ENGINE.md#body-poses-what-people-were-doing).
 
 ## Reports
 
@@ -225,10 +217,10 @@ reports:
 ```
 
 ```bash
-uv run src/report.py                     # runs the schedules: keep it running next to the recorders
-uv run src/report.py --now morning       # the last period's report now (--no-send: save only)
-uv run src/report.py --list              # saved reports
-uv run src/report.py --show morning      # the latest one
+uv run -m argus.report                   # runs the schedules: keep it running next to the recorders
+uv run -m argus.report --now morning     # the last period's report now (--no-send: save only)
+uv run -m argus.report --list            # saved reports
+uv run -m argus.report --show morning    # the latest one
 ```
 
 Each report has two parts:
@@ -249,12 +241,11 @@ sent to it, never images.
 
 ## Cameras
 
-Cameras are declared under `cameras:` in `configs/default.yaml`, the same way as in
-[object-detection](../object-detection/README.md#ip-cameras-poe). The `recording:` section saves
+Cameras are declared under `cameras:` in `configs/default.yaml`, see
+[IP cameras](ENGINE.md#ip-cameras-poe). The `recording:` section saves
 each camera's main stream and crops from its full-resolution keyframes
-([details](../object-detection/README.md#main-stream-recording-and-hi-res-crops)). For the HTTP API
-(`/search`, `/search/face`, `/events`), run object-detection's `src/server.py` with this
-project's config.
+([details](ENGINE.md#main-stream-recording-and-hi-res-crops)). For the HTTP API
+(`/search`, `/search/face`, `/events`), run `uv run --group server -m argus.engine.server --config configs/default.yaml`.
 
 Give each camera an `about:` at install time, standing at the camera, so the chat knows what
 it looks at (example in `configs/default.yaml`):
@@ -274,8 +265,8 @@ model, this text is sent too.
 
 ## Cost of "everything"
 
-Embedding every class costs more CPU and storage than the people-and-vehicles default in
-object-detection. A CLIP crop takes ~55 ms on a laptop CPU, and each embedding is one 512-float
+Embedding every class costs more CPU and storage than the people-and-vehicles default of
+`configs/engine/search_example.yaml`. A CLIP crop takes ~55 ms on a laptop CPU, and each embedding is one 512-float
 row (2 KB). On live cameras the indexer drops jobs instead of slowing detection down, so a busy
 scene gets sampled more sparsely rather than lagging. Tune `object_interval_seconds`,
 `scene_interval_seconds` and `min_box_height` per site.
@@ -285,16 +276,19 @@ scene gets sampled more sparsely rather than lagging. Tune `object_interval_seco
 ```text
 configs/default.yaml   all COCO classes embedded, store in data/store/argus.db
 configs/laptop.yaml    test on a laptop: webcam = camera "laptop", faces on, own store
-src/
-  shared.py            puts ../object-detection/src on the import path
-  record.py            recorder (object-detection's main.py with this config)
+configs/engine/        engine-only examples (detection, zones, search)
+src/argus/
+  engine/              detector, tracker, zones, alerts, store, CLIP / faces / pose, search, API (ENGINE.md)
+  record.py            recorder (engine/main.py with this config)
   ask.py               question -> ranked sightings (no LLM)
   report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
   tools.py             tools the LLM can call: objects (time / class / together), search, alerts
   llm.py               model backends: OpenAI-compatible (local) and Claude
   ui.py                test UI (Gradio): record, find a person by photo, chat, reports
-tests/                 uv run pytest
+notebooks/             models_tour.ipynb: each model, step by step
+models/                .onnx weights (git-ignored)
+tests/                 uv run pytest (tests/engine/ for the engine)
 ```
 
 ## Next

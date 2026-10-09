@@ -4,8 +4,8 @@
 closed all his eyes at once.*
 
 *October 2026. Product, technical and model-research documentation of the Argus code in this
-repository: [projects/argus](../../projects/argus/) and the
-[object-detection](../../projects/object-detection/) engine it is built on. Every claim was checked
+repository: [projects/argus](../../projects/argus/), including the
+[engine](../../projects/argus/ENGINE.md) it is built on. Every claim was checked
 against the code. Keep it that way when editing: if a feature is on the roadmap, say so. The
 partner programme is in its own document ([Partner Program — Study](Partner%20Program%20—%20Study.md)).*
 
@@ -26,7 +26,7 @@ partner programme is in its own document ([Partner Program — Study](Partner%20
   desk), *still / walking / running*, and *carrying* a backpack, handbag, suitcase or umbrella.
   Searchable in the chat (`people`) and the API (`/people`). Unit-tested only so far: check them
   on a site's own footage before promising them to a client.
-- **One test UI.** The object-detection test bench (models, thresholds, zones, faces) is now the
+- **One test UI.** The engine's test bench (models, thresholds, zones, faces) is now the
   *Test bench* tab of the Argus test UI, so one command and one port run everything (section 13).
 
 ---
@@ -146,7 +146,7 @@ advance, memory for every other question.
   default, with commented examples).
 - **Next channels:** Telegram, WhatsApp (Business API, pre-approved templates), SMS and an
   on-site siren or relay; each is one small class in the shared alert code (overview in the
-  object-detection README).
+  engine docs, `projects/argus/ENGINE.md`).
 
 **Not available yet:** rules only work on the 80 detector types (plus the two pose events). Fire
 and smoke, or any object a customer names that is not one of the 80, need a model trained for it
@@ -184,7 +184,7 @@ would need tuning. Weapons are not offered: no model, and both false alarms and 
 - Face thresholds were set on clear photos, not CCTV: calibrate per pilot site. Faces need to be at
   least 32 px wide, which a sub-stream frame rarely gives (section 16).
 - Alert rules only cover the 80 detector classes plus the two pose events.
-- Retention purging runs inside the HTTP server (`object-detection/src/server.py`), so a site
+- Retention purging runs inside the HTTP server (`src/argus/engine/server.py`), so a site
   needs that service running for old sightings to be deleted.
 - The API has **no authentication yet**: keep it on `127.0.0.1` or behind a proxy with login.
 
@@ -223,19 +223,19 @@ of lagging behind.
 
 ## 13. Code layout
 
-The repository holds two Python projects, each with its own `uv` environment (Python ≥ 3.11):
+The code is one Python package, `argus`, in `projects/argus`, with one `uv` environment
+(Python ≥ 3.11):
 
-- **object-detection** (the engine, ~25 modules): detector, tracker, zones, alerts, store,
-  indexer, CLIP / face / pose models, query parser, search, FastAPI server, camera discovery,
+- **`argus.engine`** (~25 modules): detector, tracker, zones, alerts, store, indexer,
+  CLIP / face / pose models, query parser, search, FastAPI server, camera discovery,
   main-stream recording, Gradio test bench (`app.py`).
-- **argus** (the product layer): imports the engine through `shared.py` (no copied code) and adds
-  `record.py`, `ask.py`, `chat.py` (chat CLI), `tools.py` (what the LLM may call), `llm.py`
+- **`argus`** (the product layer on top of the engine): `record.py`, `ask.py`, `chat.py` (chat CLI), `tools.py` (what the LLM may call), `llm.py`
   (model backends) and `ui.py` (test UI: record, find a person by photo, chat, reports, and the
   engine's test bench as its last tab: models, thresholds, zones and faces on photos, videos and
   cameras). One command starts it all, on one port:
-  `uv run --directory projects/argus --group ui src/ui.py` (`--port` to change from 7860).
+  `uv run --directory projects/argus --group ui -m argus.ui` (`--port` to change from 7860).
 
-About 7,200 lines of Python and ~120 unit tests (`uv run pytest` in each project). Other folders:
+About 7,200 lines of Python and ~120 unit tests (`uv run pytest`). Other folders:
 `docs/` (this document, the partner programme, the presentation), `Brochures/`, `Images/argus/`
 (brand kit).
 
@@ -291,10 +291,10 @@ protection laws such as the GDPR treat it as sensitive data. Therefore:
   to it by name (`photo1`).
 
 Searches by appearance ("a man in a red jacket") are not biometric: they describe, they don't
-identify. Code: [faces.py](../../projects/object-detection/src/faces.py) (models and quality),
-[indexer.py](../../projects/object-detection/src/indexer.py) (recording),
-[search.py](../../projects/object-detection/src/search.py) (matching and visits),
-[tools.py](../../projects/argus/src/tools.py) (the chat's `face` tool).
+identify. Code: [faces.py](../../projects/argus/src/argus/engine/faces.py) (models and quality),
+[indexer.py](../../projects/argus/src/argus/engine/indexer.py) (recording),
+[search.py](../../projects/argus/src/argus/engine/search.py) (matching and visits),
+[tools.py](../../projects/argus/src/argus/tools.py) (the chat's `face` tool).
 
 ![Face search: recording and search by photo](images/faces-pipeline.svg)
 
@@ -307,7 +307,7 @@ Both are ONNX models from the OpenCV Zoo, run by OpenCV on CPU.
 | Find the face | **YuNet** (`face_detection_yunet_2023mar.onnx`) | MIT | A box around each face and 5 landmarks: both eyes, the nose tip, both mouth corners |
 | Describe the face | **SFace** (`face_recognition_sface_2021dec.onnx`) | Apache-2.0 | A *face print*: 128 numbers. 99.4 % accuracy on the Labeled Faces in the Wild (LFW) verification benchmark ([model card](https://huggingface.co/opencv/face_recognition_sface)) |
 
-Download both with `uv run src/download_model.py faces` in `projects/object-detection`.
+Download both with `uv run -m argus.engine.download_model faces` in `projects/argus`.
 
 ### 16.2 Recording
 
@@ -409,9 +409,9 @@ the counted answers.
 Keypoints say much less about who someone is than a face print, but a way of walking can still be
 recognised. So poses follow the search index's retention (30 days), can be limited to some cameras
 (`pose.cameras`), and the raw keypoints can be left out (`store_keypoints: false`), keeping only
-the facts. Code: [pose.py](../../projects/object-detection/src/pose.py) (model, facts, colours),
-[pose_index.py](../../projects/object-detection/src/pose_index.py) (sampling, smoothing, storage,
-events), [tools.py](../../projects/argus/src/tools.py) (the chat's `people` tool).
+the facts. Code: [pose.py](../../projects/argus/src/argus/engine/pose.py) (model, facts, colours),
+[pose_index.py](../../projects/argus/src/argus/engine/pose_index.py) (sampling, smoothing, storage,
+events), [tools.py](../../projects/argus/src/argus/tools.py) (the chat's `people` tool).
 
 ![Body poses: from a tracked person to facts, rows and events](images/pose-pipeline.svg)
 
@@ -426,7 +426,7 @@ on the right of the picture. That is what makes *facing* measurable.
 
 | Model | Licence | Training data | Use |
 | --- | --- | --- | --- |
-| **ViTPose-B "simple"** (`pose_vitpose_b.onnx`, 344 MB, made by `src/export_pose.py`) | Apache-2.0 | COCO keypoints only | **Default, shippable** |
+| **ViTPose-B "simple"** (`pose_vitpose_b.onnx`, 344 MB, made by `export_pose.py`) | Apache-2.0 | COCO keypoints only | **Default, shippable** |
 | RTMPose-t (`pose_rtmpose_t.onnx`, 13 MB, `download_model.py pose_rtmpose_t`) | Apache-2.0 | 7 datasets, some research-only | Trials only |
 
 Both are *top-down*: they don't search the whole frame for people. They take the person boxes the
@@ -549,7 +549,7 @@ Section 14's 100–175 ms is the range seen during development; it depends on th
 pose:
   enabled: true
   cameras: []                  # empty = every camera
-  model: ../object-detection/models/pose_vitpose_b.onnx   # trials: pose_rtmpose_t.onnx
+  model: models/pose_vitpose_b.onnx   # trials: pose_rtmpose_t.onnx
   interval_seconds: 1          # per tracked person; 3x less often while they stand still
   min_box_height: 80           # pixels: smaller people give unreliable keypoints
   heartbeat_seconds: 10        # a row on every change, and at least this often
@@ -641,10 +641,10 @@ licence, so a client's lawyer can check.
 
 | Slot | Today | What a new model needs |
 | --- | --- | --- |
-| **Detector** ([detector.py](../../projects/object-detection/src/detector.py)) | One YOLOX ONNX per pipeline; a custom-trained YOLOX only needs `class_names` in the config | `Pipeline` holds a single detector ([pipeline.py](../../projects/object-detection/src/pipeline.py)). A second model (fire/smoke, weapons, plates) needs a small composite `Detector` that runs each model at its own interval and merges the boxes. One combined COCO + fire model is not worth it: COCO would have to be re-labelled for the new classes. |
+| **Detector** ([detector.py](../../projects/argus/src/argus/engine/detector.py)) | One YOLOX ONNX per pipeline; a custom-trained YOLOX only needs `class_names` in the config | `Pipeline` holds a single detector ([pipeline.py](../../projects/argus/src/argus/engine/pipeline.py)). A second model (fire/smoke, weapons, plates) needs a small composite `Detector` that runs each model at its own interval and merges the boxes. One combined COCO + fire model is not worth it: COCO would have to be re-labelled for the new classes. |
 | **CLIP vectors** | Every scene (frame + 2×2 tiles) every 5 s and every tracked object every 2 s are embedded and stored | A linear classifier on stored vectors costs one dot product. |
 | **Hi-res crops** | Main-stream keyframes (~1/s) give full-resolution crops of tracked objects | The right input for small things: guns, plates, faces. |
-| **Chat tools** ([tools.py](../../projects/argus/src/tools.py), [llm.py](../../projects/argus/src/llm.py)) | Text only: the model sees JSON results, never pixels | A `look` tool that runs a *local* vision model and returns text. The cloud model (Claude) then still never receives images. |
+| **Chat tools** ([tools.py](../../projects/argus/src/argus/tools.py), [llm.py](../../projects/argus/src/argus/llm.py)) | Text only: the model sees JSON results, never pixels | A `look` tool that runs a *local* vision model and returns text. The cloud model (Claude) then still never receives images. |
 
 Rare, costly events (fire, weapons) should all go through the same chain: cheap signals first,
 persistence second, a second opinion third, and a person last.
@@ -816,7 +816,7 @@ Treat knives exactly like guns.
 | Model (OpenCLIP name) | Licence | GFLOPs | ImageNet zero-shot | COCO retrieval\* | Flickr retrieval\* | Work to switch |
 | --- | --- | --- | --- | --- | --- | --- |
 | ViT-B-32-quickgelu `laion400m_e32` (**today**) | MIT | 14.8 | 62.9 | 44.0 | 70.3 | — |
-| **ViT-B-32 `laion2b_s34b_b79k`** | MIT | 14.8 | 66.6 | 47.8 | 75.4 | `ARCH = "ViT-B-32"` + weights URL in [export_clip.py](../../projects/object-detection/src/export_clip.py); re-embed |
+| **ViT-B-32 `laion2b_s34b_b79k`** | MIT | 14.8 | 66.6 | 47.8 | 75.4 | `ARCH = "ViT-B-32"` + weights URL in [export_clip.py](../../projects/argus/src/argus/engine/export_clip.py); re-embed |
 | ViT-B-32 `datacomp_xl_s13b_b90k` | MIT | 14.8 | 69.2 | 45.3 | 70.0 | Same |
 | ViT-B-32-256 `datacomp_s34b_b86k` | MIT | 17.5 | 72.8 | 48.9 | 74.9 | Also 256 px input in `clip_onnx.preprocess` (fixed at 224 today) |
 | ViT-B-16-SigLIP `webli` | Apache-2.0 | 46.4 | 76.0 | 56.8 | 81.9 | ~3× CPU per crop; different tokenizer and normalisation |
@@ -829,7 +829,7 @@ Treat knives exactly like guns.
   languages other than English.
 - Vectors from two models can't be compared. Tag each stored row with its model, or start a new store
   and let the old rows expire (30 days), or re-embed from the recordings (7 days).
-- Keep float32: int8 already reordered results too much (see [REPORT.md](../../projects/object-detection/REPORT.md)).
+- Keep float32: int8 already reordered results too much (see [REPORT.md](../../projects/argus/REPORT.md)).
 
 ### 25.2 A `look` tool with a local vision-language model
 
@@ -875,8 +875,8 @@ Gives exact answers to "when did plate 123-ABC come in?", and matches the plates
 
 How it works, with figures: section 17.
 
-Now in the code: [pose.py](../../projects/object-detection/src/pose.py) (model + facts),
-[pose_index.py](../../projects/object-detection/src/pose_index.py) (sampling, storage, events), the
+Now in the code: [pose.py](../../projects/argus/src/argus/engine/pose.py) (model + facts),
+[pose_index.py](../../projects/argus/src/argus/engine/pose_index.py) (sampling, storage, events), the
 `poses` table, `GET /people` and the chat's `people` tool. Facts stored per person: posture
 (standing / sitting / crouching / lying), arms (hands above the head), facing, and the colour of
 the top and trousers from the torso and leg areas the keypoints outline (11 colour names, no extra
@@ -886,7 +886,7 @@ Licence check of the ready-made weights (2026-10-08):
 
 | Model | Weights licence | Training data | Speed here (laptop CPU, ONNX Runtime) | Use |
 | --- | --- | --- | --- | --- |
-| **ViTPose-B "simple"** (`usyd-community/vitpose-base-simple`, exported by `src/export_pose.py`) | Apache-2.0 | COCO keypoints only (backbone pre-trained with MAE on ImageNet-1k, as most backbones are) | 100–175 ms per person, 344 MB | **Default, shippable** |
+| **ViTPose-B "simple"** (`usyd-community/vitpose-base-simple`, exported by `export_pose.py`) | Apache-2.0 | COCO keypoints only (backbone pre-trained with MAE on ImageNet-1k, as most backbones are) | 100–175 ms per person, 344 MB | **Default, shippable** |
 | RTMPose-t (rtmlib / OpenMMLab ONNX, `download_model.py pose_rtmpose_t`) | Apache-2.0 | "body7": COCO + AI Challenger, CrowdPose, MPII, sub-JHMDB, Halpe, PoseTrack18; several are research-only or unclear | 10–17 ms per person, 13 MB | Trials only |
 | RTMO / RTMPose COCO-only | Apache-2.0 | COCO (+ AI Challenger pre-training for RTMPose) | not measured | Only as PyTorch checkpoints: would need MMPose to export |
 | YOLO-pose (Ultralytics), OpenPose | AGPL / non-commercial | | | Excluded |
@@ -918,7 +918,7 @@ Excluded: YOLO-World (GPL-3.0), YOLOE (AGPL-3.0), DOSOD (GPL-3.0).
 
 Two uses, both fine at seconds per image:
 
-1. **Deep scan** (already planned in [REPORT.md](../../projects/object-detection/REPORT.md)): run on a
+1. **Deep scan** (already planned in [REPORT.md](../../projects/argus/REPORT.md)): run on a
    chosen time window of recorded keyframes, as a background job.
 2. **Auto-labelling**: when a customer names an object that is not one of the 80 ("forklift",
    "pallet", "ladder"), the open-vocabulary model labels their footage, a person fixes the labels, and
