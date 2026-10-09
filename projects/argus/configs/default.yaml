@@ -9,7 +9,10 @@ source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name bel
 
 model:
   backend: yolox_onnx
-  path: models/yolox_nano.onnx
+  # YOLOX-S: the default for CPU sites, much better than nano on small and far objects (COCO AP
+  # 40.5 vs 25.8), ~76 ms a frame on a laptop CPU (ENGINE.md, "Choosing a model").
+  # yolox_m.onnx for GPU servers or sites with few cameras; yolox_nano.onnx only for weak machines.
+  path: models/yolox_s.onnx
   conf_threshold: 0.25
   nms_threshold: 0.45
   class_agnostic_nms: true

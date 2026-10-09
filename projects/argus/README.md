@@ -39,7 +39,7 @@ models in `models/`.
 
 ```bash
 uv sync
-uv run -m argus.engine.download_model yolox_nano
+uv run -m argus.engine.download_model yolox_s      # the default detector (CPU sites)
 uv run --group export -m argus.engine.export_clip      # CLIP -> models/clip_*.onnx (~600 MB), once
 uv run -m argus.engine.download_model plates           # optional: number plates (plates: section)
 uv run -m argus.engine.download_model sounds           # optional: sound events (sounds: section)
@@ -54,7 +54,8 @@ NVIDIA machine: `uv sync --no-group cpu --group gpu`.
 ## Test on a laptop
 
 A laptop's webcam is enough to try recording, face search and the chat. Models: YOLOX and the
-face models (`uv run -m argus.engine.download_model yolox_nano` and `... faces`);
+face models (`uv run -m argus.engine.download_model yolox_nano` and `... faces`; the laptop config
+uses nano to stay fluid, sites use `yolox_s`);
 CLIP is optional (without it, everything but search by description works), and so is the pose
 model (`uv run --group export -m argus.engine.export_pose`): with it, the live view draws each person's
 skeleton, and raising both hands for 3 s or lying down for 10 s fires an alert.

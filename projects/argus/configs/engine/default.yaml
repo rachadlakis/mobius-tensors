@@ -1,11 +1,12 @@
-# Default: pretrained YOLOX-Nano (COCO, 80 classes) via ONNX Runtime, on the GPU if there is one.
-# Get the model with: uv run -m argus.engine.download_model yolox_nano
+# Default: pretrained YOLOX-S (COCO, 80 classes) via ONNX Runtime, on the GPU if there is one.
+# Get the model with: uv run -m argus.engine.download_model yolox_s
+# (yolox_m for GPU servers or few cameras, yolox_nano only for weak machines and laptop demos)
 
 source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name below
 
 model:
   backend: yolox_onnx
-  path: models/yolox_nano.onnx
+  path: models/yolox_s.onnx
   input_size: null          # null = read from the model (only needed for dynamic-shape models)
   conf_threshold: 0.35
   nms_threshold: 0.45

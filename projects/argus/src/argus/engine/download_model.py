@@ -11,7 +11,8 @@ import zipfile
 from pathlib import Path
 
 RELEASE_URL = "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0"
-# name -> native input size. nano/tiny are the CPU / edge picks.
+# name -> native input size. s is the default (CPU sites), m for GPU servers, nano/tiny for
+# weak machines and laptop demos.
 MODELS = {
     "yolox_nano": 416,
     "yolox_tiny": 416,
@@ -102,7 +103,7 @@ def download(name: str, out_dir: Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", nargs="?", default="yolox_nano",
+    parser.add_argument("name", nargs="?", default="yolox_s",
                         choices=[*MODELS, "faces", "plates", "sounds", "pose_rtmpose_t"],
                         help="a YOLOX model, `faces` for the face detector + recognizer, "
                              "`plates` for the plate finder + reader, `sounds` for YAMNet, or "

@@ -1,7 +1,7 @@
 # Events + snapshots + search index, demo on the OpenCV street sample (data/vtest.avi).
 #
 # 1) Models (once):
-#      uv run -m argus.engine.download_model yolox_nano
+#      uv run -m argus.engine.download_model yolox_s
 #      uv run -m argus.engine.download_model faces         # only if you enable faces below
 #      uv run --group export -m argus.engine.export_clip   # CLIP for text search (~600 MB)
 # 2) Record (one process per camera; --start-time only for recorded files):
@@ -14,7 +14,7 @@ source: data/vtest.avi
 
 model:
   backend: yolox_onnx
-  path: models/yolox_nano.onnx
+  path: models/yolox_s.onnx
   conf_threshold: 0.25
   nms_threshold: 0.45
   class_agnostic_nms: true

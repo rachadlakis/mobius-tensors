@@ -6,13 +6,13 @@ chat, reports) is in the [README](README.md); both share one uv environment.
 
 - **Model:** [YOLOX](https://github.com/Megvii-BaseDetection/YOLOX) (Apache-2.0, safe for commercial use), exported to ONNX
 - **Runtime:** ONNX Runtime (no PyTorch needed at inference)
-- **Default:** YOLOX-Nano, pretrained on COCO (80 classes)
+- **Default:** YOLOX-S, pretrained on COCO (80 classes); nano for weak machines and laptop demos
 
 ## Quick start
 
 ```bash
 uv sync
-uv run -m argus.engine.download_model yolox_nano    # -> models/yolox_nano.onnx
+uv run -m argus.engine.download_model yolox_s       # -> models/yolox_s.onnx
 uv run -m argus.engine.main --source 0 --show        # webcam
 uv run -m argus.engine.main --source data/img.jpg --save data/out/img.jpg
 uv run -m argus.engine.main --source video.mp4 --save data/out/video.mp4
@@ -50,12 +50,21 @@ Gradio is in the optional `ui` dependency group, so it is not installed on serve
 
 ## Choosing a model
 
-| Model | Input | Use when |
-| --- | --- | --- |
-| `yolox_nano` | 416 | Weak CPUs, Raspberry Pi-class devices |
-| `yolox_tiny` | 416 | CPU, better accuracy than nano |
-| `yolox_s` | 640 | Strong CPU or GPU |
-| `yolox_m` / `l` / `x` | 640 | GPU, accuracy first |
+| Model | Input | COCO AP (val) | CPU here: ms / frame (FPS) | Use when |
+| --- | --- | --- | --- | --- |
+| `yolox_nano` | 416 | 25.8 | 9.5 (105) | Weak machines, laptop demos (`configs/laptop.yaml`) |
+| `yolox_tiny` | 416 | 32.8 | not measured | A weak CPU that needs more than nano |
+| **`yolox_s`** | 640 | 40.5 | 75.6 (13.2) | **Default for CPU sites**: much better on small and far objects, which helps search and alerts |
+| `yolox_m` | 640 | 46.9 | 199 (5.0) | GPU servers, or sites with few cameras |
+| `yolox_l` / `x` | 640 | 49.7 / 51.1 | not measured | GPU, accuracy first |
+
+Measured 2026-10-09 on this laptop (Intel Core 13th gen, 20 threads, CPU only, ONNX Runtime),
+300 frames of `data/vtest.avi` (768x576), detection only, after a warm-up. AP from the
+[YOLOX README](https://github.com/Megvii-BaseDetection/YOLOX). The CPU is shared: one recorder
+per camera, so four cameras on this machine with `yolox_s` get about 3 detections a second
+each. Live cameras drop stale frames rather than fall behind, so a slower model means fewer
+frames per camera, not a growing delay; the tracker copes well at 3-5 per second for people,
+less well for fast cars. Benchmark the site's own server before signing off (`htop`).
 
 Change `model.path` in `configs/default.yaml` to switch (input size is read from the model).
 Set `model.classes` (e.g. `[person, car]`) to keep only some classes.
@@ -230,7 +239,7 @@ With a `store:` section, every camera process saves to one SQLite file per site:
 
 ```bash
 uv sync --group server
-uv run -m argus.engine.download_model yolox_nano
+uv run -m argus.engine.download_model yolox_s
 uv run --group export -m argus.engine.export_clip      # CLIP -> models/clip_*.onnx (~600 MB, needs internet;
                                               # installs PyTorch in the export group only)
 uv run -m argus.engine.download_model faces   # only if face search will be used
@@ -446,7 +455,8 @@ smoke-alarm pattern fires `smoke_alarm` at the right time; a quiet room fires no
 
 | Model | File | Licence | Size |
 | --- | --- | --- | --- |
-| YOLOX-Nano | `yolox_nano.onnx` | Apache-2.0 | 4 MB |
+| YOLOX-S (default) | `yolox_s.onnx` | Apache-2.0 | 36 MB |
+| YOLOX-M (GPU / few cameras) · YOLOX-Nano (weak machines) | `yolox_m.onnx` · `yolox_nano.onnx` | Apache-2.0 | 101 MB · 4 MB |
 | CLIP ViT-B/32 (OpenCLIP, LAION-2B `laion2b_s34b_b79k`; `--preset laion400m` for the old one) | `clip_image.onnx`, `clip_text.onnx`, `clip_bpe_vocab.txt.gz` | MIT | 350 + 250 MB |
 | YuNet | `face_detection_yunet_2023mar.onnx` | MIT | 0.2 MB |
 | SFace | `face_recognition_sface_2021dec.onnx` | Apache-2.0 | 37 MB |

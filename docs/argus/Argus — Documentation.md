@@ -288,7 +288,7 @@ when it is downloaded). Other folders:
 
 | Role             | Model                                                           | Licence          | Cost on a laptop CPU                       |
 | ---------------- | --------------------------------------------------------------- | ---------------- | ------------------------------------------ |
-| Object detection | YOLOX-Nano (COCO, 80 classes), larger YOLOX variants selectable | Apache-2.0       | 4 MB model, real time                      |
+| Object detection | YOLOX-S (COCO, 80 classes) by default; YOLOX-M for GPU servers or few cameras, YOLOX-Nano for weak machines | Apache-2.0 | 36 MB; ~76 ms a frame (13 FPS) on a laptop CPU |
 | Visual search    | CLIP ViT-B/32 (OpenCLIP, LAION-2B), float32                     | MIT              | ~30 ms per crop, 2 KB per vector           |
 | Body pose        | ViTPose-B, COCO only                                            | Apache-2.0       | 100–175 ms per person                     |
 | Faces (opt-in)   | YuNet detector + SFace recogniser (OpenCV Zoo)                  | MIT / Apache-2.0 | 128-number face print; SFace 99.4 % on LFW |
@@ -620,6 +620,11 @@ pose:
 
 ## 19. On site
 
+- **Detector:** YOLOX-S by default since 2026-10-09 (COCO AP 40.5 vs 25.8 for nano): much better on
+  small and far objects, at ~76 ms a frame on a laptop CPU against ~10 ms for nano. The CPU is
+  shared by the cameras (about 3 detections a second each for four cameras on that laptop); live
+  cameras skip stale frames rather than lag. YOLOX-M (~200 ms on CPU) for GPU servers or few
+  cameras; nano for weak machines and laptop demos. Numbers: ENGINE.md, "Choosing a model".
 - **Hardware:** a standard server, no GPU. Detection (YOLOX), search (CLIP), pose and faces run on
   CPU through ONNX Runtime / OpenCV.
 - **Cameras:** any IP camera with RTSP (Hikvision, Dahua, Reolink, Uniview, Axis presets, or a

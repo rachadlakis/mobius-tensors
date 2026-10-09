@@ -8,7 +8,7 @@ source: data/vtest.avi
 
 model:
   backend: yolox_onnx
-  path: models/yolox_nano.onnx
+  path: models/yolox_s.onnx
   conf_threshold: 0.25       # lower than plain detection: the tracker filters noise
   nms_threshold: 0.45
   class_agnostic_nms: true   # one box per object (a van seen as car AND truck must not become 2 tracks)

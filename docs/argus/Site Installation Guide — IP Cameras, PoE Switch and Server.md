@@ -269,7 +269,7 @@ sudo mkdir -p /opt/mobius && sudo chown $USER /opt/mobius
 git clone <repo-url> /opt/mobius/mobius-tensors
 cd /opt/mobius/mobius-tensors/projects/argus
 uv sync --group server
-uv run -m argus.engine.download_model yolox_nano
+uv run -m argus.engine.download_model yolox_s
 uv run --group export -m argus.engine.export_clip  # only if text search is used (~600 MB)
 uv run -m argus.engine.download_model faces        # only if face search is used AND approved
 ```
@@ -499,8 +499,8 @@ ffprobe -rtsp_transport tcp "rtsp://user:password@10.50.0.11:554/Streaming/Chann
 
 | Cameras | Server | Model | Recording disk (1080p, 7 days) |
 | --- | --- | --- | --- |
-| 1 – 4 | 4-core CPU, 16 GB RAM | `yolox_nano` / `yolox_tiny`, sub stream | 2 TB |
-| 5 – 12 | 8-core CPU, 32 GB RAM | `yolox_tiny`, sub stream, 10 FPS | 4 – 6 TB |
-| 12+ / heavy text search | Benchmark first; GPU server if the CPU can't keep up | See [CPU vs GPU scaling decision](Mobius%20Tensors%20—%20AI%20Solution%20Platform.md#scaling-decision) | ~0.3 TB per camera |
+| 1 – 4 | 8-core CPU, 16 GB RAM | `yolox_s` (default), sub stream: about 3 detections a second per camera on a 20-thread laptop CPU | 2 TB |
+| 5 – 12 | 16-core CPU, 32 GB RAM | `yolox_s` if the benchmark gives 3+ detections a second per camera, else `yolox_tiny` | 4 – 6 TB |
+| 12+ / heavy text search | Benchmark first; GPU server with `yolox_m` if the CPU can't keep up | See [CPU vs GPU scaling decision](Mobius%20Tensors%20—%20AI%20Solution%20Platform.md#scaling-decision) | ~0.3 TB per camera |
 
 These are starting points, not guarantees: always run the site's cameras for an hour and watch CPU (`htop`) before signing off.
