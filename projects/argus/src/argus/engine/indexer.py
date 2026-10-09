@@ -266,8 +266,10 @@ class SearchIndexer:
         if rows:
             if self.embedder is not None:
                 vectors = self.embedder.embed_images(images)
+                model = getattr(self.embedder, "model", None)
                 for row, vector in zip(rows, vectors):
                     row["embedding"] = vector
+                    row["model"] = model
             self.store.add_sightings(rows)
 
         if self.faces is not None and job.faces:

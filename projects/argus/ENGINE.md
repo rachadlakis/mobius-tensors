@@ -133,6 +133,23 @@ uv run -m argus.engine.main --config configs/engine/zones_example.yaml --show   
 - Objects are tracked across frames (ByteTrack-style IoU tracker), so each gets a stable `#id`,
   survives short occlusions (`tracking.max_missed`), and `car`/`truck` label flicker is smoothed.
 - Use `class_agnostic_nms: true` with zones so one vehicle never yields two boxes.
+- A one-way line (`direction: in` or `out`) is a wrong-way alarm: only the forbidden direction
+  fires.
+
+## More rules: crowding, abandoned objects, tampering
+
+Three more event types, with no model beyond the detector:
+
+| Event | How | Config |
+| --- | --- | --- |
+| `crowd` | a zone with `max_count`: at least that many of its `classes` inside for `count_seconds`; fires again once the count has dropped below it. The event carries `count`. | `max_count`, `count_seconds` on a zone |
+| `abandoned` (rule `abandoned_object`) | a backpack / handbag / suitcase whose centre stays within a quarter of its size, with no person's centre within `owner_distance` person-heights, for `seconds`; once per object. A bag carried by someone is never still; a passer-by resets the clock. | `abandoned:` (`classes`, `seconds`, `owner_distance`, `zones`) |
+| `tamper` (rule `blocked` / `dark` / `blurred` / `moved` / `frozen`) | every 2 s on a 320 px grey copy: almost no contrast (*blocked*: covered, sprayed, a wall), dark with some contrast (*dark*), sharpness below a quarter of the camera's own usual (*blurred*, learned over its first minute), structure no longer matching the reference view (*moved*: correlation of 80×45 edge-strength maps below 0.5), or not a single grey level changed (*frozen*). Each must last `hold_seconds`; fires once until it clears. | `tamper:` (on by default) |
+
+*moved* numbers on the sample street video: the same view 35 s later (people walking through)
+0.78, the light 40 % darker 0.79, the camera turned 40 px 0.40, a different view about 0.2. In
+40 s of that video nothing fires; a covered lens fires `blocked`. A first version that compared
+edge pixels failed on busy scenes (a turned camera still matched 60-70 %), so it was replaced.
 
 ## Alerts: snapshot and channels
 
@@ -236,7 +253,8 @@ Open <http://127.0.0.1:8000/docs> to try the API in the browser.
 | `GET /search?q=` | `/search?q=person in a red top last friday` · `/search?q=white van on gate yesterday 6pm to 9pm` |
 | `POST /search/face` | form fields `photo` (JPEG/PNG), `when` (e.g. `friday`), `camera` and `face` (which face if the photo has several, 1 = leftmost; optional) → *"Yes, likely: 2 visit(s), first on shop at Fri 25 Sep 10:30 (match 0.58)."* |
 | `GET /people` | `?posture=lying&when=last night` · `?upper=red&lower=blue&camera=shop` · `?arms=up`: people by body pose and clothing colour (needs `pose`) |
-| `GET /events` | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` (also `type=down`, `type=hands_up` from poses) |
+| `GET /plates` | `?plate=AB 123 CD&when=yesterday` · `?when=today&camera=gate`: vehicles by number plate, look-alike characters and `max_distance` (default 1) wrong characters forgiven (needs `plates`) |
+| `GET /events` | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` (also `down`, `hands_up`, `crowd`, `abandoned`, `tamper`, `plate`, `sound`) |
 | `GET /media/{path}` | snapshots and thumbnails |
 | `GET /recordings/{path}` | main-stream MP4s; events and search results carry a `video_url` (`...mp4#t=37`) that opens the moment, 3 s early |
 | `GET /health`, `GET /cameras`, `POST /maintenance/purge` | status, camera list, apply retention now |
@@ -369,19 +387,79 @@ and shift under coloured light; someone half hidden behind a desk is "unknown"; 
 crouching can be confused. Keypoints are not a face print, but a walk can be recognised: they
 follow the search index's retention.
 
+### Number plates
+
+With a `plates:` section, every tracked vehicle (car, truck, bus, motorcycle) gets its plate
+read about once a second, on its own thread (`plate_index.py`). It is cut from the main-stream
+keyframe when the vehicle was matched in one: plates need pixels.
+
+- **Finding:** a plate detector on the vehicle's crop (default: open-image-models YOLOv9-t 384,
+  NMS inside the ONNX graph, ~11 ms per vehicle on a laptop CPU). Its code is MIT but the
+  weights were trained with a fork of the GPL-3.0 YOLOv9 repo: trials only until a legal check.
+  **Urgent to-do:** train our own YOLOX on Open Images' "Vehicle registration plate" boxes
+  (CC BY 4.0) and set `detector.type: yolox`; the plate pipeline is then fully permissive.
+- **Reading:** fast-plate-ocr CCT-S v2 global (MIT, ~10 ms): 64x128 RGB in, 10 character slots
+  over 0-9 A-Z, and a country guess among 66. A read counts when every character is at least
+  `min_confidence` (0.6) sure.
+- **Voting and storing:** a vehicle's plate is the text with the highest summed confidence over
+  its reads. A row (with the plate crop) is stored for each new text, or a clearly better read,
+  at most `max_per_track` (5) per vehicle. Plates follow `store.plate_retention_days` (default:
+  the search index's retention): they are personal data in many countries, so the section is off
+  by default.
+- **Search:** `GET /plates` and the chat's `plates` tool. Look-alike characters (0/O/D/Q, 1/I/L,
+  2/Z, 5/S, 6/G, 8/B) count as equal, one more wrong character is forgiven, and 3+ characters
+  also match plates containing them.
+- **Watchlist:** `watchlist: [{plate: "AB 123 CD", name: banned_van}]` raises a `plate` event
+  (rule = the name) once per vehicle when its voted plate, read `min_reads` (2) times, matches.
+- **Live view:** the voted plate is drawn under the vehicle's box.
+
+Checked with the real models on synthetic plates: the finder's box lands within 8 px, the reader
+is exact, and finder + reader + vote + watchlist + search work end to end. Not yet on a real
+camera: angle, distance, night IR glare and dirty plates will lower the read rate.
+
+### Sound events
+
+With a `sounds:` section, `sound.py` listens to each camera's audio (the main stream usually
+carries it; ffmpeg) or a video file's (a `.wav` is read directly), and YAMNet (Google,
+Apache-2.0, AudioSet's 521 classes) scores it: one row per 0.96 s frame, every 0.48 s, about
+3 ms per 3 s of audio on one CPU thread. Groups map Argus names to AudioSet classes:
+
+| Group (rule) | AudioSet classes |
+| --- | --- |
+| `smoke_alarm` | Smoke detector, smoke alarm · Fire alarm |
+| `glass_break` | Shatter · Glass |
+| `gunshot` | Gunshot, gunfire · Machine gun · Fusillade · Cap gun |
+| `explosion` | Explosion |
+| `scream` | Screaming |
+| `car_alarm` | Car alarm |
+| `siren` | Siren · Civil defense siren · Police car, Ambulance, Fire engine (siren) |
+
+A group fires when one of its classes scores `min_score` (0.3; glass and gunshot 0.4) in
+`min_frames` (2) frames in a row, then rests `cooldown_seconds` (30). The event is `sound`
+(rule = group, label = the class heard). Recording a file, each event goes out when the video
+reaches its time, so its snapshot shows that moment. **The audio is classified in memory and
+dropped**; only events are kept. Listening is regulated in many places (often more than video),
+so the section is off by default. Checked with the real model on synthetic sound: a 3.1 kHz
+smoke-alarm pattern fires `smoke_alarm` at the right time; a quiet room fires nothing.
+
 ### Models and licences
 
 | Model | File | Licence | Size |
 | --- | --- | --- | --- |
 | YOLOX-Nano | `yolox_nano.onnx` | Apache-2.0 | 4 MB |
-| CLIP ViT-B/32 (OpenCLIP, LAION-400M) | `clip_image.onnx`, `clip_text.onnx`, `clip_bpe_vocab.txt.gz` | MIT | 350 + 250 MB |
+| CLIP ViT-B/32 (OpenCLIP, LAION-2B `laion2b_s34b_b79k`; `--preset laion400m` for the old one) | `clip_image.onnx`, `clip_text.onnx`, `clip_bpe_vocab.txt.gz` | MIT | 350 + 250 MB |
 | YuNet | `face_detection_yunet_2023mar.onnx` | MIT | 0.2 MB |
 | SFace | `face_recognition_sface_2021dec.onnx` | Apache-2.0 | 37 MB |
 | ViTPose-B simple (COCO) | `pose_vitpose_b.onnx` | Apache-2.0 | 344 MB |
 | RTMPose-t (trials only: training data not all commercial) | `pose_rtmpose_t.onnx` | Apache-2.0 code | 13 MB |
+| Plate finder: open-image-models YOLOv9-t 384 (trials until a legal check) | `plate_yolov9_t_384.onnx` | MIT code; weights via a GPL-3.0 fork | 8 MB |
+| Plate reader: fast-plate-ocr CCT-S v2 global | `plate_ocr_cct_s_v2.onnx`, `.yaml` | MIT | 5 MB |
+| YAMNet (tf2onnx conversion, pinned revision) | `sound_yamnet.onnx`, `sound_yamnet_classes.csv` | Apache-2.0 | 16 MB |
 
 CLIP is kept in float32: int8 quantization was tested and changed search rankings too much.
-Speed on a laptop CPU: ~55 ms per embedded crop.
+Speed on a laptop CPU: ~30 ms per embedded crop. The model's name is written into the ONNX files
+and stored with every vector: search only compares vectors of the same model, so switching
+models never mixes them (the old ones are skipped until they expire).
 
 ## Layout
 
@@ -391,7 +469,9 @@ src/argus/engine/
   detector.py        Detector interface + YOLOX ONNX backend
   onnx_device.py     ONNX Runtime sessions on the GPU if there is one, else CPU (`device:`)
   tracker.py         Multi-object tracker (stable IDs across frames)
-  zones.py           Zone / line rules -> enter, exit, dwell, cross events
+  zones.py           Zone / line rules -> enter, exit, dwell, crowd, cross events
+  tamper.py          Camera tampering from the picture: blocked, dark, blurred, moved, frozen
+  abandoned.py       Bags and suitcases left still with nobody near them
   alerts.py          Event sinks: console, JSON lines, store, webhook, email (filters, cooldown)
   pipeline.py        detect -> track -> rules -> alerts -> search index (shared by CLI, UI, server)
   store.py           SQLite event store + media files + retention
@@ -400,9 +480,12 @@ src/argus/engine/
   faces.py           Face detection (YuNet) + face prints (SFace)
   pose.py            Body keypoints (ViTPose / RTMPose) + facts: posture, arms, facing, colours
   pose_index.py      Records poses while recording: sampling, smoothing, rows on change, events
+  plates.py          Number plates: finder (YOLOv9 / YOLOX) + reader (fast-plate-ocr), matching
+  plate_index.py     Reads plates while recording: sampling, voting, rows, watchlist events
+  sound.py           Sound events from camera audio (YAMNet): groups, rules, ffmpeg reader
   query.py           "red shirt last friday" -> what / when / which camera
   search.py          Text and face search, results grouped into visits
-  server.py          FastAPI: events, media, /search, /search/face, /people
+  server.py          FastAPI: events, media, /search, /search/face, /people, /plates
   export_clip.py     One-off: OpenCLIP -> ONNX
   export_pose.py     One-off: ViTPose-B -> ONNX
   stream.py          Frame sources (webcam, image, video, URL)
@@ -410,7 +493,8 @@ src/argus/engine/
   mainstream.py      Main stream via ffmpeg: recording to MP4 + keyframes for hi-res crops
   main.py            CLI entry point
   app.py             Gradio test UI
-  download_model.py  Fetch pretrained YOLOX ONNX models (and `faces`, `pose_rtmpose_t`)
+  download_model.py  Fetch pretrained YOLOX ONNX models (and `faces`, `plates`, `sounds`,
+                     `pose_rtmpose_t`)
 notebooks/         models_tour.ipynb: see and learn each model (YOLOX, tracker, YuNet, SFace, pose, CLIP)
 models/            .onnx weights (git-ignored)
 data/              sample inputs/outputs (git-ignored)

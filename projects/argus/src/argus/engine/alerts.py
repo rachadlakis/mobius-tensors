@@ -115,7 +115,8 @@ class AlertManager:
     def _emit(self, event: ZoneEvent, frame: np.ndarray | None, tracks: list[Track] | None,
               wall_time: float | None) -> None:
         if self.console:
-            extra = event.direction or (
+            extra = event.direction or event.plate or (
+                f"{event.count} inside" if event.count else None) or (
                 f"{event.dwell_seconds:.1f}s" if event.dwell_seconds is not None else ""
             )
             print(
@@ -171,14 +172,17 @@ def _safe(name: str) -> str:
 
 def alert_message(payload: dict[str, Any], prefix: str = "") -> tuple[str, str]:
     """(title, text) for a person: shared by email and any future chat/SMS channel."""
-    what = payload.get("direction") or payload.get("dwell_seconds") or ""
+    what = (payload.get("direction") or payload.get("plate")
+            or (f"{payload['count']} inside" if payload.get("count") else None)
+            or payload.get("dwell_seconds") or "")
     title = (f"{prefix} {payload['type']} {payload['rule']} - "
              f"{payload.get('label')} on {payload['camera']}").strip()
     text = "\n".join([
         f"Camera: {payload['camera']}",
         f"Time:   {payload['iso_time']}",
         f"Event:  {payload['type']} ({payload['rule']}) {what}".rstrip(),
-        f"Object: {payload.get('label')} #{payload.get('track_id')}",
+        f"Object: {payload.get('label')} #{payload.get('track_id')}" if payload.get("track_id")
+        is not None else f"Heard:  {payload.get('label')}",
     ])
     return title, text
 

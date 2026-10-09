@@ -99,6 +99,33 @@ zones: []
 #    direction: in
 #  - name: anywhere_dog         # no points: anywhere in the picture
 #    classes: [dog]
+#  - name: till_queue           # crowd: 6+ people in the area for 30 s (a queue, a crowd)
+#    points: [[0.55, 0.40], [0.95, 0.40], [0.95, 0.95], [0.55, 0.95]]
+#    classes: [person]
+#    max_count: 6
+#    count_seconds: 30
+# A one-way line (direction: in) is a wrong-way alarm: anything crossing the other way is
+# ignored, so set it to the forbidden direction.
+
+# Abandoned objects (abandoned.py): a bag or suitcase still for `seconds` with nobody near it.
+abandoned:
+  enabled: false
+  cameras: []                  # empty = every camera; best on lobbies, platforms, waiting rooms
+  classes: [backpack, handbag, suitcase]
+  seconds: 60                  # still and unattended this long
+  owner_distance: 1.5          # person-heights: anyone this close attends it
+  zones: []                    # only inside these areas (names from `zones`); empty = anywhere
+
+# Camera tampering (tamper.py): a `tamper` alert when the picture is covered (blocked), dark,
+# blurred, turned (moved) or frozen for `hold_seconds`. No model; about 1 ms every 2 s.
+tamper:
+  enabled: true
+  cameras: []
+  hold_seconds: 20
+  checks: [blocked, dark, blurred, moved, frozen]
+  dark_mean: 12                # 0-255: raise it for cameras without infrared at night
+  blur_ratio: 0.25             # below this share of the camera's usual sharpness
+  moved_similarity: 0.5        # structure vs the usual view (same view ~0.8, turned < 0.5)
 
 alerts:
   console: true
@@ -162,7 +189,7 @@ chat:
       note: Qwen3 4B · Apache-2.0 · 2.5 GB · CPU
     # Newer open models to compare on the same questions (licences checked 2026-10-08,
     # see docs/argus "Argus — Documentation", Part 3). `note` is only shown in the UI.
-    qwen3.5-4b:                # successor of qwen3:4b, also reads images (for a future `look` tool)
+    qwen3.5-4b:                # successor of qwen3:4b, also reads images (see chat.vision)
       api: openai
       base_url: http://127.0.0.1:11434/v1
       model: qwen3.5:4b
@@ -200,6 +227,15 @@ chat:
       model: claude-opus-5-5
       effort: low              # low | medium | high: chat questions rarely need more
       note: Claude Opus 5.5 · Anthropic API (cloud)
+  # `look` tool: a local vision model reads the evidence images when a question needs eyes
+  # (counts, actions, "is the gate open"). Runs here even with the claude model: images never
+  # leave the site, only its text answer. Seconds per image on a CPU. `ollama pull qwen3.5:4b`.
+  vision:
+    enabled: true
+    model: qwen3.5:4b          # Apache-2.0; also gemma4:e4b, qwen3-vl:2b (smaller, faster)
+    base_url: http://127.0.0.1:11434/v1
+    max_images: 4              # per look
+    max_side: 640              # shrink images to this (longest side): speed vs detail
 
 # Face prints are biometric data: off unless a client has approved it (see ENGINE.md).
 # When on, the chat can look for a person from a photo: /photo visitor.jpg, then ask.
@@ -230,3 +266,49 @@ pose:
   alerts: [down]               # down (lying for down_seconds) | hands_up (both hands up)
   down_seconds: 10
   hands_up_seconds: 3
+
+# Number plates (plates.py): each tracked vehicle's plate read about once a second, searchable
+# with the chat's `plates` tool and GET /plates, and a `plate` alert for the watchlist. Plates
+# are personal data in many countries: off until the client agrees, and kept for
+# store.plate_retention_days (default: retention_days). Best with `recording:` on: plates are
+# read from the main stream's full-resolution keyframes. Models:
+# `uv run -m argus.engine.download_model plates` (the finder is for trials until a legal check,
+# see ENGINE.md).
+plates:
+  enabled: false
+  cameras: []                  # empty = every camera; better: only those facing the entrance
+  detector:
+    model: models/plate_yolov9_t_384.onnx
+    type: yolov9               # or yolox: our own plate model (one class)
+    min_score: 0.4
+  reader:
+    model: models/plate_ocr_cct_s_v2.onnx
+    config: models/plate_ocr_cct_s_v2.yaml
+  interval_seconds: 1          # per tracked vehicle
+  min_plate_width: 40          # pixels: narrower plates are not read
+  min_confidence: 0.6          # every character at least this sure
+  max_per_track: 5             # rows per vehicle: new texts, or clearly better reads
+  watchlist: []                # e.g. - {plate: "AB 123 CD", name: banned_van}
+  max_distance: 1              # watchlist: edits forgiven after look-alikes (0/O, 8/B...)
+  min_reads: 2                 # watchlist: the plate must be read this many times
+
+# Sound events from camera microphones (sound.py): YAMNet hears smoke alarms, breaking glass,
+# gunshots, explosions, screams, car alarms and sirens, and raises a `sound` alert (rule = the
+# group below) through the alert channels. Audio is classified in memory and never stored.
+# Listening is regulated in many places, often more than video: off until the client and the
+# local law allow it, and only on cameras that have a microphone. Reads the main stream's audio
+# (needs ffmpeg). Model: `uv run -m argus.engine.download_model sounds`.
+sounds:
+  enabled: false
+  cameras: []                  # empty = every camera with audio
+  model: models/sound_yamnet.onnx
+  classes: models/sound_yamnet_classes.csv
+  min_score: 0.3               # a class of the group at least this sure...
+  min_frames: 2                # ...in this many frames in a row (a frame = 0.96 s, every 0.48 s)
+  cooldown_seconds: 30         # per group
+  scores:                      # stricter per group, where false alarms cost more
+    glass_break: 0.4
+    gunshot: 0.4
+  # groups:                    # default: smoke_alarm, glass_break, gunshot, explosion, scream,
+  #   smoke_alarm: ["Smoke detector, smoke alarm", "Fire alarm"]   # car_alarm, siren
+  #   dog: ["Dog", "Bark"]     # any AudioSet class name (models/sound_yamnet_classes.csv)

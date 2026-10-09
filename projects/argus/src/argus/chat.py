@@ -54,7 +54,10 @@ How to work:
   Ranked guesses. Takes the same when / since / until / camera / with_labels filters.
 - `alerts` lists what the site's alert rules fired (enter / exit / dwell / cross on named areas
   and lines). Exact. "did any alert go off last night" -> alerts(when="last night");
-  "who entered the yard" -> alerts(rules=["yard"], types=["enter"]).{people_help}{face_help}
+  "who entered the yard" -> alerts(rules=["yard"], types=["enter"]);
+  "did a smoke alarm go off" -> alerts(types=["sound"], rules=["smoke_alarm"]);
+  "was any camera covered or moved" -> alerts(types=["tamper"]);
+  "any bag left behind" -> alerts(types=["abandoned"]).{people_help}{plates_help}{face_help}{look_help}
 - For exact times use since/until ("2026-10-02 18:00"), resolved against Now above. Hours
   without am/pm ("between 1 and 4") mean daytime (13:00 to 16:00) unless the question or the
   camera's usual hours say otherwise; say what you assumed.
@@ -85,6 +88,20 @@ FACE_HELP = """
   see faces (face_recording_on, face_view). Without an attached photo, ask for one."""
 
 
+PLATES_HELP = """
+- `plates` finds vehicles by number plate (read about once a second per vehicle).
+  "when did AB 123 CD come in" -> plates(plate="AB 123 CD"); "which cars came to the gate
+  today" -> plates(when="today", camera="gate") for their plates (objects for the count).
+  match "close" means look-alike characters or one wrong character: say so. Not every
+  vehicle gets read (small, angled or dirty plates), so no match is not proof."""
+
+LOOK_HELP = """
+- `look` shows images from earlier results to a vision model: use it when the answer needs eyes
+  (how many people, what someone holds or does, is the gate open, read a sign), or to check a
+  search hit before reporting it. First find the moment with the other tools, then look at
+  its 1-4 best images; scene images show the whole picture. Say that it was looked at."""
+
+
 def model_config(config: dict[str, Any], name: str) -> dict[str, Any]:
     models = (config.get("chat") or {}).get("models") or {}
     if name not in models:
@@ -98,7 +115,9 @@ def system_prompt(toolbox: Toolbox, now: datetime | None = None) -> str:
     return SYSTEM.format(now=(now or datetime.now()).strftime("%A %Y-%m-%d %H:%M"),
                          cameras="\n".join(cameras), rules="\n".join(rules) or "- none yet",
                          people_help=PEOPLE_HELP if toolbox.people_on else "",
-                         face_help=FACE_HELP if toolbox.engine.faces is not None else "")
+                         face_help=FACE_HELP if toolbox.engine.faces is not None else "",
+                         plates_help=PLATES_HELP if toolbox.plates_on else "",
+                         look_help=LOOK_HELP if toolbox.vision is not None else "")
 
 
 def answer(backend: Backend, toolbox: Toolbox, question: str,
@@ -173,8 +192,7 @@ def main() -> None:
     log = logging.getLogger("argus")
     config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     engine = build_engine(config)
-    toolbox = Toolbox(engine, cameras=config.get("cameras"), faces_config=config.get("faces"),
-                      pose_config=config.get("pose"))
+    toolbox = Toolbox.from_config(engine, config)
     media_dir = engine.store.media_dir
     untold: list[str] = []  # photos attached since the model last heard about them
 

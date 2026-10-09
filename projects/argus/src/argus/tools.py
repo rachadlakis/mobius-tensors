@@ -9,6 +9,10 @@
               between 1 and 4?" (only when face search is enabled)
     people    people by body pose and clothing colour: "anyone lying on the floor last night",
               "hands up near the till", "red top and blue trousers" (when poses are recorded)
+    plates    vehicles by number plate: "when did AB123CD come in", "which plates were read at
+              the gate today" (when plates are recorded; look-alike characters forgiven)
+    look      a local vision model reads images the other tools returned: counts, actions,
+              text, "is the gate open" (when `chat.vision` is configured; see vision.py)
 
 All take a time range (plain words or exact ISO times) and a camera (its name or an alias from
 `about.aliases`). objects and search also take `with_labels`: keep only what was on the same
@@ -16,7 +20,8 @@ camera at the same time as these other objects.
 
 The model never sees the database, only these JSON results; thumbnails of what it was shown are
 kept in `evidence` so the answer can point at them. It never sees an attached photo either: the
-photo's face print stays here and the model refers to it by name (photo1).
+photo's face print stays here and the model refers to it by name (photo1). `look` only opens
+images an earlier result in the same conversation listed, never an arbitrary path.
 """
 
 from __future__ import annotations
@@ -29,14 +34,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
-from argus.engine.cameras import camera_about
+from argus.engine.cameras import camera_about, expand_env
 from argus.engine.detector import COCO_CLASSES
 from argus.engine.faces import choose_face
 from argus.engine.indexer import faces_enabled
 from argus.llm import Tool, ToolCall, ToolResult
 from argus.engine.pose import CARRIED, COLOURS, MOTIONS, POSTURES
 from argus.engine.search import SearchEngine, group_visits
+from argus.vision import VisionModel
 
 _FILTERS: dict[str, Any] = {
     "when": {"type": "string", "description":
@@ -52,7 +59,8 @@ _FILTERS: dict[str, Any] = {
                        "description": "How close in time counts as 'together' (default 15)"},
 }
 
-ALERT_TYPES = ("enter", "exit", "dwell", "cross", "down", "hands_up")
+ALERT_TYPES = ("enter", "exit", "dwell", "cross", "crowd", "down", "hands_up", "plate", "sound",
+               "abandoned", "tamper")
 _ISO_KEYS = {"first_seen", "last_seen", "face_seen"}  # same time format as the other tools
 _WHEN = {k: _FILTERS[k] for k in ("when", "since", "until", "camera")}
 
@@ -81,9 +89,16 @@ TOOLS = [
         }, "required": ["query"]}),
     Tool("alerts", (
         "Alerts fired by the site's rules: an object entering or leaving an area, staying longer "
-        "than allowed (dwell) or crossing a line (cross, with direction in/out), and from body "
+        "than allowed (dwell), too many in an area at once (crowd, with count) or crossing a "
+        "line (cross, with direction in/out); a bag or suitcase left with nobody near it "
+        "(abandoned); the camera itself covered, dark, blurred, turned or frozen (tamper, "
+        "rule = blocked / dark / blurred / moved / frozen); and from body "
         "poses a person lying down for a while (down, rule person_down) or holding both hands "
-        "up (hands_up). Exact, from the event log. Use it for: did any alert go off, who "
+        "up (hands_up), and a vehicle whose number plate is on the site's watchlist (plate, "
+        "rule = the watchlist entry's name), and sounds heard by a camera's microphone (sound, "
+        "rule = smoke_alarm, glass_break, gunshot, explosion, scream, car_alarm or siren; label "
+        "= what the sound model heard). Exact, from the event log. Use it for: did any "
+        "alert go off, who "
         "entered an area, what crossed a line, did anyone fall. Rule names are the areas and "
         "lines configured on each camera."),
         {"type": "object", "properties": {
@@ -128,6 +143,20 @@ PEOPLE_TOOL = Tool("people", (
                          "description": "Trousers / skirt colour"},
         **_FILTERS,
         "limit": {"type": "integer", "description": "Max visits listed, default 20"},
+    }})
+
+PLATES_TOOL = Tool("plates", (
+    "Vehicles by number plate, read by a plate reader about once a second per vehicle. Give a "
+    "plate (spaces and dashes ignored) to find when that vehicle came: look-alike characters "
+    "(0/O, 1/I, 8/B, 5/S...) and one wrong character are forgiven, and 3+ characters also find "
+    "plates containing them (match: exact / close). Without a plate: every plate read in the "
+    "range. first_seen / last_seen cover the vehicle's whole visit; also_read lists other "
+    "readings of the same vehicle. Plates too small or blurred in the picture are not read: no "
+    "match is not proof the vehicle was not there."),
+    {"type": "object", "properties": {
+        "plate": {"type": "string", "description": "Plate or part of it, e.g. 'AB 123 CD'"},
+        **_WHEN,
+        "limit": {"type": "integer", "description": "Max vehicles listed, default 20"},
     }})
 
 FACE_TOOL = Tool("face", (
@@ -200,6 +229,32 @@ class Visit:
                           "first_seen": _iso(w.first)} for w in self.with_[:5]]
         return d
 
+LOOK_TOOL = Tool("look", (
+    "Show images that earlier results listed (their `thumb` or `snapshot` paths) to a vision "
+    "model and ask it a question about them. Use it when the answer needs eyes, not an "
+    "index: how many people, what someone is doing or holding, whether a door or gate is "
+    "open, a colour or text the other tools can't give, or to check that a search hit really "
+    "is what was asked. It runs on the site's server and takes seconds per image, so pass "
+    "only the few images that matter. Scene images (kind scene) show the whole picture; "
+    "object thumbs are close crops."),
+    {"type": "object", "properties": {
+        "images": {"type": "array", "items": {"type": "string"},
+                   "description": "Image paths exactly as an earlier result gave them (1-4)"},
+        "question": {"type": "string", "description": "What to look for, e.g. 'How many "
+                     "people are in the picture?', 'Is the gate open?'"},
+    }, "required": ["images", "question"]})
+_MEDIA_KEYS = {"thumb", "snapshot"}
+
+
+def _media(value: Any) -> list[str]:
+    """Every image path a tool result lists (thumb / snapshot keys, at any depth)."""
+    if isinstance(value, dict):
+        return [p for k, v in value.items() for p in
+                ([v] if k in _MEDIA_KEYS and isinstance(v, str) and v else _media(v))]
+    if isinstance(value, list):
+        return [p for v in value for p in _media(v)]
+    return []
+
 
 @dataclass
 class Range:
@@ -218,10 +273,15 @@ class Toolbox:
     def __init__(self, engine: SearchEngine, now: datetime | None = None,
                  cameras: dict[str, Any] | None = None,
                  faces_config: dict[str, Any] | None = None,
-                 pose_config: dict[str, Any] | None = None) -> None:
+                 pose_config: dict[str, Any] | None = None,
+                 vision: VisionModel | None = None,
+                 plates_config: dict[str, Any] | None = None) -> None:
         """cameras / faces_config / pose_config: the config's `cameras`, `faces` and `pose`
-        sections (camera descriptions, which cameras record faces, whether poses are recorded)."""
+        sections (camera descriptions, which cameras record faces, whether poses are recorded).
+        vision: the local model behind `look` (None: no such tool)."""
         self.engine = engine
+        self.vision = vision
+        self.shown: set[str] = set()  # image paths results have listed: what `look` may open
         self.now = now  # fixed clock for tests; None = real time
         self.about = camera_about(cameras)
         self.faces_config = faces_config
@@ -234,12 +294,26 @@ class Toolbox:
         has_rows = self._db.execute("SELECT 1 FROM sqlite_master WHERE name = 'poses'").fetchone() \
             and self._db.execute("SELECT 1 FROM poses LIMIT 1").fetchone()
         self.people_on = bool((pose_config or {}).get("enabled") or has_rows)
+        # the plates tool: plates read now (config) or before (rows in the store)
+        self.plates_on = bool((plates_config or {}).get("enabled")) or bool(
+            self._db.execute("SELECT 1 FROM sqlite_master WHERE name = 'plates'").fetchone()
+            and self._db.execute("SELECT 1 FROM plates LIMIT 1").fetchone())
+
+    @classmethod
+    def from_config(cls, engine: SearchEngine, config: dict[str, Any]) -> Toolbox:
+        vision = {k: expand_env(v) if isinstance(v, str) else v
+                  for k, v in ((config.get("chat") or {}).get("vision") or {}).items()}
+        return cls(engine, cameras=config.get("cameras"), faces_config=config.get("faces"),
+                   pose_config=config.get("pose"), vision=VisionModel.from_config(vision),
+                   plates_config=config.get("plates"))
 
     @property
     def tools(self) -> list[Tool]:
         tools = [t for t in TOOLS if t.name != "search" or self.engine.clip is not None]
         tools += [PEOPLE_TOOL] if self.people_on else []
-        return tools + ([FACE_TOOL] if self.engine.faces is not None else [])
+        tools += [PLATES_TOOL] if self.plates_on else []
+        tools += [FACE_TOOL] if self.engine.faces is not None else []
+        return tools + ([LOOK_TOOL] if self.vision is not None else [])
 
     def close(self) -> None:
         self._db.close()
@@ -318,9 +392,14 @@ class Toolbox:
                 out = self.people(**call.args)
             elif call.name == "face" and self.engine.faces is not None:
                 out = self.face(**call.args)
+            elif call.name == "plates" and self.plates_on:
+                out = self.plates(**call.args)
+            elif call.name == "look" and self.vision is not None:
+                out = self.look(**call.args)
             else:
                 names = ", ".join(t.name for t in self.tools)
                 raise ValueError(f"Unknown tool {call.name!r}; use one of: {names}")
+            self.shown.update(_media(out))
             return ToolResult(call, json.dumps(out, ensure_ascii=False))
         except (TypeError, ValueError) as e:  # bad arguments: tell the model so it can retry
             return ToolResult(call, f"Error: {e}", is_error=True)
@@ -354,7 +433,8 @@ class Toolbox:
         limit = max(1, min(int(limit), 20))
         vector = self.engine.clip.embed_query(rng.text)
         matches = self.engine.store.search("sightings", vector, rng.since, rng.until,
-                                           rng.cameras or None, top_k=limit * 50)
+                                           rng.cameras or None, top_k=limit * 50,
+                                           model=self.engine.clip_model)
         visits = [Visit(v.camera, v.track_id, v.label or v.best.kind, v.first_seen, v.last_seen,
                         v.best.thumb, v.score) for v in group_visits(matches)]
         visits = self._together(visits, with_labels, within_seconds)[:limit]
@@ -372,7 +452,7 @@ class Toolbox:
         if bad:
             raise ValueError(f"types: {bad} unknown; use {', '.join(ALERT_TYPES)}")
         sql = ("SELECT camera, time, type, rule, label, track_id, direction, dwell_seconds, "
-               "snapshot FROM events WHERE 1=1")
+               "snapshot, plate, count FROM events WHERE 1=1")
         args: list[Any] = []
         for column, values in (("camera", rng.cameras), ("rule", _strings(rules, lower=False)),
                                ("type", wanted_types), ("label", _strings(labels))):
@@ -389,7 +469,7 @@ class Toolbox:
         shown = rows[: max(1, min(int(limit), 200))]
         self.evidence += [r[8] for r in shown[:3] if r[8]]
         keys = ("camera", "time", "type", "rule", "label", "track_id", "direction",
-                "dwell_seconds", "snapshot")
+                "dwell_seconds", "snapshot", "plate", "count")
         events = [{k: (_iso(v) if k == "time" else v) for k, v in zip(keys, r) if v is not None}
                   for r in shown]
         return {"when": rng.describe(), "cameras": rng.cameras or "all", "total": len(rows),
@@ -468,6 +548,56 @@ class Toolbox:
                 "checked": checked}
 
     # ------------------------------------------------------------------ helpers
+
+    def plates(self, plate: str | None = None, when: str | None = None,
+               since: str | None = None, until: str | None = None, camera: str | None = None,
+               limit: int = 20) -> dict[str, Any]:
+        from argus.engine.plates import normalize_plate
+
+        wanted = normalize_plate(plate) if plate else None
+        if plate and not wanted:
+            raise ValueError("plate: give letters and digits, e.g. 'AB 123 CD'")
+        rng = self._range(when or "", since, until, camera)
+        visits = self.engine.plates(wanted, rng.since, rng.until, rng.cameras or None)
+        limit = max(1, min(int(limit), 100))
+        shown = visits[:limit] if wanted else visits[-limit:]
+        self.evidence += [v.thumb for v in shown[:3] if v.thumb]
+        out: dict[str, Any] = {"looked_for": wanted or "any plate", "when": rng.describe(),
+                               "cameras": rng.cameras or "all", "total": len(visits),
+                               "listed": len(shown),
+                               "vehicles": [v.to_dict() for v in shown]}
+        if not visits:
+            read = self.engine.store.plate_rows(rng.since, rng.until, rng.cameras or None)
+            out["plates_read_in_range"] = len({(r["camera"], r.get("track_id")) for r in read})
+        return out
+
+    def look(self, images: list[str] | str, question: str) -> dict[str, Any]:
+        assert self.vision is not None
+        paths = list(dict.fromkeys(_strings(images, lower=False)))
+        if not paths:
+            raise ValueError("images: give 1 or more image paths from earlier results")
+        if not str(question or "").strip():
+            raise ValueError("question: say what to look for")
+        if len(paths) > self.vision.max_images:
+            raise ValueError(f"images: at most {self.vision.max_images} per look; "
+                             "pick the ones that matter")
+        unknown = [p for p in paths if p not in self.shown]
+        if unknown:
+            raise ValueError(f"images: {unknown} were not in any earlier result; pass the "
+                             "`thumb` or `snapshot` paths exactly as a result listed them")
+        loaded = []
+        for p in paths:
+            file = self.engine.store.media_path(p)
+            image = cv2.imread(str(file)) if file else None
+            if image is None:
+                raise ValueError(f"images: {p} is no longer stored (expired?)")
+            loaded.append(image)
+        try:
+            text = self.vision.ask(loaded, question)
+        except RuntimeError as e:  # server down, model missing: the chat can say so
+            raise ValueError(f"The vision model failed: {e}") from None
+        self.evidence += paths
+        return {"answer": text, "images": paths, "model": self.vision.model}
 
     def _range(self, text: str, since: str | None, until: str | None,
                camera: str | None) -> Range:

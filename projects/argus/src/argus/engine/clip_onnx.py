@@ -10,6 +10,7 @@ import gzip
 import html
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -17,6 +18,9 @@ import numpy as np
 MEAN = np.array([0.48145466, 0.4578275, 0.40821073], dtype=np.float32)
 STD = np.array([0.26862954, 0.26130258, 0.27577711], dtype=np.float32)
 CONTEXT_LENGTH = 77
+# Exports made before the model name was written into the ONNX metadata, and the vectors they
+# stored (model column empty), are this model.
+LEGACY_MODEL = "ViT-B-32-quickgelu/laion400m_e32"
 
 
 @lru_cache
@@ -109,6 +113,12 @@ def preprocess(image: np.ndarray, size: int = 224) -> np.ndarray:
     return ((rgb - MEAN) / STD).transpose(2, 0, 1)
 
 
+def session_model(session: Any) -> str:
+    """The CLIP model an ONNX session was exported from (metadata `clip_model`)."""
+    meta = session.get_modelmeta().custom_metadata_map or {}
+    return meta.get("clip_model") or LEGACY_MODEL
+
+
 def _normalize(x: np.ndarray) -> np.ndarray:
     return (x / (np.linalg.norm(x, axis=1, keepdims=True) + 1e-12)).astype(np.float32)
 
@@ -135,6 +145,11 @@ class ClipEncoder:
         self._text = create_session(text, device, num_threads) if text else None
         self.tokenizer = Tokenizer(vocab) if text else None
         self.batch_size = batch_size
+        models = {session_model(s) for s in (self._image, self._text) if s is not None}
+        if len(models) > 1:
+            raise ValueError(f"CLIP image and text models differ: {sorted(models)}. "
+                             "Export both again with export_clip.py.")
+        self.model = models.pop() if models else LEGACY_MODEL  # tag for stored vectors
 
     def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
         """BGR images of any size -> (N, 512) unit vectors."""

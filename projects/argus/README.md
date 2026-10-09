@@ -16,14 +16,18 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
    embed each tracked object with CLIP, and every few seconds embed the whole frame plus a 2x2
    grid of tiles, so things the detector has no class for are still searchable. About once a
    second, each person's body pose (17 keypoints) becomes a few facts: posture, hands up, facing,
-   head down, still / walking / running, a bag or suitcase on them, colour of top and trousers. Everything goes into one SQLite store per site.
+   head down, still / walking / running, a bag or suitcase on them, colour of top and trousers.
+   Optionally, each vehicle's number plate is read and the camera's microphone listens for
+   alarms and breaking glass. Everything goes into one SQLite store per site.
 2. **Ask**: a question is split into *what / when / which camera*. The *what* is embedded with
    CLIP's text model and compared with the stored vectors. Matches of the same tracked object
    are merged into one visit.
-3. **Chat**: an LLM gets the store as three tools, runs as many lookups as the question needs,
-   and answers in sentences, listing the thumbnails it looked at as evidence.
-4. **Alert** (optional): areas and lines per camera fire events while recording; each is stored
-   with a snapshot and sent to the channels whose filters accept it.
+3. **Chat**: an LLM gets the store as tools (objects, search, alerts, people, plates, face,
+   look), runs as many lookups as the question needs, and answers in sentences, listing the
+   thumbnails it looked at as evidence. `look` lets a local vision model read those images.
+4. **Alert** (optional): areas, lines, crowding, abandoned bags, camera tampering, poses,
+   watchlist plates and sounds fire events while recording; each is stored with a snapshot and
+   sent to the channels whose filters accept it.
 5. **Report** (optional): hourly, daily or weekly, a summary of what the chosen cameras saw,
    focused on what the owner asked to watch for, saved and sent (see [Reports](#reports)).
 
@@ -37,6 +41,8 @@ models in `models/`.
 uv sync
 uv run -m argus.engine.download_model yolox_nano
 uv run --group export -m argus.engine.export_clip      # CLIP -> models/clip_*.onnx (~600 MB), once
+uv run -m argus.engine.download_model plates           # optional: number plates (plates: section)
+uv run -m argus.engine.download_model sounds           # optional: sound events (sounds: section)
 uv run -m argus.record --source data/vtest.avi --camera street --start-time 2026-09-25T14:00
 uv run -m argus.ask "person with a bag on street"
 uv run -m argus.ask                            # interactive, empty line quits
@@ -113,6 +119,11 @@ time as"):
 | Anyone with their hands up near the till? | `people(arms="up", camera="till")` |
 | Was anyone running in the car park? | `people(motion=["running"], camera="car park")` |
 | Who came in with a suitcase? | `people(carrying=["suitcase"], when="today")` |
+| When did AB 123 CD come in? | `plates(plate="AB 123 CD")`: look-alikes (0/O, 8/B...) and one wrong character forgiven |
+| Which plates came to the gate today? | `plates(when="today", camera="gate")` |
+| How many people were at the counter at 3pm? | `objects(...)` or `search(...)` to find the moment, then `look(images=[...], question="How many people?")` |
+| Did a smoke alarm go off last night? | `alerts(types=["sound"], rules=["smoke_alarm"], when="last night")` |
+| Was any camera covered or turned? | `alerts(types=["tamper"])` |
 | *(photo attached)* Did this person come to the office between 1 and 4? | `face(photo="photo1", since="... 13:00", until="... 16:00", camera="office")`: likely / possible visits |
 
 "Together" means the same camera and overlapping in time (`within_seconds`, default 15), not
@@ -187,8 +198,23 @@ into the store with a snapshot, so the chat answers "did any alert go off last n
 full list, whatever the channels sent. Channel details and the plan for Telegram, WhatsApp, SMS
 and on-site sirens: [engine docs](ENGINE.md#integrations-what-exists-and-what-comes-next).
 
-Rules work on the detector's 80 classes today. New things to detect (fire and smoke, objects a
-customer names) need a model trained for them; the rules and channels then apply unchanged.
+More event types, each in its own config section and through the same channels:
+
+| Event | Rule | Section | Default |
+| --- | --- | --- | --- |
+| `crowd` | the area's name: `max_count` objects inside for `count_seconds` (queues, crowds) | a zone in `zones:` | — |
+| `abandoned` | `abandoned_object`: a backpack, handbag or suitcase still and unattended for 60 s | `abandoned:` | off |
+| `tamper` | `blocked` / `dark` / `blurred` / `moved` / `frozen`: the camera's own picture, for 20 s | `tamper:` | on |
+| `plate` | the watchlist entry's name: a listed plate read twice on a vehicle | `plates:` | off (personal data) |
+| `sound` | `smoke_alarm`, `glass_break`, `gunshot`, `explosion`, `scream`, `car_alarm`, `siren` | `sounds:` | off (listening is regulated) |
+
+A one-way line (`direction: in`) is a wrong-way alarm. Sounds are classified in memory and never
+stored; they need ffmpeg and a camera with a microphone. Details and thresholds:
+[engine docs](ENGINE.md#more-rules-crowding-abandoned-objects-tampering).
+
+Object rules work on the detector's 80 classes today. New things to detect (fire and smoke,
+objects a customer names) need a model trained for them; the rules and channels then apply
+unchanged.
 
 Body poses add two event types: `down` (rule `person_down`: a person lying for 10 s) and
 `hands_up` (both hands above the head for 3 s). Enable them in the `pose:` section
@@ -266,7 +292,7 @@ model, this text is sent too.
 ## Cost of "everything"
 
 Embedding every class costs more CPU and storage than the people-and-vehicles default of
-`configs/engine/search_example.yaml`. A CLIP crop takes ~55 ms on a laptop CPU, and each embedding is one 512-float
+`configs/engine/search_example.yaml`. A CLIP crop takes ~30 ms on a laptop CPU, and each embedding is one 512-float
 row (2 KB). On live cameras the indexer drops jobs instead of slowing detection down, so a busy
 scene gets sampled more sparsely rather than lagging. Tune `object_interval_seconds`,
 `scene_interval_seconds` and `min_box_height` per site.
@@ -278,13 +304,15 @@ configs/default.yaml   all COCO classes embedded, store in data/store/argus.db
 configs/laptop.yaml    test on a laptop: webcam = camera "laptop", faces on, own store
 configs/engine/        engine-only examples (detection, zones, search)
 src/argus/
-  engine/              detector, tracker, zones, alerts, store, CLIP / faces / pose, search, API (ENGINE.md)
+  engine/              detector, tracker, zones, alerts, store, CLIP / faces / pose / plates / sounds,
+                       tamper and abandoned rules, search, API (ENGINE.md)
   record.py            recorder (engine/main.py with this config)
   ask.py               question -> ranked sightings (no LLM)
   report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
-  tools.py             tools the LLM can call: objects (time / class / together), search, alerts
+  tools.py             tools the LLM can call: objects, search, alerts, people, plates, face, look
   llm.py               model backends: OpenAI-compatible (local) and Claude
+  vision.py            the local vision model behind `look` (chat.vision)
   ui.py                test UI (Gradio): record, find a person by photo, chat, reports
 notebooks/             models_tour.ipynb: each model, step by step
 models/                .onnx weights (git-ignored)
@@ -304,6 +332,16 @@ tests/                 uv run pytest (tests/engine/ for the engine)
       running, carried bags, clothing colours (`people` tool), person-down and hands-up alerts. Next: staged-fall test at a pilot site; a smaller COCO-only pose model.
 - [ ] Chat in the browser: `/chat` endpoint + page showing the evidence thumbnails.
 - [ ] Evals: a fixed set of questions on recorded footage to compare local models.
+- [x] Better search vectors: CLIP B/32 LAION-2B, vectors tagged with their model (2026-10-09).
+- [x] `look`: a local vision model reads the evidence images for the chat (2026-10-09).
+- [x] Number plates: read per vehicle, `plates` tool, `GET /plates`, watchlist alerts
+      (2026-10-09).
+- [ ] **Urgent: train our own YOLOX plate finder** on Open Images' "Vehicle registration plate"
+      boxes (CC BY 4.0) and set `plates.detector.type: yolox`. The current finder's weights were
+      trained with a fork of the GPL-3.0 YOLOv9 repo (MIT code): trials only until then. With
+      our own finder the plate pipeline is fully permissive.
+- [x] Sound events from camera microphones (2026-10-09). Next: check on real camera audio.
+- [x] Rules without a model: camera tampering, abandoned bags, crowding (2026-10-09).
 - [ ] Captions per scene (small VLM) stored next to the vectors, for questions CLIP handles badly
       (counting, "what was he doing").
 - [ ] Multi-camera timeline: follow one visit across cameras.

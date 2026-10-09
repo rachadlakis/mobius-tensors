@@ -41,6 +41,7 @@ from argus.engine import app as bench  # the engine's test bench
 from argus.ask import build_engine
 from argus.chat import answer, model_config, system_prompt
 from argus.llm import Backend, create_backend
+from argus.engine.cameras import is_stream_url
 from argus.engine.pipeline import Pipeline
 from argus.report import Reporter, report_text
 from argus.engine.search import SearchEngine
@@ -141,7 +142,9 @@ class Recorder:
 
     def _run(self, source: str) -> None:
         try:
-            self.pipeline = Pipeline.from_config(self.config, source=self.camera, live=True)
+            self.pipeline = Pipeline.from_config(
+                self.config, source=self.camera, live=True,
+                audio_source=source if is_stream_url(source) else None)
             started, frames = time.monotonic(), 0
             for frame in iter_frames(source):
                 if self._stop.is_set():
@@ -232,8 +235,7 @@ def model_card(config: dict[str, Any], name: str | None) -> str:
 
 def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
     engine = build_engine(config)
-    toolbox = Toolbox(engine, cameras=config.get("cameras"), faces_config=config.get("faces"),
-                      pose_config=config.get("pose"))
+    toolbox = Toolbox.from_config(engine, config)
     recorder = Recorder(config, camera)
     models = list((config.get("chat") or {}).get("models") or {})
     chat: dict[str, Any] = {"backend": None, "model": None, "untold": []}

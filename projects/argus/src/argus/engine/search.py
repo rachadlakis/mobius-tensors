@@ -18,6 +18,7 @@ the seconds spent in each posture.
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -28,6 +29,8 @@ import numpy as np
 from argus.engine.faces import LIKELY_SAME_PERSON, SAME_PERSON_THRESHOLD, choose_face
 from argus.engine.query import ParsedQuery, parse_query
 from argus.engine.store import EventStore, Match
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -166,6 +169,80 @@ POSE_FIELDS = ("posture", "arms", "facing", "head", "motion", "carrying", "upper
                "lower_colour")
 
 
+@dataclass
+class PlateVisit:
+    camera: str
+    track_id: int | None
+    label: str | None
+    plate: str                       # the vote: highest summed confidence over the reads
+    first_seen: float
+    last_seen: float
+    reads: dict[str, float]          # every text read on this vehicle -> summed confidence
+    confidence: float                # best confidence of the voted text
+    region: str | None = None
+    thumb: str | None = None         # crop of the best read of the voted text
+    distance: int | None = None      # edits from the plate searched for (None: no search)
+
+    def to_dict(self) -> dict[str, Any]:
+        iso = lambda t: datetime.fromtimestamp(t).isoformat(timespec="seconds")  # noqa: E731
+        d: dict[str, Any] = {
+            "camera": self.camera, "track_id": self.track_id, "vehicle": self.label,
+            "plate": self.plate, "first_seen": iso(self.first_seen),
+            "last_seen": iso(self.last_seen), "confidence": round(self.confidence, 3),
+            "thumb": self.thumb, "time": self.first_seen}
+        others = [t for t in sorted(self.reads, key=lambda k: -self.reads[k]) if t != self.plate]
+        if others:
+            d["also_read"] = others[:3]
+        if self.region and self.region != "Unknown":
+            d["region"] = self.region
+        if self.distance is not None:
+            d["match"] = "exact" if self.distance == 0 else "close"
+        return d
+
+
+def plate_visits(rows: list[dict[str, Any]], query: str | None = None, max_distance: int = 1,
+                 gap: float = 600.0) -> list[PlateVisit]:
+    """Group plate reads (oldest first) into one visit per vehicle (camera + track; a track id
+    seen again after `gap` seconds is a new visit). With a query, keep vehicles whose voted
+    plate or any other read is within `max_distance` edits of it (look-alike characters
+    forgiven), or that contain it (3+ characters: "the plate had ABC in it"); best match first,
+    then oldest."""
+    from argus.engine.plates import normalize_plate, plate_distance, plate_key
+
+    groups: list[list[dict[str, Any]]] = []
+    open_: dict[tuple[str, Any], list[dict[str, Any]]] = {}
+    for r in rows:
+        key = (r["camera"], r.get("track_id"))
+        group = open_.get(key) if r.get("track_id") is not None else None
+        if group is None or r["time"] - group[-1]["time"] > gap:
+            group = []
+            groups.append(group)
+            open_[key] = group
+        group.append(r)
+    wanted = normalize_plate(query) if query else ""
+    visits = []
+    for group in groups:
+        reads: dict[str, float] = defaultdict(float)
+        for r in group:
+            reads[r["text"]] += float(r.get("confidence") or 0.0)
+        plate = max(reads, key=reads.__getitem__)
+        best = max((r for r in group if r["text"] == plate),
+                   key=lambda r: float(r.get("confidence") or 0.0))
+        v = PlateVisit(group[0]["camera"], group[0].get("track_id"), best.get("label"), plate,
+                       group[0]["time"], group[-1]["time"], dict(reads),
+                       float(best.get("confidence") or 0.0), best.get("region"), best.get("thumb"))
+        if wanted:
+            distance = min(plate_distance(t, wanted) for t in reads)
+            contained = len(wanted) >= 3 and any(plate_key(wanted) in plate_key(t) for t in reads)
+            if distance > max_distance and not contained:
+                continue
+            v.distance = distance if distance <= max_distance else max_distance + 1
+        visits.append(v)
+    if wanted:
+        visits.sort(key=lambda v: (v.distance, v.first_seen))
+    return visits
+
+
 def person_visits(rows: list[dict[str, Any]], heartbeat: float = 10.0, last_row: float = 1.0,
                   gap: float = 600.0) -> list[PersonVisit]:
     """Group pose rows (oldest first) into visits per camera + track, with the seconds spent in
@@ -254,6 +331,13 @@ class SearchEngine:
         self.faces = faces
         self.camera_names = camera_names or []
         self.camera_aliases = camera_aliases or {}
+        # Search compares a query only with vectors of the same CLIP model.
+        self.clip_model: str | None = getattr(clip, "model", None)
+        if self.clip_model:
+            other = {m: n for m, n in store.embedding_models().items() if m != self.clip_model}
+            if other:
+                log.info("Visual search uses %s; %d older vectors from %s are skipped until they "
+                         "expire", self.clip_model, sum(other.values()), ", ".join(other))
 
     def parse(self, text: str, now: datetime | None = None) -> ParsedQuery:
         return parse_query(text, now=now, camera_names=self.camera_names,
@@ -267,7 +351,8 @@ class SearchEngine:
         cams = cameras or parsed.cameras or None
         since, until = parsed.range()
         vector = self.clip.embed_query(parsed.text)
-        matches = self.store.search("sightings", vector, since, until, cams, top_k=top_k * 50)
+        matches = self.store.search("sightings", vector, since, until, cams, top_k=top_k * 50,
+                                    model=self.clip_model)
         visits = group_visits(matches)[:top_k]
         return {"query": _parsed_dict(parsed, cams), "results": [v.to_dict() for v in visits]}
 
@@ -318,6 +403,18 @@ class SearchEngine:
         visits = person_visits(self.store.pose_rows(since, until, cameras), heartbeat)
         return match_people(visits, postures, arms, facing, upper_colour, lower_colour,
                             head=head, motion=motion, carrying=carrying)
+
+    def plates(self, query: str | None = None, since: float | None = None,
+               until: float | None = None, cameras: list[str] | None = None,
+               max_distance: int = 1) -> list[PlateVisit]:
+        """Vehicles with a plate read, oldest first; with a query, best match first. first /
+        last seen cover the whole vehicle visit (from the search index), not only the reads."""
+        visits = plate_visits(self.store.plate_rows(since, until, cameras), query, max_distance)
+        for v in visits:
+            if v.track_id is not None:
+                v.first_seen, v.last_seen = self.store.track_span(v.camera, v.track_id,
+                                                                  v.first_seen, v.last_seen)
+        return visits
 
     def add_thumbs(self, visits: list[PersonVisit]) -> list[PersonVisit]:
         """A thumbnail per visit from the search index, for the visits that will be shown."""

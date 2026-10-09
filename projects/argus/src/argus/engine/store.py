@@ -21,6 +21,8 @@ from typing import Any
 import cv2
 import numpy as np
 
+from argus.engine.clip_onnx import LEGACY_MODEL
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY,
@@ -83,12 +85,32 @@ CREATE TABLE IF NOT EXISTS poses (
     keypoints BLOB                 -- 17 x (x, y, conf) float16, relative to box; empty if off
 );
 CREATE INDEX IF NOT EXISTS poses_time ON poses(time);
+
+-- Number plates (plate_index.py): one row per new text read on a vehicle (or a clearly better
+-- read of it), a few per vehicle at most. A vehicle's plate is the vote over its rows.
+CREATE TABLE IF NOT EXISTS plates (
+    id INTEGER PRIMARY KEY,
+    camera TEXT NOT NULL,
+    time REAL NOT NULL,
+    track_id INTEGER,
+    label TEXT,                    -- vehicle class: car | truck | bus | motorcycle
+    text TEXT NOT NULL,            -- upper-case letters and digits only
+    confidence REAL,               -- lowest character probability of the read
+    region TEXT,                   -- country guessed by the OCR model; NULL when unsure
+    box TEXT,                      -- vehicle box, json [x1, y1, x2, y2] in frame pixels
+    thumb TEXT                     -- the plate crop
+);
+CREATE INDEX IF NOT EXISTS plates_time ON plates(time);
+CREATE INDEX IF NOT EXISTS plates_text ON plates(text);
 """
 
 POSE_COLUMNS = ("posture", "arms", "facing", "head", "motion", "carrying", "upper_colour",
                 "lower_colour")
 # Columns added after the first release: stores made before get them on open (NULL in old rows).
-ADDED_COLUMNS = {"poses": ("head", "motion", "carrying")}
+ADDED_COLUMNS = {"poses": ("head", "motion", "carrying"),
+                 # the plate read (watchlist `plate` events), how many (`crowd` events)
+                 "events": ("plate", "count INTEGER"),
+                 "sightings": ("model",)}  # CLIP model of the embedding (empty = legacy)
 
 
 @dataclass
@@ -119,13 +141,18 @@ class EventStore:
         retention_days: float | None = 30,
         face_retention_days: float | None = 7,
         thumb_height: int = 160,
+        plate_retention_days: float | None = None,
     ) -> None:
+        """plate_retention_days: number plates are personal data in many places; None keeps
+        them as long as the rest (retention_days)."""
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.media_dir = Path(media_dir) if media_dir else self.path.parent / "media"
         self.media_dir.mkdir(parents=True, exist_ok=True)
         self.retention_days = retention_days
         self.face_retention_days = face_retention_days
+        self.plate_retention_days = plate_retention_days if plate_retention_days is not None \
+            else retention_days
         self.thumb_height = thumb_height
         self._lock = threading.Lock()
         self._db = sqlite3.connect(self.path, check_same_thread=False, timeout=30)
@@ -134,9 +161,11 @@ class EventStore:
         self._db.executescript(SCHEMA)
         for table, columns in ADDED_COLUMNS.items():
             have = {r[1] for r in self._db.execute(f"PRAGMA table_info({table})")}
-            for column in columns:
-                if column not in have:
-                    self._db.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+            for column in columns:  # "name" (TEXT) or "name TYPE"
+                name, *kind = column.split()
+                if name not in have:
+                    self._db.execute(
+                        f"ALTER TABLE {table} ADD COLUMN {name} {kind[0] if kind else 'TEXT'}")
         self._db.commit()
 
     @classmethod
@@ -183,25 +212,27 @@ class EventStore:
         with self._lock:
             cur = self._db.execute(
                 "INSERT INTO events (camera, time, type, rule, label, track_id, direction,"
-                " dwell_seconds, snapshot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " dwell_seconds, snapshot, plate, count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (camera, t, event["type"], event["rule"], event.get("label"),
                  event.get("track_id"), event.get("direction"), event.get("dwell_seconds"),
-                 snapshot),
+                 snapshot, event.get("plate"), event.get("count")),
             )
             self._db.commit()
             return int(cur.lastrowid or 0)
 
     def add_sightings(self, rows: list[dict[str, Any]]) -> None:
-        """rows: camera, time, kind, track_id, label, box, thumb, embedding (np.float32)."""
+        """rows: camera, time, kind, track_id, label, box, thumb, embedding (np.float32),
+        model (the CLIP model that made the embedding)."""
         if not rows:
             return
         with self._lock:
             self._db.executemany(
-                "INSERT INTO sightings (camera, time, kind, track_id, label, box, thumb, embedding)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO sightings (camera, time, kind, track_id, label, box, thumb, embedding,"
+                " model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [(r["camera"], r["time"], r["kind"], r.get("track_id"), r.get("label"),
                   json.dumps([round(float(v), 1) for v in r["box"]]) if r.get("box") is not None
-                  else None, r.get("thumb"), _blob(r.get("embedding"))) for r in rows],
+                  else None, r.get("thumb"), _blob(r.get("embedding")),
+                  r.get("model") if r.get("embedding") is not None else None) for r in rows],
             )
             self._db.commit()
 
@@ -271,14 +302,19 @@ class EventStore:
     def search(self, table: str, query: np.ndarray, since: float | None = None,
                until: float | None = None, cameras: list[str] | None = None,
                kinds: list[str] | None = None, min_score: float | None = None,
-               top_k: int | None = 50) -> list[Match]:
+               top_k: int | None = 50, model: str | None = None) -> list[Match]:
         """Cosine similarity of `query` against stored embeddings, best first.
 
         query: one vector, or several (one per row: e.g. 3 photos of the same person); a row's
-        score is then its best match among them. top_k None: every row."""
+        score is then its best match among them. top_k None: every row.
+        model: only sightings embedded by this CLIP model (vectors of two models can't be
+        compared); None: all of them."""
         assert table in {"sightings", "faces"}
         sql, args = f"SELECT * FROM {table} WHERE length(embedding) > 0", list[Any]()
         sql, args = _filters(sql, args, cameras, since, until)
+        if model and table == "sightings":
+            sql += " AND COALESCE(model, ?) = ?"
+            args += [LEGACY_MODEL, model]
         if kinds and table == "sightings":
             sql += f" AND kind IN ({','.join('?' * len(kinds))})"
             args += kinds
@@ -309,6 +345,41 @@ class EventStore:
             if len(out) >= top_k:
                 break
         return out
+
+    def add_plates(self, rows: list[dict[str, Any]]) -> None:
+        """rows: camera, time, track_id, label, text, confidence, region, box, thumb."""
+        if not rows:
+            return
+        with self._lock:
+            self._db.executemany(
+                "INSERT INTO plates (camera, time, track_id, label, text, confidence, region, box,"
+                " thumb) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [(r["camera"], r["time"], r.get("track_id"), r.get("label"), r["text"],
+                  r.get("confidence"), r.get("region"),
+                  json.dumps([round(float(v), 1) for v in r["box"]]) if r.get("box") is not None
+                  else None, r.get("thumb")) for r in rows])
+            self._db.commit()
+
+    def plate_rows(self, since: float | None = None, until: float | None = None,
+                   cameras: list[str] | None = None) -> list[dict[str, Any]]:
+        """Plate reads in a time range, oldest first."""
+        sql, args = _filters("SELECT * FROM plates WHERE 1=1", [], cameras, since, until)
+        with self._lock:
+            rows = self._db.execute(sql + " ORDER BY time", args).fetchall()
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["box"] = json.loads(d["box"]) if d.get("box") else None
+            out.append(d)
+        return out
+
+    def embedding_models(self) -> dict[str, int]:
+        """Stored sighting vectors per CLIP model, e.g. to tell how many a model switch hides."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT COALESCE(model, ?) AS m, COUNT(*) FROM sightings WHERE length(embedding) > 0"
+                " GROUP BY m", (LEGACY_MODEL,)).fetchall()
+        return {r[0]: r[1] for r in rows}
 
     def pose_rows(self, since: float | None = None, until: float | None = None,
                   cameras: list[str] | None = None) -> list[dict[str, Any]]:
@@ -371,7 +442,7 @@ class EventStore:
     def counts(self) -> dict[str, int]:
         with self._lock:
             return {t: self._db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-                    for t in ("events", "sightings", "faces", "poses")}
+                    for t in ("events", "sightings", "faces", "poses", "plates")}
 
     # ---------------------------------------------------------------- retention
 
@@ -383,6 +454,7 @@ class EventStore:
             "sightings": (self.retention_days, "thumb"),
             "faces": (self.face_retention_days, "thumb"),
             "poses": (self.retention_days, None),
+            "plates": (self.plate_retention_days, "thumb"),
         }
         deleted = {}
         with self._lock:

@@ -1,9 +1,9 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Argus — Project Summary</title>
 <!-- Source of "docs/argus/Argus — Project Summary.pdf". Print: Chrome headless, --no-pdf-header-footer --print-to-pdf=... -->
 <style>
-@page { size: A4; margin: 13mm 15mm 13mm 15mm; }
+@page { size: A4; margin: 10mm 14mm 10mm 14mm; }
 :root { --ink:#1b2430; --muted:#5b6675; --accent:#b8862b; --line:#d9dee5; --soft:#f4f6f9; }
-body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 9.3pt; line-height: 1.38; margin: 0; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 8.9pt; line-height: 1.33; margin: 0; }
 header { display:flex; align-items:center; justify-content:space-between; border-bottom: 2px solid var(--accent); padding-bottom: 8px; margin-bottom: 10px; }
 header img { height: 34px; }
 header .t { text-align:right; }
@@ -17,7 +17,9 @@ p { margin: 4px 0 6px; }
 em { color: var(--muted); }
 ul, ol { margin: 4px 0 6px; padding-left: 18px; }
 li { margin: 2px 0; }
-table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 8.8pt; break-inside: avoid; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 8.4pt; break-inside: auto; }
+tr { break-inside: avoid; }
+thead { display: table-header-group; }
 th { background: var(--soft); text-align: left; }
 th, td { border: 1px solid var(--line); padding: 3px 6px; vertical-align: top; }
 code { font-family: Consolas, monospace; font-size: 8.5pt; background: var(--soft); padding: 0 2px; border-radius: 2px; }
@@ -60,7 +62,7 @@ one of them.</p>
 </tr>
 <tr>
 <td><strong>Alert</strong></td>
-<td>The same recorder fires alerts on areas and lines drawn on each camera (enter, leave, stay too long, cross), plus <em>person down</em> and <em>hands up</em> from body poses. Alerts go to webhook or email, filtered by rule, object, hours and cooldown.</td>
+<td>The same recorder fires alerts on areas and lines drawn on each camera (enter, leave, stay too long, cross, too many at once), plus <em>person down</em> and <em>hands up</em> from body poses, bags left behind, a camera covered, turned or blurred, plates on a watchlist and sounds such as smoke alarms or breaking glass. Alerts go to webhook or email, filtered by rule, object, hours and cooldown.</td>
 </tr>
 </tbody>
 </table>
@@ -102,7 +104,7 @@ one of them.</p>
 <td>A fixed set of test questions to compare chat models</td>
 </tr>
 <tr>
-<td>Chat with switchable local or cloud models</td>
+<td>Chat with switchable local or cloud models; a local vision model reads the evidence images (<code>look</code>)</td>
 <td>Scene captions from a small vision-language model</td>
 </tr>
 <tr>
@@ -110,7 +112,7 @@ one of them.</p>
 <td>Multi-camera timeline (one visit across cameras)</td>
 </tr>
 <tr>
-<td>Area / line alerts to webhook and email; chat answers about past alerts</td>
+<td>Area / line / crowding alerts, bags left behind, camera tampering, to webhook and email; chat answers about past alerts</td>
 <td>Telegram, WhatsApp, SMS and on-site siren channels</td>
 </tr>
 <tr>
@@ -120,6 +122,14 @@ one of them.</p>
 <tr>
 <td>Face search by photo (opt-in)</td>
 <td>Chat in the browser; API login</td>
+</tr>
+<tr>
+<td>Number plates per vehicle, plate search, watchlist alerts (opt-in; trial plate finder)</td>
+<td>Our own plate finder; read rates on real cameras</td>
+</tr>
+<tr>
+<td>Sound events from camera microphones: smoke alarm, glass, gunshot, scream, siren (opt-in)</td>
+<td>Checked on real camera audio</td>
 </tr>
 </tbody>
 </table>
@@ -133,14 +143,17 @@ for introducers and CCTV installers.</p>
    │                                         │
    │                                         ├─► CLIP index: objects (every 2 s), scenes + 2x2 tiles (every 5 s)
    │                                         ├─► pose index: 17 keypoints → posture, arms, facing, colours (~1/s)
-   │                                         └─► face index: YuNet + SFace, best 5 faces per visit (opt-in)
+   │                                         ├─► face index: YuNet + SFace, best 5 faces per visit (opt-in)
+   │                                         ├─► plate index: plate finder + reader on vehicles (~1/s, opt-in)
+   │                                         └─► abandoned bags, crowding; tamper check on the picture
+   ├─ audio ───────► YAMNet: smoke alarm, glass, gunshot, scream, siren → events (opt-in, audio not kept)
    └─ main stream ─► ffmpeg: 1-minute MP4s (copy, no re-encode) + keyframes for full-resolution crops
                                              │
-                               one SQLite store per site (events, sightings, faces, poses + media)
+                       one SQLite store per site (events, sightings, faces, poses, plates + media)
                                              │
                                              ├─► ask.py     plain-language search, rules only (no LLM)
-                                             ├─► chat.py    LLM + tools, answers with evidence
-                                             └─► server.py  FastAPI: search, people, events, media, recordings
+                                             ├─► chat.py    LLM + tools (+ a local vision model), answers with evidence
+                                             └─► server.py  FastAPI: search, people, plates, events, media, recordings
 </code></pre>
 <p>One recorder process per camera; each heavy step (CLIP, pose, faces) runs on its own thread and
 <strong>skips samples rather than slowing detection</strong>, so a busy scene is sampled more sparsely instead
@@ -148,13 +161,13 @@ of lagging behind.</p>
 <h3>Code layout</h3>
 <p>The code is one Python package, <code>argus</code>, in <code>projects/argus</code>, with one <code>uv</code> environment (Python ≥ 3.11):</p>
 <ul>
-<li><strong>argus.engine</strong> (~25 modules): detector, tracker, zones, alerts, store,
-  indexer, CLIP / face / pose models, query parser, search, FastAPI server, camera discovery,
-  main-stream recording, Gradio test UI.</li>
+<li><strong>argus.engine</strong> (~30 modules): detector, tracker, zones, alerts, store,
+  indexer, CLIP / face / pose / plate / sound models, tamper and abandoned-object rules, query
+  parser, search, FastAPI server, camera discovery, main-stream recording, Gradio test UI.</li>
 <li><strong>argus</strong> (the product layer on top of the engine): <code>record.py</code>, <code>ask.py</code>, <code>chat.py</code> (chat CLI), <code>tools.py</code> (what the LLM may call), <code>llm.py</code>
-  (model backends) and <code>ui.py</code> (test UI: record, find a person by photo, chat, reports, and the engine's test bench).</li>
+  (model backends), <code>vision.py</code> (the local vision model behind <code>look</code>) and <code>ui.py</code> (test UI: record, find a person by photo, chat, reports, and the engine's test bench).</li>
 </ul>
-<p>About 8,000 lines of Python and ~125 unit tests (<code>uv run pytest</code>). Other folders:
+<p>About 9,800 lines of Python and ~270 tests (<code>uv run pytest</code>). Other folders:
 <code>docs/</code> (documentation, partner programme, presentation), <code>Brochures/</code>, <code>Images/argus/</code>
 (brand kit).</p>
 <h3>Models</h3>
@@ -176,9 +189,9 @@ of lagging behind.</p>
 </tr>
 <tr>
 <td>Visual search</td>
-<td>CLIP ViT-B/32 (OpenCLIP, LAION-400M), float32</td>
+<td>CLIP ViT-B/32 (OpenCLIP, LAION-2B), float32</td>
 <td>MIT</td>
-<td>~55 ms per crop, 2 KB per vector</td>
+<td>~30 ms per crop, 2 KB per vector</td>
 </tr>
 <tr>
 <td>Body pose</td>
@@ -198,6 +211,24 @@ of lagging behind.</p>
 <td>Apache-2.0</td>
 <td>CPU</td>
 </tr>
+<tr>
+<td>Plates (opt-in)</td>
+<td>Finder: YOLOv9-t 384 (trials); reader: fast-plate-ocr CCT-S</td>
+<td>MIT (finder weights: legal check)</td>
+<td>~11 + ~10 ms per vehicle</td>
+</tr>
+<tr>
+<td>Sounds (opt-in)</td>
+<td>YAMNet (AudioSet, 521 classes)</td>
+<td>Apache-2.0</td>
+<td>~3 ms per 3 s of audio</td>
+</tr>
+<tr>
+<td><code>look</code> tool</td>
+<td>Qwen3.5 4B via Ollama (vision)</td>
+<td>Apache-2.0</td>
+<td>seconds per image</td>
+</tr>
 </tbody>
 </table>
 <p>All vision models run as ONNX graphs with numpy/OpenCV pre- and post-processing: no PyTorch at
@@ -205,8 +236,8 @@ run time and a straightforward port to C++. PyTorch is only used in one-off expo
 <h3>How a question is answered</h3>
 <p><strong>1. Parse.</strong> <code>query.py</code> turns the sentence into <em>what / when / camera</em> with rules (today,
 yesterday, last friday, after 10pm, last 2 hours, camera names and aliases). No LLM needed.</p>
-<p><strong>2. Look up.</strong> The chat model gets up to five tools over the store (<code>people</code> and <code>face</code> only
-where pose and faces are enabled) and may run up to six rounds of lookups:</p>
+<p><strong>2. Look up.</strong> The chat model gets up to seven tools over the store (<code>people</code>, <code>plates</code>,
+<code>face</code> and <code>look</code> only where they are enabled) and may run up to six rounds of lookups:</p>
 <table>
 <thead>
 <tr>
@@ -241,6 +272,16 @@ where pose and faces are enabled) and may run up to six rounds of lookups:</p>
 <td>visits matching an attached photo (likely / possible)</td>
 <td>scored</td>
 </tr>
+<tr>
+<td><code>plates</code></td>
+<td>vehicles by number plate (look-alike characters forgiven)</td>
+<td>exact / close</td>
+</tr>
+<tr>
+<td><code>look</code></td>
+<td>a local vision model reads images earlier results listed (counts, actions, text)</td>
+<td>described</td>
+</tr>
 </tbody>
 </table>
 <p><strong>3. Group and cite.</strong> Sightings of the same track are merged into one <em>visit</em>; the answer lists
@@ -274,8 +315,10 @@ face quality, normal hours) that goes into the model's instructions.</p>
 <li>Poses need people ≥ 80 px tall; colours are lost under infrared; sitting and crouching can be
   confused. Person-down is unit-tested but <strong>not yet validated on real falls</strong>.</li>
 <li>Face thresholds were set on clear photos, not CCTV: calibrate per pilot site.</li>
-<li>Alert rules only cover the 80 detector classes plus the two pose events. New objects (fire,
-  smoke, customer-specific items) need a trained model; rules and channels then apply unchanged.</li>
+<li>Object rules only cover the 80 detector classes (plus pose, plate, sound and tamper events). New
+  objects (fire, smoke, customer-specific items) need a trained model; rules and channels then apply unchanged.</li>
+<li>Plates and sounds are checked on synthetic input only, not yet on real cameras; the plate finder
+  is for trials until a legal check of its weights.</li>
 <li>The API has <strong>no authentication yet</strong>: keep it on <code>127.0.0.1</code> or behind a proxy with login.</li>
 <li>Small local models follow tool instructions less reliably than large ones.</li>
 </ul></body></html>

@@ -189,6 +189,21 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
         return {"when": parsed.when or "any time", "total": len(visits),
                 "results": with_urls([v.to_dict() for v in shown], "thumb")}
 
+    @app.get("/plates")
+    def plates(plate: str | None = None, when: str | None = None,
+               camera: list[str] | None = Query(None), max_distance: int = Query(1, ge=0, le=3),
+               limit: int = Query(50, le=500)) -> dict[str, Any]:
+        """Number plates read on vehicles: e.g. plate=AB123CD&when=yesterday (look-alike
+        characters and one wrong character forgiven), or just when=today for every plate."""
+        parsed = engine.parse(when or "")
+        since, until = parsed.range()
+        cams = [engine.camera_aliases.get(c.lower(), c) for c in camera] if camera else \
+            parsed.cameras or None
+        visits = engine.plates(plate, since, until, cams, max_distance)
+        shown = visits[:limit] if plate else visits[-limit:][::-1]  # best match / newest first
+        return {"when": parsed.when or "any time", "plate": plate, "total": len(visits),
+                "results": with_urls([v.to_dict() for v in shown], "thumb")}
+
     @app.post("/maintenance/purge")
     def purge() -> dict[str, Any]:
         return {"deleted": store.purge()}

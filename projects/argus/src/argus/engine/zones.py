@@ -1,7 +1,9 @@
 """Zone (polygon) and line (tripwire) rules evaluated on tracked objects.
 
-Zone events:  enter, exit, dwell (inside longer than `dwell_seconds`, e.g. a parked car)
-Line events:  cross (with direction "in" / "out"; "in" = the side the drawn arrow points to)
+Zone events:  enter, exit, dwell (inside longer than `dwell_seconds`, e.g. a parked car),
+              crowd (at least `max_count` objects inside for `count_seconds`: a queue, a crowd)
+Line events:  cross (with direction "in" / "out"; "in" = the side the drawn arrow points to;
+              a one-way line, direction: in, is a wrong-way alarm)
 
 Points may be pixels or normalized 0..1 (resolution independent); normalized points are
 scaled to the frame size on the first frame. Each object is represented by one anchor
@@ -28,12 +30,16 @@ ANCHORS = {
 @dataclass(frozen=True)
 class ZoneEvent:
     timestamp: float  # seconds (video time for files, wall-clock offset for live sources)
-    type: str  # enter | exit | dwell | cross; from poses: down | hands_up
-    rule: str  # zone / line name
-    track_id: int
+    type: str  # enter | exit | dwell | cross; from poses: down | hands_up; plates: plate;
+    # sounds: sound
+    rule: str  # zone / line name (pose rule, watchlist entry, sound group)
+    track_id: int | None  # None for sounds: no tracked object
     label: str
     direction: str | None = None  # lines only: in | out
     dwell_seconds: float | None = None  # dwell/exit only
+    plate: str | None = None  # plate events: the text read
+    score: float | None = None  # sound events: the model's score
+    count: int | None = None  # crowd events: how many were inside
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v is not None}
@@ -81,8 +87,11 @@ class Zone(Rule):
     def __init__(
         self, name: str, points: list[list[float]] | None = None, classes: list[str] | None = None,
         dwell_seconds: float | None = None, confirm_frames: int = 2,
-        anchor: str = "bottom_center",
+        anchor: str = "bottom_center", max_count: int | None = None,
+        count_seconds: float = 10.0,
     ) -> None:
+        """max_count: a `crowd` event when at least this many (of `classes`) are inside for
+        `count_seconds`; it can fire again once the count has dropped below it."""
         points = points or FULL_FRAME  # no points = the whole picture ("seen anywhere")
         super().__init__(name, points, classes, anchor)
         if len(points) < 3:
@@ -92,6 +101,13 @@ class Zone(Rule):
         self.inside: dict[int, float] = {}  # track id -> time it entered
         self.dwell_fired: set[int] = set()
         self._pending: dict[int, int] = {}  # track id -> consecutive frames in the other state
+        if max_count is not None and int(max_count) < 1:
+            raise ValueError(f"Zone {name!r}: max_count must be 1 or more")
+        self.max_count = int(max_count) if max_count is not None else None
+        self.count_seconds = count_seconds
+        self.labels: dict[int, str] = {}  # track id -> label, for the ones inside
+        self._crowd_since: float | None = None
+        self._crowd_fired = False
 
     def contains(self, point: tuple[float, float]) -> bool:
         contour = self.points.astype(np.float32).reshape(-1, 1, 2)
@@ -115,6 +131,7 @@ class Zone(Rule):
                     self._pending.pop(track.id)
                     if is_in:
                         self.inside[track.id] = t
+                        self.labels[track.id] = str(track.label)
                         events.append(ZoneEvent(t, "enter", self.name, track.id, track.label))
                     else:
                         events.append(self._exit(track, t))
@@ -135,10 +152,28 @@ class Zone(Rule):
             self._pending.pop(track.id, None)
             if track.id in self.inside:
                 events.append(self._exit(track, t))
+        if self.max_count is not None:
+            events += self._crowd(t)
         return events
+
+    def _crowd(self, t: float) -> list[ZoneEvent]:
+        count = len(self.inside)
+        if count < self.max_count:  # type: ignore[operator]
+            self._crowd_since, self._crowd_fired = None, False
+            return []
+        if self._crowd_since is None:
+            self._crowd_since = t
+        if self._crowd_fired or t - self._crowd_since < self.count_seconds:
+            return []
+        self._crowd_fired = True
+        labels = [self.labels.get(i, "") for i in self.inside]
+        label = max(set(labels), key=labels.count) if labels else ""
+        return [ZoneEvent(t, "crowd", self.name, None, label, count=count,
+                          dwell_seconds=round(t - self._crowd_since, 2))]
 
     def _exit(self, track: Track, t: float) -> ZoneEvent:
         entered = self.inside.pop(track.id)
+        self.labels.pop(track.id, None)
         self.dwell_fired.discard(track.id)
         return ZoneEvent(
             t, "exit", self.name, track.id, track.label, dwell_seconds=round(t - entered, 2)

@@ -67,7 +67,25 @@ def create_backend(config: dict[str, Any], system: str, tools: list[Tool]) -> Ba
 
 # ------------------------------------------------------------------ OpenAI-compatible (local)
 
-_THINK = re.compile(r"<think>.*?</think>\s*", re.DOTALL)
+THINK = re.compile(r"<think>.*?</think>\s*", re.DOTALL)  # reasoning some local models print
+
+
+def post_json(url: str, body: dict[str, Any], api_key: str | None, timeout: float,
+              model: str) -> dict[str, Any]:
+    """POST to an OpenAI-compatible endpoint; errors become RuntimeErrors a user can act on."""
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    request = urllib.request.Request(url, json.dumps(body).encode(), headers)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read())
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"{url} returned {e.code}: {e.read().decode(errors='replace')}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"Can't reach the model server at {url} ({e.reason}). "
+                           "Is it running? For Ollama: `ollama serve`, then "
+                           f"`ollama pull {model}`") from None
 
 
 class OpenAICompatible:
@@ -104,26 +122,14 @@ class OpenAICompatible:
                                   c["function"]["name"], args))
         self.messages.append({k: v for k, v in message.items()
                               if k in {"role", "content", "tool_calls"}})
-        return Step(_THINK.sub("", message.get("content") or "").strip(), calls)
+        return Step(THINK.sub("", message.get("content") or "").strip(), calls)
 
     def add_results(self, results: list[ToolResult]) -> None:
         for r in results:
             self.messages.append({"role": "tool", "tool_call_id": r.call.id, "content": r.output})
 
     def _post(self, body: dict[str, Any]) -> dict[str, Any]:
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        request = urllib.request.Request(self.url, json.dumps(body).encode(), headers)
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                return json.loads(response.read())
-        except urllib.error.HTTPError as e:
-            raise RuntimeError(f"{self.url} returned {e.code}: {e.read().decode(errors='replace')}")
-        except urllib.error.URLError as e:
-            raise RuntimeError(f"Can't reach the model server at {self.url} ({e.reason}). "
-                               "Is it running? For Ollama: `ollama serve`, then "
-                               f"`ollama pull {self.model}`") from None
+        return post_json(self.url, body, self.api_key, self.timeout, self.model)
 
 
 # ------------------------------------------------------------------ Claude

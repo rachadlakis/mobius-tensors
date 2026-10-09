@@ -52,8 +52,10 @@ def main() -> None:
     if main_url is None and is_stream_url(source):
         main_url = str(source)  # a bare URL: record what we have
     start = datetime.fromisoformat(args.start_time).timestamp() if args.start_time else None
+    # Sounds: the main stream usually carries the camera's audio; a video file its own track.
+    audio = main_url or (str(source) if not str(source).isdigit() else None)
     pipeline = Pipeline.from_config(config, source=camera_name, start_time=start,
-                                    live=is_live(source), main_url=main_url)
+                                    live=is_live(source), main_url=main_url, audio_source=audio)
     print(f"Source: {mask_url(source)}")
 
     writer = None

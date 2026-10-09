@@ -132,8 +132,7 @@ class Reporter:
         self.specs = {s.name: s for s in load_specs(config)}
         self.engine = engine or build_engine(config)
         # Its own toolbox: the camera limit must not leak into a chat sharing the engine.
-        self.toolbox = Toolbox(self.engine, cameras=config.get("cameras"),
-                               faces_config=config.get("faces"), pose_config=config.get("pose"))
+        self.toolbox = Toolbox.from_config(self.engine, config)
         store_cfg = config.get("store") or {}
         self.dir = Path(store_cfg.get("path", "data/store/argus.db")).parent / "reports"
         try:  # fail at start, not at 07:00 tomorrow
