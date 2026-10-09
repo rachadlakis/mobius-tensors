@@ -1,4 +1,5 @@
-"""Event store: SQLite for events, search index rows and face prints, plus JPEG media on disk.
+"""Event store: SQLite for events, search index rows, face prints and body poses, plus JPEG media
+on disk.
 
 One SQLite file per site. Detection processes write, the API server reads (WAL mode lets both
 run at once). Vector search is brute-force numpy over the rows in the requested time range:
@@ -61,7 +62,33 @@ CREATE TABLE IF NOT EXISTS faces (
     embedding BLOB NOT NULL
 );
 CREATE INDEX IF NOT EXISTS faces_time ON faces(time);
+
+-- Body poses (src/pose_index.py): one row when a person's pose facts change, and at least every
+-- heartbeat while they stay the same. The facts are plain columns, so they are searched with SQL.
+CREATE TABLE IF NOT EXISTS poses (
+    id INTEGER PRIMARY KEY,
+    camera TEXT NOT NULL,
+    time REAL NOT NULL,
+    track_id INTEGER,
+    posture TEXT,                  -- standing | sitting | crouching | bending | lying | unknown
+    arms TEXT,                     -- down | one_up | both_up | unknown
+    facing TEXT,                   -- camera | side | away | unknown
+    head TEXT,                     -- up | down | unknown
+    motion TEXT,                   -- still | walking | running | unknown
+    carrying TEXT,                 -- e.g. "backpack,suitcase" (pose.CARRIED); NULL when nothing
+    upper_colour TEXT,             -- torso colour (pose.COLOURS); NULL when unclear
+    lower_colour TEXT,             -- legs colour
+    score REAL,                    -- mean confidence of the visible keypoints
+    box TEXT,                      -- json [x1, y1, x2, y2] in frame pixels
+    keypoints BLOB                 -- 17 x (x, y, conf) float16, relative to box; empty if off
+);
+CREATE INDEX IF NOT EXISTS poses_time ON poses(time);
 """
+
+POSE_COLUMNS = ("posture", "arms", "facing", "head", "motion", "carrying", "upper_colour",
+                "lower_colour")
+# Columns added after the first release: stores made before get them on open (NULL in old rows).
+ADDED_COLUMNS = {"poses": ("head", "motion", "carrying")}
 
 
 @dataclass
@@ -105,6 +132,12 @@ class EventStore:
         self._db.row_factory = sqlite3.Row
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.executescript(SCHEMA)
+        for table, columns in ADDED_COLUMNS.items():
+            have = {r[1] for r in self._db.execute(f"PRAGMA table_info({table})")}
+            for column in columns:
+                if column not in have:
+                    self._db.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
+        self._db.commit()
 
     @classmethod
     def from_config(cls, config: dict[str, Any] | None) -> EventStore | None:
@@ -186,6 +219,21 @@ class EventStore:
             self._db.commit()
         return ids
 
+    def add_poses(self, rows: list[dict[str, Any]]) -> None:
+        """rows: camera, time, track_id, the POSE_COLUMNS facts, score, box, keypoints
+        (bytes)."""
+        if not rows:
+            return
+        with self._lock:
+            self._db.executemany(
+                f"INSERT INTO poses (camera, time, track_id, {', '.join(POSE_COLUMNS)}, score,"
+                f" box, keypoints) VALUES ({', '.join('?' * (len(POSE_COLUMNS) + 6))})",
+                [(r["camera"], r["time"], r.get("track_id"), *(r.get(c) for c in POSE_COLUMNS),
+                  r.get("score"),
+                  json.dumps([round(float(v), 1) for v in r["box"]]) if r.get("box") is not None
+                  else None, r.get("keypoints") or b"") for r in rows])
+            self._db.commit()
+
     def delete_faces(self, ids: list[int]) -> None:
         """Delete face prints and their thumbnails (e.g. a track's worse faces)."""
         if not ids:
@@ -262,6 +310,34 @@ class EventStore:
                 break
         return out
 
+    def pose_rows(self, since: float | None = None, until: float | None = None,
+                  cameras: list[str] | None = None) -> list[dict[str, Any]]:
+        """Pose rows in a time range, oldest first (without the keypoints)."""
+        sql, args = _filters("SELECT id, camera, time, track_id, " + ", ".join(POSE_COLUMNS)
+                             + ", score, box FROM poses WHERE 1=1", [], cameras, since, until)
+        with self._lock:
+            rows = self._db.execute(sql + " ORDER BY time", args).fetchall()
+        return [dict(r) for r in rows]
+
+    def pose_keypoints(self, row_id: int) -> tuple[bytes, list[float]] | None:
+        """One row's stored keypoints and box (for pose.unpack_keypoints)."""
+        with self._lock:
+            row = self._db.execute("SELECT keypoints, box FROM poses WHERE id = ?",
+                                   (row_id,)).fetchone()
+        if row is None or not row[0] or not row[1]:
+            return None
+        return row[0], json.loads(row[1])
+
+    def object_thumb(self, camera: str, track_id: int, first: float, last: float,
+                     window: float = 60.0) -> str | None:
+        """A thumbnail of a tracked object from the search index (the latest in the visit)."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT thumb FROM sightings WHERE camera = ? AND track_id = ? AND kind = 'object'"
+                " AND time >= ? AND time <= ? AND thumb IS NOT NULL ORDER BY time DESC LIMIT 1",
+                (camera, track_id, first - window, last + window)).fetchone()
+        return row[0] if row else None
+
     def face_counts(self, since: float | None = None, until: float | None = None,
                     cameras: list[str] | None = None) -> dict[str, int]:
         """Face prints stored per camera in a time range: what a face search actually checked."""
@@ -295,17 +371,18 @@ class EventStore:
     def counts(self) -> dict[str, int]:
         with self._lock:
             return {t: self._db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-                    for t in ("events", "sightings", "faces")}
+                    for t in ("events", "sightings", "faces", "poses")}
 
     # ---------------------------------------------------------------- retention
 
     def purge(self, now: float | None = None) -> dict[str, int]:
         """Delete rows (and their JPEGs) older than the retention windows."""
         now = time.time() if now is None else now
-        plan = {
+        plan: dict[str, tuple[float | None, str | None]] = {
             "events": (self.retention_days, "snapshot"),
             "sightings": (self.retention_days, "thumb"),
             "faces": (self.face_retention_days, "thumb"),
+            "poses": (self.retention_days, None),
         }
         deleted = {}
         with self._lock:
@@ -315,7 +392,7 @@ class EventStore:
                 cutoff = now - days * 86400
                 files = [r[0] for r in self._db.execute(
                     f"SELECT DISTINCT {media_col} FROM {table} WHERE time < ? AND {media_col}"
-                    " IS NOT NULL", (cutoff,))]
+                    " IS NOT NULL", (cutoff,))] if media_col else []
                 cur = self._db.execute(f"DELETE FROM {table} WHERE time < ?", (cutoff,))
                 deleted[table] = cur.rowcount
                 for rel in files:  # scene thumbs are shared by tiles: delete once, ignore misses

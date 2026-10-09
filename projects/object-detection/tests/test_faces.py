@@ -229,6 +229,31 @@ def test_real_models_quality_and_photo_check():
     assert soft_q.sharpness < sharp_q.sharpness / 3 and "blurred" in engine.problems(soft_q)
 
 
+@pytest.mark.skipif(not (ROOT / "models/face_recognition_sface_2021dec.onnx").exists(),
+                    reason="face models not downloaded")
+def test_real_models_find_big_and_small_faces_in_big_photos():
+    engine = FaceEngine(ROOT / "models/face_detection_yunet_2023mar.onnx",
+                        ROOT / "models/face_recognition_sface_2021dec.onnx", min_face_size=20)
+    image = cv2.imread(str(ROOT / "data/messi5.jpg"))
+    x, y, w, h = (int(v) for v in engine.detect(image)[0].box)
+
+    # a selfie: the face fills a 2400 px photo. YuNet misses it at full size.
+    crop = image[max(0, y - h // 2):y + h + h // 2, max(0, x - w // 2):x + w + w // 2]
+    selfie = cv2.resize(crop, None, fx=2400 / crop.shape[0], fy=2400 / crop.shape[0],
+                        interpolation=cv2.INTER_CUBIC)
+    assert not engine._detect_at(selfie, 1.0)
+    (face,) = engine.detect(selfie)
+    fx, fy, fw, fh = face.box  # in the selfie's own pixels
+    assert fw > 600 and 0 <= fx < selfie.shape[1] / 2 < fx + fw and fy < selfie.shape[0] / 2 < fy + fh
+
+    # a ~30 px face in a 3200 px photo: too small at 640 px, found by the full-size retry
+    group = np.full((2400, 3200, 3), 128, np.uint8)
+    group[:image.shape[0], :image.shape[1]] = image
+    assert not engine.detect(group)
+    faces = engine.detect(group, retry=True)
+    assert faces and abs(faces[0].box[0] - x) < 5
+
+
 def test_indexer_without_clip_still_records_objects_and_faces(store):
     idx = SearchIndexer(store, "laptop", None, FakeFaceModel([0.5, 0.6]), face_interval_seconds=1,
                         object_interval_seconds=1, blocking=True)

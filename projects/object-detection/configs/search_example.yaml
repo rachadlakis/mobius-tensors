@@ -94,3 +94,13 @@ faces:
   max_per_track: 5             # keep a person's 5 clearest faces per visit, not one per second
   min_sharpness: 15            # skip blurred faces (sharp ~30-300, motion blur < 10)
   max_turn: 0.6                # skip faces turned away (0 = facing the camera, 0.5 ~ 60 deg)
+
+# Body poses for tracked people (src/pose.py): searchable with GET /people, `down` / `hands_up`
+# alerts. Export the model once: uv run --group export src/export_pose.py
+pose:
+  enabled: true
+  model: models/pose_vitpose_b.onnx   # trials: models/pose_rtmpose_t.onnx (10x faster)
+  interval_seconds: 1
+  min_box_height: 60                  # vtest.avi people are small
+  alerts: [down]
+  down_seconds: 10

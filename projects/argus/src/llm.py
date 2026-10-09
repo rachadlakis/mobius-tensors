@@ -57,6 +57,7 @@ def create_backend(config: dict[str, Any], system: str, tools: list[Tool]) -> Ba
     """config: one entry of `chat.models` (see configs/default.yaml)."""
     options = dict(config)
     api = options.pop("api", "openai")
+    options.pop("note", None)  # shown in the UI only
     if api == "openai":
         return OpenAICompatible(system, tools, **options)
     if api == "anthropic":

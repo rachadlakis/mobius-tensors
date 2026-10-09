@@ -28,7 +28,7 @@ Company-wide, in [docs/mobius-tensors](docs/mobius-tensors/):
 
 Per project, in `docs/<project>/`:
 
-- [argus](docs/argus/): product description, presentation (.pptx) and overview (.pdf)
+- [argus](docs/argus/): documentation (product, technical, model research; .md + .pdf), partner programme and presentation (.pptx)
 
 ## Layout
 

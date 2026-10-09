@@ -98,7 +98,7 @@ def nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[int
 
 
 class YoloxOnnxDetector:
-    """YOLOX exported to ONNX (Apache-2.0), run with ONNX Runtime. Works on CPU-only devices."""
+    """YOLOX exported to ONNX (Apache-2.0), run with ONNX Runtime. CPU or GPU (`device`)."""
 
     def __init__(
         self,
@@ -110,9 +110,9 @@ class YoloxOnnxDetector:
         class_agnostic_nms: bool = False,
         classes: list[str] | None = None,
         num_threads: int = 0,
-        providers: list[str] | None = None,
+        device: str = "auto",
     ) -> None:
-        import onnxruntime as ort
+        from onnx_device import create_session
 
         model_path = Path(model_path)
         if not model_path.exists():
@@ -120,14 +120,7 @@ class YoloxOnnxDetector:
                 f"Model not found: {model_path}. Run `uv run src/download_model.py` first."
             )
 
-        options = ort.SessionOptions()
-        if num_threads > 0:
-            options.intra_op_num_threads = num_threads
-        self.session = ort.InferenceSession(
-            str(model_path),
-            sess_options=options,
-            providers=providers or ["CPUExecutionProvider"],
-        )
+        self.session = create_session(model_path, device, num_threads)
         model_input = self.session.get_inputs()[0]
         self.input_name = model_input.name
         # Exported YOLOX models have a fixed input size: trust the model over the config.
@@ -211,6 +204,7 @@ def create_detector(config: dict[str, Any]) -> Detector:
             class_agnostic_nms=config.get("class_agnostic_nms", False),
             classes=config.get("classes"),
             num_threads=config.get("num_threads", 0),
+            device=config.get("device", "auto"),
         )
     raise ValueError(f"Unknown detector backend: {backend}")
 

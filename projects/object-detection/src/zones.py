@@ -28,7 +28,7 @@ ANCHORS = {
 @dataclass(frozen=True)
 class ZoneEvent:
     timestamp: float  # seconds (video time for files, wall-clock offset for live sources)
-    type: str  # enter | exit | dwell | cross
+    type: str  # enter | exit | dwell | cross; from poses: down | hands_up
     rule: str  # zone / line name
     track_id: int
     label: str

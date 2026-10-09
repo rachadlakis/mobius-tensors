@@ -6,10 +6,15 @@ snapshots and the search index are saved to SQLite for the API (src/server.py).
 With a `recording` section and a live camera, the camera's main stream is also opened
 (src/mainstream.py): saved to disk, and each keyframe (about 1/s) is run through the detector
 once and matched to the tracks, so the search index can crop from full resolution.
+
+With a `pose` section (src/pose_index.py), tracked people also get body keypoints about once a
+second; the facts derived from them (posture, arms, facing, clothing colours) go to the store,
+and `down` / `hands_up` events go through the alert channels like area and line events.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -23,9 +28,11 @@ from zones import ZoneEvent, ZoneMonitor
 
 if TYPE_CHECKING:
     from indexer import HiResFrame, SearchIndexer
+    from pose_index import PoseIndexer
     from mainstream import MainStream
     from store import EventStore
 
+log = logging.getLogger(__name__)
 KEYFRAME_MIN_IOU = 0.3  # keyframe detection <-> track; the two streams are not frame-synced
 
 
@@ -48,11 +55,12 @@ class Pipeline:
         indexer: SearchIndexer | None = None,
         start_time: float | None = None,
         mainstream: MainStream | None = None,
+        pose: PoseIndexer | None = None,
     ) -> None:
         """start_time: unix time of timestamp 0 (live: now; a recorded file: when it was filmed).
         mainstream: the camera's main stream (recording + keyframes for hi-res crops)."""
-        if (monitor and monitor.rules or indexer) and tracker is None:
-            tracker = Tracker()  # zones and the search index need object IDs
+        if (monitor and monitor.rules or indexer or pose) and tracker is None:
+            tracker = Tracker()  # zones, the search index and poses need object IDs
         self.detector = detector
         self.tracker = tracker
         self.monitor = monitor
@@ -60,6 +68,7 @@ class Pipeline:
         self.store = store
         self.indexer = indexer
         self.mainstream = mainstream
+        self.pose = pose
         self.start_time = time.time() if start_time is None else start_time
 
     def wall_time(self, timestamp: float) -> float:
@@ -82,22 +91,35 @@ class Pipeline:
 
             indexer = SearchIndexer.from_config(search, config.get("faces"), store,
                                                 camera=str(source or "camera"), blocking=not live)
+        pose = None
+        if store is not None:
+            from pose import pose_enabled
+
+            camera = str(source or "camera")
+            if pose_enabled(config.get("pose"), camera):
+                from pose_index import PoseIndexer
+
+                try:
+                    pose = PoseIndexer.from_config(config["pose"], store, camera,
+                                                   blocking=not live)
+                except FileNotFoundError as e:  # record the rest anyway
+                    log.warning("No pose for camera %s: %s", camera, e)
         tracking = config.get("tracking") or {}
         tracker = Tracker(**{k: v for k, v in tracking.items() if k != "enabled"}) if (
-            tracking.get("enabled") or config.get("zones") or indexer
+            tracking.get("enabled") or config.get("zones") or indexer or pose
         ) else None
         monitor = ZoneMonitor.from_config(config.get("zones")) if config.get("zones") else None
-        alerts = AlertManager.from_config(config.get("alerts"), source=source,
-                                          store=store) if monitor else None
+        alerts = AlertManager.from_config(config.get("alerts"), source=source, store=store) if (
+            monitor or (pose and pose.alert_types)) else None
         mainstream = None
         if live and main_url and config.get("recording"):
             from mainstream import MainStream
 
             mainstream = MainStream.from_config(config["recording"], main_url,
                                                 camera=str(source or "camera"),
-                                                keyframes=indexer is not None)
+                                                keyframes=indexer is not None or pose is not None)
         return cls(create_detector(config["model"]), tracker, monitor, alerts, store, indexer,
-                   start_time, mainstream)
+                   start_time, mainstream, pose)
 
     def close(self) -> None:
         """Flush the search index and pending alerts (call when the source ends)."""
@@ -105,6 +127,9 @@ class Pipeline:
             self.mainstream.close()
         if self.indexer is not None:
             self.indexer.close()
+        if self.pose is not None:
+            self.pose.close()
+            self._pose_events(None, [])  # events from the last samples
         if self.alerts is not None:
             self.alerts.close()
 
@@ -119,9 +144,27 @@ class Pipeline:
             events = self.monitor.update(result.tracks, removed, timestamp, (w, h))
             result.events = (self.alerts.handle(events, frame, result.tracks, wall)
                              if self.alerts else events)
+        hires = self._match_keyframe(frame, result) if self.indexer or self.pose else None
         if self.indexer is not None:
-            self.indexer.update(frame, result.tracks, wall, self._match_keyframe(frame, result))
+            self.indexer.update(frame, result.tracks, wall, hires)
+        if self.pose is not None:
+            self.pose.update(frame, result.tracks, wall, hires)
+            result.events += self._pose_events(frame, result.tracks)
         return result
+
+    def _pose_events(self, frame: np.ndarray | None, tracks: list[Track]) -> list[ZoneEvent]:
+        """Pose events (person down, hands up) through the alert channels and the event log."""
+        from pose_index import EVENT_RULES
+
+        assert self.pose is not None
+        events = [ZoneEvent(wall - self.start_time, kind, EVENT_RULES[kind], track_id, "person",
+                            dwell_seconds=round(held, 1))
+                  for wall, track_id, kind, held in self.pose.take_events()]
+        if self.alerts is None:
+            return events
+        # snapshots use the current frame: a pose event is a second or two behind it
+        return [e for event in events for e in self.alerts.handle(
+            [event], frame, tracks, self.start_time + event.timestamp)]
 
     def _match_keyframe(self, frame: np.ndarray, result: FrameResult) -> HiResFrame | None:
         """Detect on a new main-stream keyframe (if one arrived) and pair its boxes with the
@@ -156,6 +199,14 @@ class Pipeline:
         if self.tracker is None:
             return draw_detections(frame, result.detections)
         visible = [t for t in result.tracks if not t.missed]
+        if self.pose is not None:
+            from pose import draw_skeleton, unpack_keypoints
+
+            skeletons = self.pose.overlay(self.wall_time(result.timestamp))
+            for t in visible:
+                if t.id in skeletons:
+                    draw_skeleton(frame, unpack_keypoints(skeletons[t.id], t.box),
+                                  self.pose.min_confidence)
         if self.monitor:
             return self.monitor.draw(frame, visible, result.timestamp)
         return ZoneMonitor([]).draw(frame, visible, result.timestamp)

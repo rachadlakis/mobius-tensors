@@ -14,6 +14,7 @@ model:
   nms_threshold: 0.45
   class_agnostic_nms: true
   classes: null              # null = every class the model knows
+  device: auto               # GPU if there is one, else CPU (also `device:` under search.clip, pose)
 
 tracking:
   track_threshold: 0.45
@@ -121,6 +122,34 @@ alerts:
   #    labels: [person]
   #    hours: "22:00-06:00"     # only people, only at night
 
+# Periodic reports (src/report.py, keep it running next to the recorders): at the end of each
+# period, exact counts from the store plus a summary written by the chat model, focused on what
+# the owner asked to watch. Saved under data/store/reports/<name>/ (UI Reports tab, --show) and
+# sent to the report's channels. Set up at install time, with the owner.
+reports: []
+#  - name: morning
+#    every: daily               # hourly | daily | weekly
+#    at: "07:00"                # daily / weekly: the period ends (and the report goes out) then
+#    # day: monday              # weekly only
+#    cameras: [gate, yard]      # names or aliases; empty = every camera
+#    interests:                 # in the owner's words; empty = what happened + anything unusual
+#      - vehicles at the gate after hours
+#      - anyone in the yard at night
+#      - parcels left by the door
+#    # model: local             # chat.models entry (default: chat.model)
+#    # words: 200               # length of the written summary
+#    channels:                  # same settings as alerts.channels; none = saved only
+#      - type: email
+#        host: smtp.example.com
+#        sender: argus@example.com
+#        to: [owner@example.com]
+#        username: ${SMTP_USER}
+#        password: ${SMTP_PASSWORD}
+#  - name: weekly_overview
+#    every: weekly
+#    day: monday
+#    at: "08:00"
+
 # Chat (src/chat.py): which LLM answers questions. Switch with --model <name> or /model <name>.
 chat:
   model: local
@@ -130,14 +159,47 @@ chat:
       base_url: http://127.0.0.1:11434/v1   # Ollama; llama.cpp server: http://127.0.0.1:8080/v1
       model: qwen3:4b          # Apache-2.0, good tool calling on CPU; `ollama pull qwen3:4b`
       temperature: 0.2
+      note: Qwen3 4B · Apache-2.0 · 2.5 GB · CPU
+    # Newer open models to compare on the same questions (licences checked 2026-10-08,
+    # see docs/argus "Argus — Documentation", Part 3). `note` is only shown in the UI.
+    qwen3.5-4b:                # successor of qwen3:4b, also reads images (for a future `look` tool)
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3.5:4b
+      temperature: 0.2
+      note: Qwen3.5 4B · Apache-2.0 · 3.4 GB · CPU · tools + vision
+    granite-3b:                # smallest: for weak servers
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: granite4.1:3b
+      temperature: 0.2
+      note: IBM Granite 4.1 3B · Apache-2.0 · 2.1 GB · CPU · tuned for tool use
+    gemma4-e4b:
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: gemma4:e4b
+      temperature: 0.2
+      note: Gemma 4 E4B · Apache-2.0 · 6.6 GB · CPU · tools + vision
     local-large:               # better answers, needs ~20 GB RAM or a GPU
       api: openai
       base_url: http://127.0.0.1:11434/v1
       model: qwen3:30b-a3b
+      note: Qwen3 30B-A3B · Apache-2.0 · 19 GB · 32 GB RAM or GPU
+    qwen3.6-large:             # newer large option, 3B active: still usable on a strong CPU
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3.6:35b
+      note: Qwen3.6 35B-A3B · Apache-2.0 · 24 GB · 32 GB RAM or GPU · tools + vision
+    nemotron-large:            # Mamba-MoE, 3B active, long context; licence: read OpenMDW 1.1 first
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: nemotron-3.5-lightning
+      note: NVIDIA Nemotron 3.5 Lightning 30B-A3B · OpenMDW 1.1 · 25 GB · 32 GB RAM or GPU
     claude:                    # cloud: only search results (text) are sent, never video
       api: anthropic           # uv sync --group claude; key from ANTHROPIC_API_KEY in .env
       model: claude-opus-5-5
       effort: low              # low | medium | high: chat questions rarely need more
+      note: Claude Opus 5.5 · Anthropic API (cloud)
 
 # Face prints are biometric data: off unless a client has approved it (see object-detection README).
 # When on, the chat can look for a person from a photo: /photo visitor.jpg, then ask.
@@ -151,3 +213,20 @@ faces:
   max_per_track: 5             # keep a person's 5 clearest faces per visit, not one per second
   min_sharpness: 15            # skip blurred faces (sharp ~30-300, motion blur < 10)
   max_turn: 0.6                # skip faces turned away (0 = facing the camera, 0.5 ~ 60 deg)
+
+# Body poses (17 keypoints per tracked person, about once a second): posture, hands up, facing,
+# head down, still / walking / running, bags carried, top / bottom colour, searchable with the chat's `people` tool and GET /people. Not biometric
+# like faces, but a walk can still be recognised: same retention as the search index.
+# Model: `uv run --group export src/export_pose.py` in ../object-detection (ViTPose-B, COCO only,
+# Apache-2.0). Missing model: everything else is still recorded, with a warning.
+pose:
+  enabled: true
+  cameras: []                  # empty = every camera
+  model: ../object-detection/models/pose_vitpose_b.onnx   # trials: pose_rtmpose_t.onnx (10x faster)
+  interval_seconds: 1          # per tracked person; 3x less often while they stand still
+  min_box_height: 80           # pixels: smaller people give unreliable keypoints
+  heartbeat_seconds: 10        # a row on every change, and at least this often
+  store_keypoints: true        # 102 bytes a row: new facts can be derived later without the model
+  alerts: [down]               # down (lying for down_seconds) | hands_up (both hands up)
+  down_seconds: 10
+  hands_up_seconds: 3

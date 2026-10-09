@@ -13,6 +13,9 @@ Endpoints
     GET  /recordings/{path}               main-stream MP4s (see `video_url` in results)
     GET  /search?q=red shirt last friday  text search
     POST /search/face (photo, when=friday, camera=shop)   "did this person come in on Friday?"
+    GET  /people?posture=lying&when=last night            people by pose and clothing colour
+         (posture, arms=up|both_up, facing=camera, head=down, motion=running,
+          carrying=suitcase, upper=red, lower=blue; needs `pose`)
     POST /maintenance/purge               apply retention now (also runs every hour)
 
 No authentication yet: bind to 127.0.0.1 (default) or put it behind a reverse proxy with auth
@@ -58,7 +61,8 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
 
         clip_cfg = search_cfg.get("clip") or {}
         clip = ClipEncoder(image=None, text=clip_cfg.get("text", "models/clip_text.onnx"),
-                           vocab=clip_cfg.get("vocab", "models/clip_bpe_vocab.txt.gz"))
+                           vocab=clip_cfg.get("vocab", "models/clip_bpe_vocab.txt.gz"),
+                           device=clip_cfg.get("device", "auto"))
     if faces is None and faces_cfg.get("enabled"):
         from faces import FaceEngine
 
@@ -156,6 +160,34 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
                              threshold=SAME_PERSON_THRESHOLD if threshold is None else threshold)
         with_urls(result["results"], "thumb")
         return result
+
+    @app.get("/people")
+    def people(when: str | None = None, camera: list[str] | None = Query(None),
+               posture: list[str] | None = Query(None), arms: str | None = None,
+               facing: str | None = None, upper: str | None = None, lower: str | None = None,
+               head: str | None = None, motion: list[str] | None = Query(None),
+               carrying: list[str] | None = Query(None),
+               limit: int = Query(50, le=500)) -> dict[str, Any]:
+        """People recorded with body poses: e.g. posture=lying&when=last night, or
+        upper=red&lower=blue. Facts are exact per visit (see src/pose.py)."""
+        from pose import ARMS, CARRIED, COLOURS, FACING, HEAD, MOTIONS, POSTURES
+
+        for name, value, allowed in (("arms", arms, ("up", *ARMS)), ("facing", facing, FACING),
+                                     ("upper", upper, COLOURS), ("lower", lower, COLOURS),
+                                     ("head", head, HEAD),
+                                     *(("posture", p, POSTURES) for p in posture or []),
+                                     *(("motion", m, MOTIONS) for m in motion or []),
+                                     *(("carrying", c, CARRIED) for c in carrying or [])):
+            if value is not None and value not in allowed:
+                raise HTTPException(400, f"{name}={value!r}; use one of {list(allowed)}")
+        parsed = engine.parse(when or "")
+        since, until = parsed.range()
+        cams = [engine.camera_aliases.get(c.lower(), c) for c in camera] if camera else             parsed.cameras or None
+        visits = engine.people(since, until, cams, posture, arms, facing, upper, lower,
+                               head=head, motion=motion, carrying=carrying)
+        shown = engine.add_thumbs(visits[-limit:][::-1])  # newest first
+        return {"when": parsed.when or "any time", "total": len(visits),
+                "results": with_urls([v.to_dict() for v in shown], "thumb")}
 
     @app.post("/maintenance/purge")
     def purge() -> dict[str, Any]:

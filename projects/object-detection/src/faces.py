@@ -27,6 +27,7 @@ import numpy as np
 SAME_PERSON_THRESHOLD = 0.363  # SFace cosine threshold (OpenCV Zoo, LFW-calibrated)
 LIKELY_SAME_PERSON = 0.45      # stricter level for CCTV: "likely", below it only "possible"
 MIN_PHOTO_FACE = 40            # uploaded photos: smaller faces carry too little detail
+DETECT_MIN_SIDE, DETECT_MAX_SIDE = 320, 640  # YuNet input, longer side (see FaceEngine.detect)
 
 
 @dataclass
@@ -106,14 +107,29 @@ class FaceEngine:
             options["min_face_size"] = 20
         return cls(**options)
 
-    def detect(self, image: np.ndarray) -> list[Face]:
-        """All faces in a BGR image, largest first. Small images are upscaled for YuNet."""
-        h, w = image.shape[:2]
-        scale = 1.0
-        if max(h, w) < 320:  # person crops from sub-streams are small
-            scale = 320 / max(h, w)
-            image = cv2.resize(image, (int(w * scale), int(h * scale)),
-                               interpolation=cv2.INTER_CUBIC)
+    def detect(self, image: np.ndarray, retry: bool = False) -> list[Face]:
+        """All faces in a BGR image, largest first, in the image's own coordinates.
+
+        YuNet is unsure of faces much bigger than ~300 px (a selfie at 3088x2320 scored 0.72
+        with a box on half the face; at 640 px, 0.93 and the right box), so the image is resized
+        to 320-640 px on its longer side first. retry (uploaded photos): if no face is found,
+        try again at full size (small faces in a big photo), then at 320 px (a face filling it).
+        Face prints are still made from the full-resolution image (analyze)."""
+        longest = max(image.shape[:2])
+        sides = [min(max(longest, DETECT_MIN_SIDE), DETECT_MAX_SIDE)]
+        if retry:
+            sides += [s for s in (longest, DETECT_MIN_SIDE) if s > DETECT_MAX_SIDE or s < sides[0]]
+        for side in sides:
+            faces = self._detect_at(image, side / longest)
+            if faces:
+                return faces
+        return []
+
+    def _detect_at(self, image: np.ndarray, scale: float) -> list[Face]:
+        if scale != 1.0:
+            h, w = image.shape[:2]
+            image = cv2.resize(image, (round(w * scale), round(h * scale)),
+                               interpolation=cv2.INTER_AREA if scale < 1 else cv2.INTER_CUBIC)
         self._detector.setInputSize((image.shape[1], image.shape[0]))
         _, rows = self._detector.detect(image)
         faces = []
@@ -162,7 +178,7 @@ class FaceEngine:
         """For an uploaded photo: every face, left to right (so "face 2" means the second from
         the left), each with its print or the reasons it can't be used."""
         out = []
-        for face in sorted(self.detect(image), key=lambda f: f.box[0]):
+        for face in sorted(self.detect(image, retry=True), key=lambda f: f.box[0]):
             vector, quality = self.analyze(image, face)
             problems = self.problems(quality, min_size=MIN_PHOTO_FACE)
             out.append(PhotoFace(None if problems else vector, face.box, quality, problems))

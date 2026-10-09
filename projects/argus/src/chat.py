@@ -56,7 +56,7 @@ How to work:
   Ranked guesses. Takes the same when / since / until / camera / with_labels filters.
 - `alerts` lists what the site's alert rules fired (enter / exit / dwell / cross on named areas
   and lines). Exact. "did any alert go off last night" -> alerts(when="last night");
-  "who entered the yard" -> alerts(rules=["yard"], types=["enter"]).{face_help}
+  "who entered the yard" -> alerts(rules=["yard"], types=["enter"]).{people_help}{face_help}
 - For exact times use since/until ("2026-10-02 18:00"), resolved against Now above. Hours
   without am/pm ("between 1 and 4") mean daytime (13:00 to 16:00) unless the question or the
   camera's usual hours say otherwise; say what you assumed.
@@ -66,6 +66,17 @@ How to answer:
 - Short and concrete: camera, date and time, what was seen.
 - Say how sure you are. Search scores are relative: a top hit is a candidate, not proof.
 - If the tools found nothing, say so, and say what time range and cameras you checked."""
+
+PEOPLE_HELP = """
+- `people` finds people by body pose and clothing colour. Exact facts per visit.
+  "anyone lying on the floor last night" -> people(postures=["lying"], when="last night");
+  "a man in a red top and blue jeans" -> people(upper_colour="red", lower_colour="blue"),
+  then `search` if nothing matches (colours come from a fixed list; night images have none).
+  "was anyone running in the car park" -> people(motion=["running"], camera=...);
+  "who came in with a suitcase" -> people(carrying=["suitcase"]);
+  "someone on their phone at the counter" -> people(head_down=True) (it can't see the phone)
+  or search("person holding a phone").
+  A person who fell and stayed down is also an alert: alerts(types=["down"])."""
 
 FACE_HELP = """
 - `face` looks for the person in a photo the user attached (photo1, photo2, ...: you get only
@@ -88,15 +99,16 @@ def system_prompt(toolbox: Toolbox, now: datetime | None = None) -> str:
     rules = [f"- {r['camera']}: {r['rule']} ({r['events']} events)" for r in toolbox.alert_rules()]
     return SYSTEM.format(now=(now or datetime.now()).strftime("%A %Y-%m-%d %H:%M"),
                          cameras="\n".join(cameras), rules="\n".join(rules) or "- none yet",
+                         people_help=PEOPLE_HELP if toolbox.people_on else "",
                          face_help=FACE_HELP if toolbox.engine.faces is not None else "")
 
 
 def answer(backend: Backend, toolbox: Toolbox, question: str,
-           log: logging.Logger | None = None) -> str:
-    """One question: let the model call tools until it answers (at most MAX_TOOL_ROUNDS)."""
+           log: logging.Logger | None = None, max_rounds: int = MAX_TOOL_ROUNDS) -> str:
+    """One question: let the model call tools until it answers (at most max_rounds)."""
     backend.add_user(question)
     step = Step("")
-    for _ in range(MAX_TOOL_ROUNDS):
+    for _ in range(max_rounds):
         step = backend.step()
         if not step.calls:
             return step.text
@@ -161,9 +173,10 @@ def main() -> None:
     logging.basicConfig(level=logging.WARNING if args.quiet else logging.INFO,
                         format="%(message)s")
     log = logging.getLogger("argus")
-    config = yaml.safe_load(args.config.read_text())
+    config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     engine = build_engine(config)
-    toolbox = Toolbox(engine, cameras=config.get("cameras"), faces_config=config.get("faces"))
+    toolbox = Toolbox(engine, cameras=config.get("cameras"), faces_config=config.get("faces"),
+                      pose_config=config.get("pose"))
     media_dir = engine.store.media_dir
     untold: list[str] = []  # photos attached since the model last heard about them
 

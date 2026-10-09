@@ -1,6 +1,6 @@
 # Object Detection
 
-General-purpose object detection that runs on CPU-only devices.
+General-purpose object detection that runs on CPU-only devices, and on a GPU when there is one.
 
 - **Model:** [YOLOX](https://github.com/Megvii-BaseDetection/YOLOX) (Apache-2.0, safe for commercial use), exported to ONNX
 - **Runtime:** ONNX Runtime (no PyTorch needed at inference)
@@ -18,6 +18,23 @@ uv run src/main.py --source rtsp://camera/stream
 uv run src/main.py --source gate --show          # IP camera named in the config
 ```
 
+## GPU
+
+Every model (detector, CLIP, pose) runs on the GPU when ONNX Runtime can see one, else on the CPU:
+`device: auto` in the `model`, `search.clip` and `pose` sections (the default when left out).
+Other values: `cpu`, `cuda`, `cuda:1` (second GPU), `directml` (any GPU on Windows), `coreml`.
+The log says which device each model got.
+
+On an NVIDIA machine, swap the CPU build of ONNX Runtime for the GPU one. CUDA and cuDNN come as
+wheels, so only the NVIDIA driver is needed (CUDA 13: driver 580 or newer):
+
+```bash
+uv sync --no-group cpu --group gpu                  # add --group server etc. as needed
+```
+
+Then keep the same flags on `uv run` (`uv run --no-group cpu --group gpu src/main.py ...`), or
+set `UV_NO_SYNC=1` on that machine: a plain `uv run` would reinstall the CPU build on top.
+
 ## Test UI
 
 ```bash
@@ -25,7 +42,8 @@ uv run --group ui src/app.py      # http://127.0.0.1:7860
 ```
 
 Pick a model, then compare original vs. annotated for an uploaded image, a video, the live webcam,
-or an IP camera (**IP camera** tab).
+or an IP camera (**IP camera** tab). The **Faces** tab takes several photos, shows the faces found
+(YuNet, with their quality) and the SFace similarity between the faces you pick.
 Gradio is in the optional `ui` dependency group, so it is not installed on servers by default.
 
 ## Choosing a model
@@ -187,6 +205,7 @@ With a `store:` section, every camera process saves to one SQLite file per site:
 | Zone/line events + snapshot | `events` | event history, alerts |
 | CLIP vectors of tracked people/vehicles, whole frames and tiles | `sightings` | **text search** |
 | Face prints (only where enabled) | `faces` | **search by photo** |
+| Body pose facts per person: posture, arms, facing, colours (+ keypoints) | `poses` | **people search**, person-down alerts |
 
 **Setup (once per machine):**
 
@@ -196,6 +215,7 @@ uv run src/download_model.py yolox_nano
 uv run --group export src/export_clip.py      # CLIP -> models/clip_*.onnx (~600 MB, needs internet;
                                               # installs PyTorch in the export group only)
 uv run src/download_model.py faces            # only if face search will be used
+uv run --group export src/export_pose.py      # body poses -> models/pose_vitpose_b.onnx (344 MB)
 ```
 
 **Run** (one recorder per camera + one API):
@@ -213,7 +233,8 @@ Open <http://127.0.0.1:8000/docs> to try the API in the browser.
 | --- | --- |
 | `GET /search?q=` | `/search?q=person in a red top last friday` · `/search?q=white van on gate yesterday 6pm to 9pm` |
 | `POST /search/face` | form fields `photo` (JPEG/PNG), `when` (e.g. `friday`), `camera` and `face` (which face if the photo has several, 1 = leftmost; optional) → *"Yes, likely: 2 visit(s), first on shop at Fri 25 Sep 10:30 (match 0.58)."* |
-| `GET /events` | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` |
+| `GET /people` | `?posture=lying&when=last night` · `?upper=red&lower=blue&camera=shop` · `?arms=up`: people by body pose and clothing colour (needs `pose`) |
+| `GET /events` | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` (also `type=down`, `type=hands_up` from poses) |
 | `GET /media/{path}` | snapshots and thumbnails |
 | `GET /recordings/{path}` | main-stream MP4s; events and search results carry a `video_url` (`...mp4#t=37`) that opens the moment, 3 s early |
 | `GET /health`, `GET /cameras`, `POST /maintenance/purge` | status, camera list, apply retention now |
@@ -299,6 +320,53 @@ How a photo is searched (`src/search.py`):
 - `checked` gives the face prints stored per camera in the range. No match is not proof the
   person was not there; no prints at all means the question can't be answered.
 
+### Body poses: what people were doing
+
+With a `pose:` section (example in `configs/search_example.yaml`), each tracked person gets
+body keypoints about once a second ([src/pose.py](src/pose.py), [src/pose_index.py](src/pose_index.py)).
+Top-down: the person boxes the tracker already has are cropped (from the main-stream keyframe
+when there is one) and a pose model returns 17 keypoints. Simple rules on the keypoints give the
+facts that are stored and searched:
+
+| Fact | Values | How |
+| --- | --- | --- |
+| `posture` | standing, sitting, crouching, bending, lying, unknown | torso angle; thigh and feet height against torso length (a tilted torso over straight legs is bending, not lying) |
+| `arms` | down, one_up, both_up | wrists clearly above the head |
+| `facing` | camera, side, away | shoulder order first (a person's left shoulder is on the image's right when facing the camera), then nose and eyes |
+| `head` | up, down | nose well below the ears: looking at a phone, a desk |
+| `motion` | still, walking, running | from the tracks: box movement since the last sample, in body heights per second |
+| `carrying` | backpack, handbag, suitcase, umbrella | from the tracks: one of these detections on the person |
+| `upper_colour`, `lower_colour` | black, white, grey, red, orange, yellow, green, blue, purple, pink, brown | most common colour inside the torso (shoulders–hips) and along the legs |
+
+Stored smartly:
+
+- **Smoothed:** a fact counts once it is the majority of the last 3 samples (one bad frame
+  doesn't make someone "lying").
+- **On change:** a row only when the facts change, plus a heartbeat every 10 s. One hour at a
+  desk is ~360 rows instead of 3600, and `/people` still gives the seconds spent in each
+  posture. Each row also keeps the 17 keypoints (102 bytes, relative to the box), so a new fact
+  can be derived later from the stored keypoints without running the model again
+  (`store_keypoints: false` keeps only the facts).
+- **Sampled sparsely when nothing moves:** someone standing still is sampled 3× less often.
+- **Own thread:** pose never slows detection or the CLIP index; on live cameras a busy worker
+  skips samples instead of falling behind.
+
+Events: `down` (rule `person_down`) when a person stays lying for `down_seconds` (10), and
+`hands_up` when both hands stay up for `hands_up_seconds` (3), only for the types listed in
+`pose.alerts`. They go through the same channels, store and snapshots as area and line events.
+Checked with unit tests and the sample street video; validate person-down on staged falls at a
+site before relying on it.
+
+| Pose model | How to get it | Speed (laptop CPU) | Use |
+| --- | --- | --- | --- |
+| ViTPose-B "simple": Apache-2.0, fine-tuned on COCO only | `uv run --group export src/export_pose.py` | 100–175 ms per person | default, shippable |
+| RTMPose-t: Apache-2.0, but trained on 7 datasets, some research-only | `uv run src/download_model.py pose_rtmpose_t` | 10–17 ms per person | trials only |
+
+Limits: people under `min_box_height` (80 px) get no pose; colours are lost at night (infrared)
+and shift under coloured light; someone half hidden behind a desk is "unknown"; sitting and
+crouching can be confused. Keypoints are not a face print, but a walk can be recognised: they
+follow the search index's retention.
+
 ### Models and licences
 
 | Model | File | Licence | Size |
@@ -307,6 +375,8 @@ How a photo is searched (`src/search.py`):
 | CLIP ViT-B/32 (OpenCLIP, LAION-400M) | `clip_image.onnx`, `clip_text.onnx`, `clip_bpe_vocab.txt.gz` | MIT | 350 + 250 MB |
 | YuNet | `face_detection_yunet_2023mar.onnx` | MIT | 0.2 MB |
 | SFace | `face_recognition_sface_2021dec.onnx` | Apache-2.0 | 37 MB |
+| ViTPose-B simple (COCO) | `pose_vitpose_b.onnx` | Apache-2.0 | 344 MB |
+| RTMPose-t (trials only: training data not all commercial) | `pose_rtmpose_t.onnx` | Apache-2.0 code | 13 MB |
 
 CLIP is kept in float32: int8 quantization was tested and changed search rankings too much.
 Speed on a laptop CPU: ~55 ms per embedded crop.
@@ -317,6 +387,7 @@ Speed on a laptop CPU: ~55 ms per embedded crop.
 configs/    YAML configs (one per deployment/client)
 src/
   detector.py        Detector interface + YOLOX ONNX backend
+  onnx_device.py     ONNX Runtime sessions on the GPU if there is one, else CPU (`device:`)
   tracker.py         Multi-object tracker (stable IDs across frames)
   zones.py           Zone / line rules -> enter, exit, dwell, cross events
   alerts.py          Event sinks: console, JSON lines, store, webhook, email (filters, cooldown)
@@ -325,16 +396,20 @@ src/
   indexer.py         Builds the search index while recording (objects, scenes, faces)
   clip_onnx.py       CLIP image/text embeddings with ONNX Runtime (no PyTorch)
   faces.py           Face detection (YuNet) + face prints (SFace)
+  pose.py            Body keypoints (ViTPose / RTMPose) + facts: posture, arms, facing, colours
+  pose_index.py      Records poses while recording: sampling, smoothing, rows on change, events
   query.py           "red shirt last friday" -> what / when / which camera
   search.py          Text and face search, results grouped into visits
-  server.py          FastAPI: events, media, /search, /search/face
+  server.py          FastAPI: events, media, /search, /search/face, /people
   export_clip.py     One-off: OpenCLIP -> ONNX
+  export_pose.py     One-off: ViTPose-B -> ONNX
   stream.py          Frame sources (webcam, image, video, URL)
   cameras.py         IP cameras: config, live capture with reconnect, discovery
   mainstream.py      Main stream via ffmpeg: recording to MP4 + keyframes for hi-res crops
   main.py            CLI entry point
   app.py             Gradio test UI
-  download_model.py  Fetch pretrained YOLOX ONNX models (and `faces`)
+  download_model.py  Fetch pretrained YOLOX ONNX models (and `faces`, `pose_rtmpose_t`)
+notebooks/  models_tour.ipynb: see and learn each model (YOLOX, tracker, YuNet, SFace, pose, CLIP)
 models/     .onnx weights (git-ignored)
 data/       sample inputs/outputs (git-ignored)
 training/   (todo) fine-tuning on custom datasets

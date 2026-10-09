@@ -129,7 +129,8 @@ class SearchIndexer:
         embedder = None
         if Path(image_model).exists():
             embedder = ClipEncoder(image=image_model, text=None,
-                                   num_threads=clip_cfg.get("num_threads", 0))
+                                   num_threads=clip_cfg.get("num_threads", 0),
+                                   device=clip_cfg.get("device", "auto"))
         else:
             log.warning("%s not found: no visual search for camera %s (objects and faces are "
                         "still recorded). Export it: uv run --group export src/export_clip.py",

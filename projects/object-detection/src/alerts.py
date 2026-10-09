@@ -12,7 +12,8 @@ Channels (config `alerts.channels`, a list; `type` picks the class in CHANNELS):
 
 A new channel (Telegram, WhatsApp, SMS, a siren relay...) is one Sink subclass with
 `send(payload, jpeg)`, registered in CHANNELS; `alert_message()` gives it the same title/text
-as email.
+as email. `send_report()` carries longer messages on the same channels (Argus's periodic
+summaries).
 """
 
 from __future__ import annotations
@@ -237,6 +238,12 @@ class Sink:
     def send(self, payload: dict[str, Any], jpeg: bytes | None) -> None:
         raise NotImplementedError
 
+    def send_report(self, title: str, text: str, payload: dict[str, Any],
+                    images: list[tuple[str, bytes]] | None = None) -> None:
+        """A longer message (a periodic summary): title, plain text, its data as JSON, and a few
+        JPEGs as (filename, bytes). Not filtered: the report chose this channel."""
+        raise NotImplementedError(f"{type(self).__name__} can't send reports")
+
 
 class WebhookSink(Sink):
     """POST the event as JSON. Point it at n8n/Zapier/Slack workflows or your own backend."""
@@ -247,8 +254,15 @@ class WebhookSink(Sink):
         self.timeout = timeout
 
     def send(self, payload: dict[str, Any], jpeg: bytes | None) -> None:
+        self._post(payload)
+
+    def send_report(self, title: str, text: str, payload: dict[str, Any],
+                    images: list[tuple[str, bytes]] | None = None) -> None:
+        self._post({**payload, "title": title, "text": text})  # images: paths are in payload
+
+    def _post(self, body: dict[str, Any]) -> None:
         request = urllib.request.Request(
-            self.url, data=json.dumps(payload).encode(), method="POST",
+            self.url, data=json.dumps(body, ensure_ascii=False).encode(), method="POST",
             headers={"Content-Type": "application/json", **self.headers},
         )
         with urllib.request.urlopen(request, timeout=self.timeout) as response:
@@ -277,6 +291,19 @@ class EmailSink(Sink):
         msg.set_content(text)
         if jpeg:
             msg.add_attachment(jpeg, maintype="image", subtype="jpeg", filename="snapshot.jpg")
+        self._deliver(msg)
+
+    def send_report(self, title: str, text: str, payload: dict[str, Any],
+                    images: list[tuple[str, bytes]] | None = None) -> None:
+        msg = EmailMessage()
+        msg["Subject"] = title
+        msg["From"], msg["To"] = self.sender, ", ".join(self.to)
+        msg.set_content(text)
+        for filename, data in images or []:
+            msg.add_attachment(data, maintype="image", subtype="jpeg", filename=filename)
+        self._deliver(msg)
+
+    def _deliver(self, msg: EmailMessage) -> None:
         smtp_cls = smtplib.SMTP_SSL if self.ssl else smtplib.SMTP
         with smtp_cls(self.host, self.port, timeout=self.timeout) as smtp:
             if self.starttls and not self.ssl:

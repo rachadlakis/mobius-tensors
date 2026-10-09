@@ -7,13 +7,20 @@ requires-python = ">=3.11"
 dependencies = [
     "ipython-autotime>=0.3.2",
     "numpy>=2.4.6",
-    "onnxruntime>=1.30.0",
     "opencv-python>=5.0.0.93",
     "python-dotenv>=1.2.3",
     "pyyaml>=6.0.3",
 ]
 
 [dependency-groups]
+# ONNX Runtime: the CPU build by default; on an NVIDIA machine swap it for the GPU one
+# (CUDA and cuDNN come as wheels, only the driver is needed): uv sync --no-group cpu --group gpu
+cpu = [
+    "onnxruntime>=1.30.0",
+]
+gpu = [
+    "onnxruntime-gpu[cuda,cudnn]>=1.30.0; sys_platform != 'darwin'",
+]
 dev = [
     "httpx>=0.28.1",
     "pytest>=9.1.1",
@@ -23,6 +30,11 @@ export = [
     "onnx>=1.23.0",
     "open-clip-torch>=3.3.0",
     "torch>=2.14.0",
+    "transformers>=5.19.0",
+]
+notebook = [
+    "ipykernel>=7.4.0",
+    "matplotlib>=3.11.2",
 ]
 search = [
     "regex>=2026.9.29",
@@ -35,6 +47,10 @@ server = [
 ui = [
     "gradio>=6.28.0",
 ]
+
+[tool.uv]
+default-groups = ["cpu", "dev"]
+conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

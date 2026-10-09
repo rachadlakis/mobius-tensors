@@ -121,21 +121,18 @@ class ClipEncoder:
         vocab: str | Path = "models/clip_bpe_vocab.txt.gz",
         num_threads: int = 0,
         batch_size: int = 16,
+        device: str = "auto",
     ) -> None:
         """Load only what a process needs: the recorder embeds images, the API embeds text."""
-        import onnxruntime as ort
+        from onnx_device import create_session
 
-        options = ort.SessionOptions()
-        if num_threads:
-            options.intra_op_num_threads = num_threads
-        providers = ["CPUExecutionProvider"]
         for path in (image, text):
             if path and not Path(path).exists():
                 raise FileNotFoundError(
                     f"{path} not found. Create the CLIP models with: "
                     "uv run --group export src/export_clip.py")
-        self._image = ort.InferenceSession(str(image), options, providers=providers) if image else None
-        self._text = ort.InferenceSession(str(text), options, providers=providers) if text else None
+        self._image = create_session(image, device, num_threads) if image else None
+        self._text = create_session(text, device, num_threads) if text else None
         self.tokenizer = Tokenizer(vocab) if text else None
         self.batch_size = batch_size
 

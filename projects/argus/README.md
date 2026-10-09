@@ -14,8 +14,9 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
 
 1. **Record** (one process per camera): detect and track every object (all 80 COCO classes),
    embed each tracked object with CLIP, and every few seconds embed the whole frame plus a 2x2
-   grid of tiles, so things the detector has no class for are still searchable. Everything goes
-   into one SQLite store per site.
+   grid of tiles, so things the detector has no class for are still searchable. About once a
+   second, each person's body pose (17 keypoints) becomes a few facts: posture, hands up, facing,
+   head down, still / walking / running, a bag or suitcase on them, colour of top and trousers. Everything goes into one SQLite store per site.
 2. **Ask**: a question is split into *what / when / which camera*. The *what* is embedded with
    CLIP's text model and compared with the stored vectors. Matches of the same tracked object
    are merged into one visit.
@@ -23,6 +24,8 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
    and answers in sentences, listing the thumbnails it looked at as evidence.
 4. **Alert** (optional): areas and lines per camera fire events while recording; each is stored
    with a snapshot and sent to the channels whose filters accept it.
+5. **Report** (optional): hourly, daily or weekly, a summary of what the chosen cameras saw,
+   focused on what the owner asked to watch for, saved and sent (see [Reports](#reports)).
 
 Argus doesn't copy any code. It imports the detector, tracker, CLIP encoder, store and search
 from `../object-detection/src` (see `src/shared.py`) and uses the models in
@@ -47,11 +50,16 @@ uv run src/ask.py "person with a bag on street"
 uv run src/ask.py                              # interactive, empty line quits
 ```
 
+The models run on the GPU when there is one (`device: auto`, see GPU in
+`../object-detection/README.md`). NVIDIA machine: `uv sync --no-group cpu --group gpu` here too.
+
 ## Test on a laptop
 
 A laptop's webcam is enough to try recording, face search and the chat. Models: YOLOX and the
 face models (`uv run src/download_model.py yolox_nano` and `... faces` in object-detection);
-CLIP is optional (without it, everything but search by description works).
+CLIP is optional (without it, everything but search by description works), and so is the pose
+model (`uv run --group export src/export_pose.py`): with it, the live view draws each person's
+skeleton, and raising both hands for 3 s or lying down for 10 s fires an alert.
 
 ```bash
 uv run --group ui src/ui.py          # configs/laptop.yaml, opens http://127.0.0.1:7860
@@ -78,8 +86,17 @@ Local is the default: the LLM runs on the site's server and nothing leaves it.
 | Entry | Runs on | Setup |
 | --- | --- | --- |
 | `local` | Ollama, CPU (Qwen3 4B, Apache-2.0) | install [Ollama](https://ollama.com), `ollama pull qwen3:4b` |
+| `qwen3.5-4b` | Ollama, CPU (Qwen3.5 4B, Apache-2.0, also reads images) | `ollama pull qwen3.5:4b` |
+| `granite-3b` | Ollama, CPU (IBM Granite 4.1 3B, Apache-2.0, smallest) | `ollama pull granite4.1:3b` |
+| `gemma4-e4b` | Ollama, CPU (Gemma 4 E4B, Apache-2.0, also reads images) | `ollama pull gemma4:e4b` |
 | `local-large` | Ollama, ~20 GB RAM or GPU (Qwen3 30B-A3B) | `ollama pull qwen3:30b-a3b` |
+| `qwen3.6-large` | Ollama, ~32 GB RAM or GPU (Qwen3.6 35B-A3B, Apache-2.0) | `ollama pull qwen3.6:35b` |
+| `nemotron-large` | Ollama, ~32 GB RAM or GPU (Nemotron 3.5 Lightning 30B-A3B, OpenMDW 1.1: read before shipping) | `ollama pull nemotron-3.5-lightning` |
 | `claude` | Anthropic API (Claude Opus 5.5) | `uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env` |
+
+The open models after `local` were added on 2026-10-08 to compare on the same questions; the
+default stays `qwen3:4b` until the planned evals pick a winner. The UI's *Ask* tab shows whether
+the selected model's server is up and the model downloaded. `note:` in an entry is shown there.
 
 ```bash
 uv run src/chat.py                                        # interactive
@@ -99,6 +116,11 @@ time as"):
 | A man in a red jacket near a car? | `search(query="man in a red jacket", with_labels=["car"])`: CLIP, ranked guesses |
 | Did any alert go off last night? | `alerts(when="last night")`: what the alert rules fired, exact |
 | Who entered the yard? | `alerts(rules=["yard"], types=["enter"])` |
+| Did anyone fall in the warehouse last night? | `people(postures=["lying"], when="last night")`: seconds lying per person, exact; also `alerts(types=["down"])` |
+| A man in a red top and blue jeans this morning? | `people(upper_colour="red", lower_colour="blue", when="this morning")`: colours from body keypoints, exact; `search` for anything finer |
+| Anyone with their hands up near the till? | `people(arms="up", camera="till")` |
+| Was anyone running in the car park? | `people(motion=["running"], camera="car park")` |
+| Who came in with a suitcase? | `people(carrying=["suitcase"], when="today")` |
 | *(photo attached)* Did this person come to the office between 1 and 4? | `face(photo="photo1", since="... 13:00", until="... 16:00", camera="office")`: likely / possible visits |
 
 "Together" means the same camera and overlapping in time (`within_seconds`, default 15), not
@@ -176,6 +198,55 @@ and on-site sirens: [object-detection README](../object-detection/README.md#inte
 Rules work on the detector's 80 classes today. New things to detect (fire and smoke, objects a
 customer names) need a model trained for them; the rules and channels then apply unchanged.
 
+Body poses add two event types: `down` (rule `person_down`: a person lying for 10 s) and
+`hands_up` (both hands above the head for 3 s). Enable them in the `pose:` section
+(`alerts: [down]` by default); they reach the same channels and the same `alerts` tool. Details,
+models and limits: [object-detection README](../object-detection/README.md#body-poses-what-people-were-doing).
+
+## Reports
+
+Set up at install time with the owner: how often, which cameras, what they care about. In
+`configs/default.yaml`:
+
+```yaml
+reports:
+  - name: morning
+    every: daily                # hourly | daily | weekly (with day: monday)
+    at: "07:00"                 # the period ends then: yesterday 07:00 to today 07:00
+    cameras: [gate, yard]       # names or aliases; empty = every camera
+    interests:                  # in the owner's words; empty = what happened + anything unusual
+      - vehicles at the gate after hours
+      - anyone in the yard at night
+    channels:                   # same settings as alerts.channels; none = saved only
+      - type: email
+        host: smtp.example.com
+        sender: argus@example.com
+        to: [owner@example.com]
+```
+
+```bash
+uv run src/report.py                     # runs the schedules: keep it running next to the recorders
+uv run src/report.py --now morning       # the last period's report now (--no-send: save only)
+uv run src/report.py --list              # saved reports
+uv run src/report.py --show morning      # the latest one
+```
+
+Each report has two parts:
+
+- **Counts**, exact, from the store: tracked objects per camera, alerts with their times, and
+  any camera that recorded nothing in the period (offline?).
+- **Summary**, written by the chat model (`model:`, default `chat.model`): it checks each
+  interest with the chat's tools, limited to the report's cameras and period, and says what it
+  found or that it found nothing. If the model is down, the report goes out with the counts only
+  and says why.
+
+Reports are saved as JSON and Markdown under `data/store/reports/<name>/` (the UI's *Reports* tab
+shows them, with the evidence thumbnails, and makes one on demand), then sent: email with up to 4
+thumbnails attached, webhook as JSON (`kind: report`, summary, counts, thumbnail paths). A new
+schedule starts with the next period; a period that ended while `report.py` was stopped is made
+when it starts again (the latest one only). With a cloud model, the counts and the interests are
+sent to it, never images.
+
 ## Cameras
 
 Cameras are declared under `cameras:` in `configs/default.yaml`, the same way as in
@@ -218,10 +289,11 @@ src/
   shared.py            puts ../object-detection/src on the import path
   record.py            recorder (object-detection's main.py with this config)
   ask.py               question -> ranked sightings (no LLM)
+  report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
   tools.py             tools the LLM can call: objects (time / class / together), search, alerts
   llm.py               model backends: OpenAI-compatible (local) and Claude
-  ui.py                test UI (Gradio): record, find a person by photo, chat
+  ui.py                test UI (Gradio): record, find a person by photo, chat, reports
 tests/                 uv run pytest
 ```
 
@@ -231,7 +303,11 @@ tests/                 uv run pytest
 - [x] Alerts: areas and lines, channels with filters (rules, events, labels, hours, cooldown),
       chat tool over the alert history.
 - [ ] More alert channels: Telegram, WhatsApp, SMS, on-site siren / relay.
+- [x] Periodic reports: hourly / daily / weekly per camera set and interests, saved and sent.
+      Next: set them up from the UI; "what did last night's report say" in the chat.
 - [ ] Detectors trained per customer (fire and smoke, customer-specific objects).
+- [x] Body poses: posture (with bending), hands up, facing, head down, still / walking /
+      running, carried bags, clothing colours (`people` tool), person-down and hands-up alerts. Next: staged-fall test at a pilot site; a smaller COCO-only pose model.
 - [ ] Chat in the browser: `/chat` endpoint + page showing the evidence thumbnails.
 - [ ] Evals: a fixed set of questions on recorded footage to compare local models.
 - [ ] Captions per scene (small VLM) stored next to the vectors, for questions CLIP handles badly

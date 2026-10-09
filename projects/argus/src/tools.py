@@ -7,6 +7,8 @@
               night", "who entered the yard"
     face      a person from a photo the user attached: "did this person come to the office
               between 1 and 4?" (only when face search is enabled)
+    people    people by body pose and clothing colour: "anyone lying on the floor last night",
+              "hands up near the till", "red top and blue trousers" (when poses are recorded)
 
 All take a time range (plain words or exact ISO times) and a camera (its name or an alias from
 `about.aliases`). objects and search also take `with_labels`: keep only what was on the same
@@ -35,6 +37,7 @@ from detector import COCO_CLASSES
 from faces import choose_face
 from indexer import faces_enabled
 from llm import Tool, ToolCall, ToolResult
+from pose import CARRIED, COLOURS, MOTIONS, POSTURES
 from search import SearchEngine, group_visits
 
 _FILTERS: dict[str, Any] = {
@@ -51,7 +54,7 @@ _FILTERS: dict[str, Any] = {
                        "description": "How close in time counts as 'together' (default 15)"},
 }
 
-ALERT_TYPES = ("enter", "exit", "dwell", "cross")
+ALERT_TYPES = ("enter", "exit", "dwell", "cross", "down", "hands_up")
 _ISO_KEYS = {"first_seen", "last_seen", "face_seen"}  # same time format as the other tools
 _WHEN = {k: _FILTERS[k] for k in ("when", "since", "until", "camera")}
 
@@ -80,9 +83,11 @@ TOOLS = [
         }, "required": ["query"]}),
     Tool("alerts", (
         "Alerts fired by the site's rules: an object entering or leaving an area, staying longer "
-        "than allowed (dwell) or crossing a line (cross, with direction in/out). Exact, from the "
-        "event log. Use it for: did any alert go off, who entered an area, what crossed a line. "
-        "Rule names are the areas and lines configured on each camera."),
+        "than allowed (dwell) or crossing a line (cross, with direction in/out), and from body "
+        "poses a person lying down for a while (down, rule person_down) or holding both hands "
+        "up (hands_up). Exact, from the event log. Use it for: did any alert go off, who "
+        "entered an area, what crossed a line, did anyone fall. Rule names are the areas and "
+        "lines configured on each camera."),
         {"type": "object", "properties": {
             **_WHEN,
             "rules": {"type": "array", "items": {"type": "string"},
@@ -94,6 +99,38 @@ TOOLS = [
             "limit": {"type": "integer", "description": "Max events listed, default 30"},
         }}),
 ]
+
+PEOPLE_TOOL = Tool("people", (
+    "People by body pose and clothing colour, from body keypoints recorded about once a second "
+    "per person. Exact facts per visit, not ranked guesses: seconds spent standing / sitting / "
+    "crouching / bending over / lying, hands raised above the head, facing the camera, head "
+    "down (looking at a phone or a desk), still / walking / running, a backpack, handbag, "
+    "suitcase or umbrella on the person, and the main colour of the top (torso) and of the "
+    "bottom (legs). Use it for: someone lying on the floor, hands up, anyone running, who came "
+    "in with a suitcase, a man in a red top, blue trousers. 'A bag' = handbag or backpack. "
+    "Running is fast movement across the picture; someone far away walking straight towards "
+    "the camera can read as still. Colours are only these names: "
+    f"{', '.join(COLOURS)}; map others to the nearest (navy -> blue, beige -> white or brown). "
+    "Infrared night images have no colour (everything grey or black). Only people tall enough "
+    "in the picture get a pose; for other clothing details use `search`."),
+    {"type": "object", "properties": {
+        "postures": {"type": "array", "items": {"type": "string", "enum": list(POSTURES[:-1])},
+                     "description": "Any of these postures for at least 2 seconds"},
+        "arms": {"type": "string", "enum": ["up", "both_up"],
+                 "description": "up: one or both hands above the head; both_up: both"},
+        "facing_camera": {"type": "boolean", "description": "Only people who faced the camera"},
+        "head_down": {"type": "boolean",
+                      "description": "Only people who looked down (phone, desk) for 2+ seconds"},
+        "motion": {"type": "array", "items": {"type": "string", "enum": list(MOTIONS[:-1])},
+                   "description": "Any of these for at least 2 seconds"},
+        "carrying": {"type": "array", "items": {"type": "string", "enum": list(CARRIED)},
+                     "description": "Any of these on the person for at least 2 seconds"},
+        "upper_colour": {"type": "string", "enum": list(COLOURS), "description": "Top colour"},
+        "lower_colour": {"type": "string", "enum": list(COLOURS),
+                         "description": "Trousers / skirt colour"},
+        **_FILTERS,
+        "limit": {"type": "integer", "description": "Max visits listed, default 20"},
+    }})
 
 FACE_TOOL = Tool("face", (
     "Find a person from a photo the user attached (photo1, photo2, ...; you only get its name). "
@@ -182,9 +219,10 @@ class Range:
 class Toolbox:
     def __init__(self, engine: SearchEngine, now: datetime | None = None,
                  cameras: dict[str, Any] | None = None,
-                 faces_config: dict[str, Any] | None = None) -> None:
-        """cameras / faces_config: the config's `cameras` and `faces` sections (camera
-        descriptions, and which cameras record faces)."""
+                 faces_config: dict[str, Any] | None = None,
+                 pose_config: dict[str, Any] | None = None) -> None:
+        """cameras / faces_config / pose_config: the config's `cameras`, `faces` and `pose`
+        sections (camera descriptions, which cameras record faces, whether poses are recorded)."""
         self.engine = engine
         self.now = now  # fixed clock for tests; None = real time
         self.about = camera_about(cameras)
@@ -193,10 +231,16 @@ class Toolbox:
         self._db = sqlite3.connect(db.as_uri() + "?mode=ro", uri=True, check_same_thread=False)
         self.evidence: list[str] = []  # thumbnails (relative to media_dir) shown to the model
         self.photos: dict[str, list[np.ndarray]] = {}  # name -> face prints (one per photo)
+        self.only_cameras: list[str] = []  # set by a report: every lookup stays on these
+        # the people tool: poses recorded now (config) or before (rows in the store)
+        has_rows = self._db.execute("SELECT 1 FROM sqlite_master WHERE name = 'poses'").fetchone() \
+            and self._db.execute("SELECT 1 FROM poses LIMIT 1").fetchone()
+        self.people_on = bool((pose_config or {}).get("enabled") or has_rows)
 
     @property
     def tools(self) -> list[Tool]:
         tools = [t for t in TOOLS if t.name != "search" or self.engine.clip is not None]
+        tools += [PEOPLE_TOOL] if self.people_on else []
         return tools + ([FACE_TOOL] if self.engine.faces is not None else [])
 
     def close(self) -> None:
@@ -207,6 +251,12 @@ class Toolbox:
         rows = self._db.execute("SELECT camera, MIN(time), MAX(time), COUNT(*) FROM sightings "
                                 "GROUP BY camera ORDER BY camera").fetchall()
         return [{"camera": c, "from": _iso(a), "to": _iso(b), "rows": n} for c, a, b, n in rows]
+
+    def recorded(self, since: float, until: float) -> dict[str, int]:
+        """Rows indexed per camera in a time range: a camera missing here recorded nothing."""
+        rows = self._db.execute("SELECT camera, COUNT(*) FROM sightings WHERE time >= ? AND "
+                                "time < ? GROUP BY camera", (since, until)).fetchall()
+        return dict(rows)
 
     def cameras(self) -> list[str]:
         """One line per camera for the model: what it looks at (`about:`) and what has been
@@ -266,6 +316,8 @@ class Toolbox:
                 out = self.search(**call.args)
             elif call.name == "alerts":
                 out = self.alerts(**call.args)
+            elif call.name == "people" and self.people_on:
+                out = self.people(**call.args)
             elif call.name == "face" and self.engine.faces is not None:
                 out = self.face(**call.args)
             else:
@@ -346,6 +398,49 @@ class Toolbox:
                 "counts": dict(Counter(f"{r[3]} {r[2]}" for r in rows).most_common()),
                 "listed": len(shown), "events": events}
 
+    def people(self, postures: list[str] | str | None = None, arms: str | None = None,
+               facing_camera: bool = False, upper_colour: str | None = None,
+               lower_colour: str | None = None, head_down: bool = False,
+               motion: list[str] | str | None = None, carrying: list[str] | str | None = None,
+               when: str | None = None,
+               since: str | None = None, until: str | None = None, camera: str | None = None,
+               with_labels: list[str] | str | None = None, within_seconds: float = 15,
+               limit: int = 20) -> dict[str, Any]:
+        wanted, moving, carried = _strings(postures), _strings(motion), _strings(carrying)
+        for name, values, allowed in (("postures", wanted, POSTURES),
+                                      ("motion", moving, MOTIONS), ("carrying", carried, CARRIED),
+                                      ("arms", _strings(arms), ("up", "both_up")),
+                                      ("upper_colour", _strings(upper_colour), COLOURS),
+                                      ("lower_colour", _strings(lower_colour), COLOURS)):
+            bad = [v for v in values if v not in allowed]
+            if bad:
+                raise ValueError(f"{name}: {bad} unknown; use {', '.join(allowed)}")
+        rng = self._range(when or "", since, until, camera)
+        found = self.engine.people(rng.since, rng.until, rng.cameras or None, wanted or None,
+                                   arms.lower() if arms else None,
+                                   "camera" if facing_camera else None,
+                                   upper_colour.lower() if upper_colour else None,
+                                   lower_colour.lower() if lower_colour else None,
+                                   head="down" if head_down else None,
+                                   motion=moving or None, carrying=carried or None)
+        by_key = {(v.camera, v.track_id, v.first_seen): v for v in found}
+        visits = [Visit(v.camera, v.track_id, "person", v.first_seen, v.last_seen, None)
+                  for v in found]
+        visits = self._together(visits, with_labels, within_seconds)
+        shown = [by_key[(v.camera, v.track_id, v.first)]
+                 for v in visits[: max(1, min(int(limit), 100))]]
+        self.engine.add_thumbs(shown)
+        self.evidence += [v.thumb for v in shown[:3] if v.thumb]
+        filters = {"postures": wanted, "arms": arms, "facing_camera": facing_camera or None,
+                   "head_down": head_down or None, "motion": moving, "carrying": carried,
+                   "upper_colour": upper_colour, "lower_colour": lower_colour,
+                   "with_labels": with_labels}
+        return {"when": rng.describe(), "cameras": rng.cameras or "all",
+                "filters": {k: v for k, v in filters.items() if v},
+                "total": len(visits), "listed": len(shown),
+                "visits": [{k: (x.replace("T", " ") if k in _ISO_KEYS else x)
+                            for k, x in v.to_dict().items() if k != "time"} for v in shown]}
+
     def face(self, photo: str, when: str | None = None, since: str | None = None,
              until: str | None = None, camera: str | None = None,
              limit: int = 10) -> dict[str, Any]:
@@ -384,7 +479,12 @@ class Toolbox:
             start = _timestamp(since, "since")
         if until:
             end = _timestamp(until, "until")
-        return Range(parsed.text, start, end, [self._camera(camera)] if camera else parsed.cameras)
+        cameras = [self._camera(camera)] if camera else parsed.cameras
+        if self.only_cameras:
+            if cameras and not set(cameras) & set(self.only_cameras):
+                raise ValueError(f"Only these cameras can be checked: {', '.join(self.only_cameras)}")
+            cameras = [c for c in cameras if c in self.only_cameras] or list(self.only_cameras)
+        return Range(parsed.text, start, end, cameras)
 
     def _camera(self, camera: str) -> str:
         """A camera name, or an alias of one ("front desk" -> lobby)."""

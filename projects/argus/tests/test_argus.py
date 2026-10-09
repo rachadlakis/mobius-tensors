@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_default_config_embeds_every_coco_class():
-    config = yaml.safe_load((ROOT / "configs" / "default.yaml").read_text())
+    config = yaml.safe_load((ROOT / "configs" / "default.yaml").read_text(encoding="utf-8"))
     assert config["model"]["classes"] is None
     assert config["search"]["classes"] == list(COCO_CLASSES)
 

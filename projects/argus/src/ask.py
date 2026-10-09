@@ -29,7 +29,8 @@ def build_engine(config: dict[str, Any]) -> SearchEngine:
     clip_cfg = (config.get("search") or {}).get("clip") or {}
     clip = None
     if Path(clip_cfg["text"]).exists() and Path(clip_cfg["vocab"]).exists():
-        clip = ClipEncoder(image=None, text=clip_cfg["text"], vocab=clip_cfg["vocab"])
+        clip = ClipEncoder(image=None, text=clip_cfg["text"], vocab=clip_cfg["vocab"],
+                           device=clip_cfg.get("device", "auto"))
     else:  # objects, alerts and face search still work
         print(f"{clip_cfg['text']} not found: visual search by description is off")
     faces_cfg = config.get("faces") or {}
@@ -65,7 +66,7 @@ def main() -> None:
     parser.add_argument("--top", type=int, default=10, help="Number of results")
     args = parser.parse_args()
 
-    config = yaml.safe_load(args.config.read_text())
+    config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     engine = build_engine(config)
     ask = lambda q: print(format_answer(engine.text(q, top_k=args.top),  # noqa: E731
                                         engine.store.media_dir))

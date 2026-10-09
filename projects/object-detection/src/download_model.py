@@ -1,9 +1,12 @@
-"""Download official pretrained YOLOX ONNX models (Apache-2.0, COCO 80 classes)."""
+"""Download official pretrained YOLOX ONNX models (Apache-2.0, COCO 80 classes), the face
+models (`faces`), or the trial pose model (`pose_rtmpose_t`)."""
 
 from __future__ import annotations
 
 import argparse
+import io
 import urllib.request
+import zipfile
 from pathlib import Path
 
 RELEASE_URL = "https://github.com/Megvii-BaseDetection/YOLOX/releases/download/0.1.1rc0"
@@ -24,6 +27,27 @@ FACE_MODELS = {
     "face_detection_yunet_2023mar.onnx": f"{ZOO_URL}/face_detection_yunet",
     "face_recognition_sface_2021dec.onnx": f"{ZOO_URL}/face_recognition_sface",
 }
+
+
+# Pose, for trials only: RTMPose-t (OpenMMLab, Apache-2.0 code) was trained on seven datasets,
+# some research-only (PoseTrack18...). On client sites use ViTPose-B: src/export_pose.py.
+RTMPOSE_T_URL = ("https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/"
+                 "rtmpose-t_simcc-body7_pt-body7_420e-256x192-026a1439_20230504.zip")
+
+
+def fetch_rtmpose(target: Path) -> Path:
+    """The zip holds an MMDeploy SDK folder; keep only its end2end.onnx."""
+    if target.exists():
+        print(f"Already present: {target}")
+        return target
+    print(f"Downloading {RTMPOSE_T_URL}")
+    with urllib.request.urlopen(RTMPOSE_T_URL) as response:
+        archive = zipfile.ZipFile(io.BytesIO(response.read()))
+    [name] = [n for n in archive.namelist() if n.endswith("end2end.onnx")]
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(archive.read(name))
+    print(f"Wrote {target}")
+    return target
 
 
 def fetch(url: str, target: Path) -> Path:
@@ -54,13 +78,17 @@ def download(name: str, out_dir: Path) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("name", nargs="?", default="yolox_nano", choices=[*MODELS, "faces"],
-                        help="a YOLOX model, or `faces` for the face detector + recognizer")
+    parser.add_argument("name", nargs="?", default="yolox_nano", choices=[*MODELS, "faces", "pose_rtmpose_t"],
+                        help="a YOLOX model, `faces` for the face detector + recognizer, or "
+                             "`pose_rtmpose_t` (trial pose model)")
     parser.add_argument("--out-dir", type=Path, default=Path("models"))
     args = parser.parse_args()
     if args.name == "faces":
         for filename, base in FACE_MODELS.items():
             fetch(f"{base}/{filename}", args.out_dir / filename)
+        return
+    if args.name == "pose_rtmpose_t":
+        fetch_rtmpose(args.out_dir / "pose_rtmpose_t.onnx")
         return
     path = download(args.name, args.out_dir)
     print(f"Done. Use input_size [{MODELS[args.name]}, {MODELS[args.name]}] for {path.name}.")
