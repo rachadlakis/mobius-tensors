@@ -235,7 +235,7 @@ The code is one Python package, `argus`, in `projects/argus`, with one `uv` envi
   cameras). One command starts it all, on one port:
   `uv run --directory projects/argus --group ui -m argus.ui` (`--port` to change from 7860).
 
-About 7,200 lines of Python and ~120 unit tests (`uv run pytest`). Other folders:
+About 8,000 lines of Python and ~125 unit tests (`uv run pytest`). Other folders:
 `docs/` (this document, the partner programme, the presentation), `Brochures/`, `Images/argus/`
 (brand kit).
 

@@ -1,0 +1,281 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Argus — Project Summary</title>
+<!-- Source of "docs/argus/Argus — Project Summary.pdf". Print: Chrome headless, --no-pdf-header-footer --print-to-pdf=... -->
+<style>
+@page { size: A4; margin: 13mm 15mm 13mm 15mm; }
+:root { --ink:#1b2430; --muted:#5b6675; --accent:#b8862b; --line:#d9dee5; --soft:#f4f6f9; }
+body { font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); font-size: 9.3pt; line-height: 1.38; margin: 0; }
+header { display:flex; align-items:center; justify-content:space-between; border-bottom: 2px solid var(--accent); padding-bottom: 8px; margin-bottom: 10px; }
+header img { height: 34px; }
+header .t { text-align:right; }
+header .t b { font-size: 15pt; display:block; }
+header .t span { color: var(--muted); font-size: 9pt; }
+h2 { font-size: 13pt; margin: 14px 0 6px; padding-bottom: 3px; border-bottom: 1px solid var(--line); }
+
+h2, h3 { break-after: avoid; }
+h3 { font-size: 10.5pt; margin: 10px 0 4px; color: var(--accent); }
+p { margin: 4px 0 6px; }
+em { color: var(--muted); }
+ul, ol { margin: 4px 0 6px; padding-left: 18px; }
+li { margin: 2px 0; }
+table { border-collapse: collapse; width: 100%; margin: 6px 0 8px; font-size: 8.8pt; break-inside: avoid; }
+th { background: var(--soft); text-align: left; }
+th, td { border: 1px solid var(--line); padding: 3px 6px; vertical-align: top; }
+code { font-family: Consolas, monospace; font-size: 8.5pt; background: var(--soft); padding: 0 2px; border-radius: 2px; }
+pre { background: var(--soft); border: 1px solid var(--line); padding: 8px; font-size: 7.4pt; line-height: 1.3; overflow: hidden; break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: inherit; }
+</style></head><body>
+<header><img src="../../../Images/argus/logo/argus-horizontal-transparent-for-light.png" alt="Argus"><div class="t"><b>Project Summary</b><span>Overview and technical · October 2026</span></div></header>
+<p><em>October 2026. Overview and technical summary of the Argus code in this repository
+(projects/argus, including the engine it is built on). Details: Argus — Documentation,
+the project README and ENGINE.md.</em></p>
+<h2>1. Overview</h2>
+<h3>In one line</h3>
+<p>Argus lets you ask your cameras what happened, in plain language, and answers with the frames
+as evidence.</p>
+<h3>The problem</h3>
+<p>Sites record far more video than anyone watches. A recorder lets you jump to a time, not to a
+moment, so finding something means scrubbing through hours of footage. Classic camera AI answers
+"is X happening right now?" only for rules set up in advance; today's question was usually not
+one of them.</p>
+<h3>What Argus does</h3>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Record</strong></td>
+<td>Every camera's stream is analysed live: all 80 everyday object types are detected and tracked, each tracked object and each scene is stored as a searchable description, and each person's body pose becomes facts (posture, hands up, facing, colour of top and trousers).</td>
+</tr>
+<tr>
+<td><strong>Ask</strong></td>
+<td>A question such as <em>"Was there a white van at the gate yesterday evening?"</em> is split into <em>what</em>, <em>when</em> and <em>which camera</em>. Time can be plain words ("last friday", "this morning", "6pm to 9pm").</td>
+</tr>
+<tr>
+<td><strong>Answer</strong></td>
+<td>A language model looks things up in the site's memory, answers in sentences and lists the thumbnails it checked as evidence.</td>
+</tr>
+<tr>
+<td><strong>Alert</strong></td>
+<td>The same recorder fires alerts on areas and lines drawn on each camera (enter, leave, stay too long, cross), plus <em>person down</em> and <em>hands up</em> from body poses. Alerts go to webhook or email, filtered by rule, object, hours and cooldown.</td>
+</tr>
+</tbody>
+</table>
+<p>Argus says which kind of answer it gives:</p>
+<ul>
+<li><strong>Counted (exact):</strong> from the detector and tracker. <em>"How many cars came in today?"</em></li>
+<li><strong>Described (ranked):</strong> visual search by appearance. <em>"A man in a red jacket near a car?"</em></li>
+<li><strong>Measured (pose):</strong> facts per person. <em>"Did anyone fall in the warehouse last night?"</em></li>
+<li><strong>Face (on approval only):</strong> <em>"Did the person in this photo come to the office between 1 and 4?"</em></li>
+</ul>
+<h3>Why it is different</h3>
+<ul>
+<li><strong>Private by design.</strong> Runs on the site's own server; footage never leaves the building. The
+  default chat model is local (Qwen3 4B via Ollama). A cloud model (Claude) is opt-in and only
+  ever receives text (times, cameras, labels), never images or video.</li>
+<li><strong>No GPU needed.</strong> Detection, search and pose run on CPU through ONNX Runtime.</li>
+<li><strong>Commercially clean.</strong> Every model ships under a permissive licence (Apache-2.0 or MIT) for
+  code, weights and training data. AGPL/GPL and research-only models are excluded.</li>
+<li><strong>Works with existing cameras.</strong> Any IP camera with RTSP (Hikvision, Dahua, Reolink, Uniview,
+  Axis presets, or a plain URL).</li>
+<li><strong>Biometrics off by default.</strong> Face search needs the client's written approval and can be
+  limited to some cameras; face prints are deleted after 7 days.</li>
+</ul>
+<h3>Status</h3>
+<table>
+<thead>
+<tr>
+<th>Working now</th>
+<th>Next</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recording and indexing per camera (80 object types + scene snapshots)</td>
+<td>Fire and smoke detection (own model, open datasets)</td>
+</tr>
+<tr>
+<td>Plain-language search without an LLM (<code>ask.py</code>)</td>
+<td>A fixed set of test questions to compare chat models</td>
+</tr>
+<tr>
+<td>Chat with switchable local or cloud models</td>
+<td>Scene captions from a small vision-language model</td>
+</tr>
+<tr>
+<td>Main-stream recording and full-resolution crops</td>
+<td>Multi-camera timeline (one visit across cameras)</td>
+</tr>
+<tr>
+<td>Area / line alerts to webhook and email; chat answers about past alerts</td>
+<td>Telegram, WhatsApp, SMS and on-site siren channels</td>
+</tr>
+<tr>
+<td>Body poses: posture, hands up, colours; person-down and hands-up alerts</td>
+<td>Person-down validated on staged falls at a pilot site</td>
+</tr>
+<tr>
+<td>Face search by photo (opt-in)</td>
+<td>Chat in the browser; API login</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Go-to-market:</strong> a pilot on the client's own recorded footage (we index a sample, they ask their
+own questions, then decide). A partner programme (Silver / Gold / Platinum, 10–30%) is drafted
+for introducers and CCTV installers.</p>
+<h2>2. Technical summary</h2>
+<h3>Architecture</h3>
+<pre><code class="language-text"> IP cameras (RTSP)
+   ├─ sub stream ──► detect (YOLOX) ─► track (IoU tracker) ─► zone / line rules ─► alerts ─► webhook, email
+   │                                         │
+   │                                         ├─► CLIP index: objects (every 2 s), scenes + 2x2 tiles (every 5 s)
+   │                                         ├─► pose index: 17 keypoints → posture, arms, facing, colours (~1/s)
+   │                                         └─► face index: YuNet + SFace, best 5 faces per visit (opt-in)
+   └─ main stream ─► ffmpeg: 1-minute MP4s (copy, no re-encode) + keyframes for full-resolution crops
+                                             │
+                               one SQLite store per site (events, sightings, faces, poses + media)
+                                             │
+                                             ├─► ask.py     plain-language search, rules only (no LLM)
+                                             ├─► chat.py    LLM + tools, answers with evidence
+                                             └─► server.py  FastAPI: search, people, events, media, recordings
+</code></pre>
+<p>One recorder process per camera; each heavy step (CLIP, pose, faces) runs on its own thread and
+<strong>skips samples rather than slowing detection</strong>, so a busy scene is sampled more sparsely instead
+of lagging behind.</p>
+<h3>Code layout</h3>
+<p>The code is one Python package, <code>argus</code>, in <code>projects/argus</code>, with one <code>uv</code> environment (Python ≥ 3.11):</p>
+<ul>
+<li><strong>argus.engine</strong> (~25 modules): detector, tracker, zones, alerts, store,
+  indexer, CLIP / face / pose models, query parser, search, FastAPI server, camera discovery,
+  main-stream recording, Gradio test UI.</li>
+<li><strong>argus</strong> (the product layer on top of the engine): <code>record.py</code>, <code>ask.py</code>, <code>chat.py</code> (chat CLI), <code>tools.py</code> (what the LLM may call), <code>llm.py</code>
+  (model backends) and <code>ui.py</code> (test UI: record, find a person by photo, chat, reports, and the engine's test bench).</li>
+</ul>
+<p>About 8,000 lines of Python and ~125 unit tests (<code>uv run pytest</code>). Other folders:
+<code>docs/</code> (documentation, partner programme, presentation), <code>Brochures/</code>, <code>Images/argus/</code>
+(brand kit).</p>
+<h3>Models</h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Model</th>
+<th>Licence</th>
+<th>Cost on a laptop CPU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Object detection</td>
+<td>YOLOX-Nano (COCO, 80 classes), larger YOLOX variants selectable</td>
+<td>Apache-2.0</td>
+<td>4 MB model, real time</td>
+</tr>
+<tr>
+<td>Visual search</td>
+<td>CLIP ViT-B/32 (OpenCLIP, LAION-400M), float32</td>
+<td>MIT</td>
+<td>~55 ms per crop, 2 KB per vector</td>
+</tr>
+<tr>
+<td>Body pose</td>
+<td>ViTPose-B, COCO only</td>
+<td>Apache-2.0</td>
+<td>100–175 ms per person</td>
+</tr>
+<tr>
+<td>Faces (opt-in)</td>
+<td>YuNet detector + SFace recogniser</td>
+<td>MIT / Apache-2.0</td>
+<td>128-number face print</td>
+</tr>
+<tr>
+<td>Chat (default)</td>
+<td>Qwen3 4B via Ollama; others selectable</td>
+<td>Apache-2.0</td>
+<td>CPU</td>
+</tr>
+</tbody>
+</table>
+<p>All vision models run as ONNX graphs with numpy/OpenCV pre- and post-processing: no PyTorch at
+run time and a straightforward port to C++. PyTorch is only used in one-off export scripts.</p>
+<h3>How a question is answered</h3>
+<p><strong>1. Parse.</strong> <code>query.py</code> turns the sentence into <em>what / when / camera</em> with rules (today,
+yesterday, last friday, after 10pm, last 2 hours, camera names and aliases). No LLM needed.</p>
+<p><strong>2. Look up.</strong> The chat model gets up to five tools over the store (<code>people</code> and <code>face</code> only
+where pose and faces are enabled) and may run up to six rounds of lookups:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Answers</th>
+<th>Kind</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>objects</code></td>
+<td>what was tracked, when, how many; "together with" (same camera within 15 s)</td>
+<td>exact</td>
+</tr>
+<tr>
+<td><code>search</code></td>
+<td>CLIP text-to-image search over objects and scene tiles</td>
+<td>ranked</td>
+</tr>
+<tr>
+<td><code>people</code></td>
+<td>posture time, hands up, facing, clothing colours</td>
+<td>exact</td>
+</tr>
+<tr>
+<td><code>alerts</code></td>
+<td>what the alert rules fired</td>
+<td>exact</td>
+</tr>
+<tr>
+<td><code>face</code></td>
+<td>visits matching an attached photo (likely / possible)</td>
+<td>scored</td>
+</tr>
+</tbody>
+</table>
+<p><strong>3. Group and cite.</strong> Sightings of the same track are merged into one <em>visit</em>; the answer lists
+the thumbnails it relied on.</p>
+<p>Models are config entries, not code: any OpenAI-compatible server (Ollama, llama.cpp, LM Studio,
+vLLM) or the Anthropic API. Each camera has an <code>about:</code> block (location, aliases, what it covers,
+face quality, normal hours) that goes into the model's instructions.</p>
+<h3>Storage and API</h3>
+<ul>
+<li><strong>SQLite, one file per site:</strong> <code>events</code> (with JPEG snapshots), <code>sightings</code> (CLIP vectors),
+  <code>faces</code>, <code>poses</code>. Pose rows are written only on change plus a 10 s heartbeat (~250 bytes each).</li>
+<li><strong>Retention:</strong> sightings 30 days, face prints 7 days, recordings 7 days (or sooner when disk is
+  low). Purging runs inside the API server.</li>
+<li><strong>Search</strong> is brute force with numpy, fine for a pilot; sqlite-vec or pgvector for large sites.</li>
+<li><strong>API (FastAPI):</strong> <code>/search</code>, <code>/search/face</code>, <code>/people</code>, <code>/events</code>, <code>/media</code>, <code>/recordings</code>
+  (links open the video 3 s before the moment), <code>/cameras</code>, <code>/health</code>, <code>/maintenance/purge</code>.</li>
+</ul>
+<h3>Deployment footprint</h3>
+<ul>
+<li>A standard server, no GPU. Cameras declared in YAML; passwords in <code>.env</code>.</li>
+<li>Recording at 1080p, 4 Mbit/s is about <strong>43 GB per camera per day</strong> (needs ffmpeg ≥ 5.1).</li>
+<li>Main-stream keyframes (1 per second) give sharp crops for search and faces at the cost of one
+  extra detection per second per camera.</li>
+</ul>
+<h3>Known limits</h3>
+<ul>
+<li>"Everything" is sampled (objects every 2 s, scenes every 5 s, nothing under 40 px tall); all
+  tunable per site.</li>
+<li>Visual search scores are relative: results are ranked guesses, checked through the evidence.</li>
+<li>A long occlusion can split one visit into two.</li>
+<li>Poses need people ≥ 80 px tall; colours are lost under infrared; sitting and crouching can be
+  confused. Person-down is unit-tested but <strong>not yet validated on real falls</strong>.</li>
+<li>Face thresholds were set on clear photos, not CCTV: calibrate per pilot site.</li>
+<li>Alert rules only cover the 80 detector classes plus the two pose events. New objects (fire,
+  smoke, customer-specific items) need a trained model; rules and channels then apply unchanged.</li>
+<li>The API has <strong>no authentication yet</strong>: keep it on <code>127.0.0.1</code> or behind a proxy with login.</li>
+<li>Small local models follow tool instructions less reliably than large ones.</li>
+</ul></body></html>
