@@ -24,8 +24,6 @@ import asyncio
 import hashlib
 import hmac
 import secrets
-import time
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +31,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from argus.engine.cameras import expand_env
+from argus.engine.status import camera_status
 
 if TYPE_CHECKING:
     from argus.engine.store import EventStore
@@ -40,8 +39,6 @@ if TYPE_CHECKING:
 PAGE = Path(__file__).with_name("dashboard.html")
 COOKIE = "argus_session"
 PUBLIC = {"/login", "/logout", "/favicon.svg"}
-ONLINE_SECONDS = 120     # a camera with nothing stored for this long shows as offline
-TAMPER_SECONDS = 3600    # a tamper alert this recent shows on the camera's card
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 FAVICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" '
@@ -88,57 +85,6 @@ def check_host(host: str, token: str | None) -> None:
     if host not in LOCAL_HOSTS and not token:
         raise SystemExit(f"--host {host} would expose the API without a login: set server.token "
                          "in the config (e.g. ${ARGUS_TOKEN} in .env), or keep 127.0.0.1")
-
-
-def camera_status(store: EventStore, cameras: list[str], now: float | None = None
-                  ) -> dict[str, Any]:
-    """Per camera: last thing stored, online, objects tracked and alerts today, recent tamper."""
-    now = time.time() if now is None else now
-    midnight = datetime.fromtimestamp(now).replace(hour=0, minute=0, second=0,
-                                                   microsecond=0).timestamp()
-    last: dict[str, float] = {}
-    tracked: dict[str, dict[str, int]] = {}
-    alerts: dict[str, dict[str, int]] = {}
-    tamper: dict[str, dict[str, Any]] = {}
-    with store._lock:  # same package: read with the store's own connection and lock
-        db = store._db
-        for table in ("sightings", "poses", "events", "plates"):
-            exists = db.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (table,)).fetchone()
-            if not exists:
-                continue
-            for camera, t in db.execute(f"SELECT camera, MAX(time) FROM {table} GROUP BY camera"):
-                if t is not None:
-                    last[camera] = max(last.get(camera, 0.0), t)
-        for camera, label, n in db.execute(
-                "SELECT camera, label, COUNT(DISTINCT track_id) FROM sightings WHERE kind = "
-                "'object' AND time >= ? AND track_id IS NOT NULL GROUP BY camera, label",
-                (midnight,)):
-            tracked.setdefault(camera, {})[label] = n
-        for camera, n, held in db.execute(
-                "SELECT camera, COUNT(*), SUM(verified = 'no') FROM events WHERE time >= ? "
-                "GROUP BY camera", (midnight,)):
-            alerts[camera] = {"total": n, "held_back": int(held or 0)}
-        for camera, rule, t in db.execute(
-                "SELECT camera, rule, MAX(time) FROM events WHERE type = 'tamper' AND time >= ? "
-                "GROUP BY camera", (now - TAMPER_SECONDS,)):
-            tamper[camera] = {"rule": rule, "time": t,
-                              "iso_time": datetime.fromtimestamp(t).isoformat(timespec="seconds")}
-    names = sorted(set(cameras) | set(last))
-    out = []
-    for name in names:
-        seen = last.get(name)
-        counts = dict(sorted(tracked.get(name, {}).items(), key=lambda kv: -kv[1]))
-        out.append({
-            "camera": name,
-            "last_seen": datetime.fromtimestamp(seen).isoformat(timespec="seconds") if seen else None,
-            "seconds_ago": round(now - seen) if seen else None,
-            "online": bool(seen and now - seen < ONLINE_SECONDS),
-            "tracked_today": counts,
-            "alerts_today": alerts.get(name, {"total": 0, "held_back": 0}),
-            "tamper": tamper.get(name),
-        })
-    return {"time": datetime.fromtimestamp(now).isoformat(timespec="seconds"),
-            "online_seconds": ONLINE_SECONDS, "cameras": out}
 
 
 def add_dashboard(app: FastAPI, store: EventStore, cameras: list[str],

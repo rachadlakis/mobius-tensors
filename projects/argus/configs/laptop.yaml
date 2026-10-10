@@ -139,3 +139,31 @@ tamper:
 abandoned:
   enabled: true
   seconds: 30
+
+# Telegram (DOCUMENTATION.md, 17.1): the token and your chat id are in .env. On this laptop demo,
+# images and face search are on, to try them with your own face; on a client's site they stay
+# off until the client agrees in writing. Alerts (hands up 3 s, lying 10 s, hand over the lens
+# 20 s, a bag left 30 s) go to your chat; ask questions with `uv run -m argus.telegram_bot
+# --config configs/laptop.yaml` running.
+alerts:
+  console: true
+  snapshots: true
+  channels:
+    - type: telegram
+      token: ${TELEGRAM_BOT_TOKEN}
+      chat_id: ${TELEGRAM_CHAT_ID}
+      images: true             # the snapshot (it leaves the laptop, to Telegram)
+      video: false             # clips need `recording:` (a webcam has no main stream)
+      cooldown_seconds: 30
+
+telegram:
+  token: ${TELEGRAM_BOT_TOKEN}
+  allowed_chats: ["${TELEGRAM_CHAT_ID}"]
+  images: true                 # evidence thumbnails with answers
+  face_search: true            # send the bot a photo of yourself after recording your face
+
+# MCP (Claude Desktop / Code): face search from a photo file on this laptop, e.g. "is the person
+# in C:/Users/user/Pictures/me.jpg on the webcam today?"
+mcp:
+  face_search: true
+  photo_dirs: []

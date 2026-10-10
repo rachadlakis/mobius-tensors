@@ -35,8 +35,8 @@ def test_make_channel_picks_class_and_filter():
     sink = make_channel({"type": "webhook", "url": "http://x/hook", "rules": ["gate"],
                          "hours": "22:00-06:00"})
     assert isinstance(sink, WebhookSink) and sink.filter.rules == {"gate"}
-    with pytest.raises(ValueError, match="Unknown alert channel 'telegram'"):
-        make_channel({"type": "telegram", "token": "t"})
+    with pytest.raises(ValueError, match="Unknown alert channel 'whatsapp'"):
+        make_channel({"type": "whatsapp", "token": "t"})
     with pytest.raises(ValueError, match="hours must look like"):
         make_channel({"type": "webhook", "url": "http://x", "hours": "night"})
 

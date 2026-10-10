@@ -56,7 +56,8 @@ the answer into the documentation and delete it here.
   re-ID models need client approval, like faces. (section 47.7, roadmap #10)
 - **Safety gear (PPE)** for industrial clients: train on SHWD / Hard Hat Workers. Is there demand?
   (section 47.8)
-- **Channels:** Telegram, WhatsApp, SMS, on-site siren. Which first? (section 8, roadmap #7)
+- **Channels:** Telegram is done (alerts and a bot, section 17.1). Next: WhatsApp, SMS or an
+  on-site siren? (section 8, roadmap #7)
 - **Dashboard and login.** A first dashboard (live alerts, camera cards, search) and a token login
   are in the code (`engine/dashboard.py`) and documented (section 27.1). Does the chat go into
   it too? Is one shared token enough, or do sites need a login per person? (sections 10, 27,
@@ -69,6 +70,37 @@ the answer into the documentation and delete it here.
   on a CPU? (section 47.2)
 - **Retention purging** only runs inside `server.py`: should the recorder do it too, so a site
   without the API still purges? (section 10)
+
+## Updates on client servers
+
+Not documented yet. Today a site is installed with `git clone` + `uv sync` (section 35), so an
+update means someone logs in and runs commands. Clients can't run code and we can't visit every
+site. The idea discussed (October 2026):
+
+- **Each server checks in with our update server** once a night, connecting out over HTTPS. No
+  ports are open on the client's side.
+- **Nothing installs on its own.** A server installs only a release we have assigned to that site
+  in our dashboard (a few test sites first, then the rest).
+- **Paid sites only.** Our update server sends nothing to a site whose subscription has lapsed. A
+  signed licence file on each server gives the paid-until date; after it, the server refuses
+  updates and new models, even from USB. **Open:** does an unpaid site keep running on its current
+  version (suggested: yes, so a break-in is still caught, which avoids liability), or stop?
+- **Install next to the old version, undo if broken:** check that cameras record and models load,
+  otherwise switch back and report to us. `site.yaml`, `.env`, store and recordings live outside
+  the release folders.
+- **Models update separately** (e.g. fire & smoke), versioned with a checksum each.
+- **Offline sites:** a USB stick by post that installs itself when plugged in. Or require outbound
+  internet at sale time?
+- **Ready-to-run servers** shipped from one disk image, so the installer only connects cameras.
+- **Dashboard of sites:** version, last check-in, cameras online, failed updates, paid-until.
+- **Security:** releases signed with a key kept offline, never on the update server. The
+  remote-support tunnel (Tailscale or similar) is off by default and turned on per site when
+  needed, with two-factor login for named staff only, and every session logged. Each server has
+  its own key. The weak point is our own signing key and staff accounts.
+- **Effort:** about 6–8 weeks for one developer for everything; a minimum version (signed releases,
+  update agent with undo, simple admin page with paid status set by hand, Tailscale) about 2–3
+  weeks. **Check Mender first** (open-source over-the-air updates, Apache-2.0: signed updates,
+  undo, device dashboard), which could cut it to ~2–3 weeks with only the licence check added.
 
 ## Models to choose
 

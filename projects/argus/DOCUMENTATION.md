@@ -186,8 +186,10 @@ advance, memory for every other question.
   nothing is lost and a person can still check it. The model can veto, never raise an alert.
 - **Delivery:** channels, each with its own filter: which rules, events and objects, at which
   hours ("22:00-06:00"), and a cooldown so nobody gets flooded. Webhook (into the client's own
-  systems, or Slack/Teams/n8n/Zapier) and email work today, with a JPEG snapshot of the moment.
-  Telegram, WhatsApp, SMS and an on-site siren are next.
+  systems, or Slack/Teams/n8n/Zapier), email and **Telegram** work today; the snapshot (and on
+  Telegram a short video clip) is optional. WhatsApp, SMS and an on-site siren are next.
+- **Ask from Telegram:** the chat also runs as a Telegram bot for the chats a site allows
+  (section 17.1).
 - **Ask about alerts:** every event is stored with its snapshot (and verdict), whatever the
   channels sent; the chat's `alerts` tool answers "did any alert go off last night?".
 
@@ -204,7 +206,8 @@ Weapons are not offered: no model, and both false alarms and misses are costly (
 | Plain-language questions (`ask.py`), no language model needed | A fixed set of test questions on recorded footage, to compare chat models |
 | Chat with switchable models, local by default; `look` reads the evidence images | Try `qwen3.5:4b` as the chat model itself (tools + vision in one) |
 | Main-stream recording with full-resolution crops | A multi-camera timeline: one visit across cameras |
-| Alerts by area, line, crowding, abandoned bags, tampering, to webhook and email with filters | Telegram, WhatsApp, SMS and on-site siren channels |
+| Alerts by area, line, crowding, abandoned bags, tampering, to webhook, email and **Telegram (2026-10-10)** with filters | WhatsApp, SMS and on-site siren channels |
+| **Telegram bot (2026-10-10)**: ask Argus from a phone; images and clips optional | Try it with a real bot at a pilot site |
 | **Alert checking by a local vision model (2026-10-10)**, tested against a stand-in server | Run on a real Ollama, then false alarms per day at a pilot site with and without it |
 | Body poses: facts, `people` search, person-down and hands-up alerts | Staged-fall test at a pilot site; a smaller COCO-only pose model |
 | Face search by photo (opt-in) | Calibrate the thresholds on a pilot site's footage |
@@ -346,6 +349,7 @@ src/argus/
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
   tools.py             what the LLM may call: objects, search, alerts, people, plates, face, look
   mcp_server.py        the same tools over MCP (stdio), for Claude Desktop / Code or any agent
+  telegram_bot.py      the chat as a Telegram bot, for allowed chats
   llm.py               model backends: OpenAI-compatible (local) and Claude
   vision.py            the local vision model behind `look` and alert checking
   report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
@@ -373,6 +377,8 @@ src/argus/
     search.py          text, face, people and plate search, results grouped into visits
     server.py          FastAPI: events, media, recordings, /search, /search/face, /people, /plates
     dashboard.py       the dashboard page (dashboard.html), /status, the token login
+    status.py          camera status (online, today's counts, tamper) for the dashboard and bot
+    telegram.py        Telegram Bot API client (alert channel, bot), video clips from recordings
     stream.py          frame sources (webcam, image, video, URL)
     cameras.py         IP cameras: config, capture with reconnect, discovery
     mainstream.py      main stream via ffmpeg: MP4 recording + keyframes for hi-res crops
@@ -566,25 +572,117 @@ alerts:
 | --- | --- | --- | --- |
 | Webhook | works | JSON POST to any URL; also the quick route to Slack, Teams, n8n, Zapier, Make | a URL |
 | Email | works | SMTP, snapshot attached | an SMTP account |
-| Telegram | planned | Bot API `sendPhoto`: snapshot + alert text as caption | a bot token and the chat id |
+| Telegram | works | A Telegram bot posts the alert text; the snapshot and a video clip are optional (section 17.1) | a bot token (@BotFather) and the chat id |
 | WhatsApp | planned | WhatsApp Business Cloud API; messages the business starts use a pre-approved template | a Meta business account, number id, token, template |
 | SMS | planned | an SMS provider's HTTP API (e.g. Twilio) | an account and a sender number |
 | Siren / relay | planned | HTTP call to an IP relay or a camera's alarm output | a device with an HTTP API |
 
-Adding a channel is one class in `src/argus/engine/alerts.py`; filters, cooldowns, retries and
-the background thread come for free:
+Adding a channel is one class in `src/argus/engine/alerts.py` (`TelegramSink` is the latest
+example); filters, cooldowns, retries and the background thread come for free:
 
 ```python
-class TelegramSink(Sink):
-    def __init__(self, token: str, chat_id: str):
-        self.token, self.chat_id = expand_env(token), chat_id
+class SmsSink(Sink):
+    def __init__(self, account: str, token: str, to: list[str]):
+        ...
 
     def send(self, payload, jpeg):
-        title, text = alert_message(payload)   # same wording as email
-        ...                                    # one HTTPS request to the service
+        title, text = alert_message(payload)   # same wording as email and Telegram
+        ...                                    # one HTTPS request to the provider
 
-CHANNELS["telegram"] = TelegramSink        # config: channels: [{type: telegram, token: ..., chat_id: ...}]
+CHANNELS["sms"] = SmsSink                  # config: channels: [{type: sms, ...}]
 ```
+
+### 17.1 Telegram: alerts and questions from a phone
+
+One Telegram bot does two things, each optional:
+
+| | What | Runs in | Config |
+| --- | --- | --- | --- |
+| **Alerts** | Each alert to a person, a group or a channel, with the check's verdict | the recorders (an alert channel) | `alerts.channels: [{type: telegram, ...}]` |
+| **Questions** | Ask the chat from Telegram, get the answer (and the evidence) back | its own process, `argus.telegram_bot` | `telegram:` |
+
+**What leaves the site.** Telegram is a cloud service: what the bot sends is stored on its
+servers. By default only **text** goes out (the alert, the question, the answer). Images and video
+are switches, to turn on only where the client agreed in writing:
+
+| Switch | Sends | Default |
+| --- | --- | --- |
+| `alerts.channels[].images` | the alert's snapshot, with the text as caption | off |
+| `alerts.channels[].video` | then a clip from the main-stream recording, from 3 s before the alert, `video_seconds` long (10), once it is recorded; needs `recording:` and ffmpeg | off |
+| `telegram.images` | the evidence thumbnails (up to 4) after each answer; for face search, the camera's best face of each visit | off |
+| `telegram.face_search` | lets a photo sent to the bot search the recorded faces (below); needs `faces.enabled` | off |
+
+**Create the bot (5 minutes, once per site):**
+
+1. In Telegram, open a chat with **@BotFather** (the official bot, with the blue tick) and send
+   `/newbot`. Give it a name ("Argus Warehouse") and a username ending in `bot`
+   (`argus_warehouse_bot`).
+2. BotFather replies with a **token** like `123456789:AAH…`. It controls the bot: treat it like a
+   password. On the Argus server, put it in `projects/argus/.env` as
+   `TELEGRAM_BOT_TOKEN=123456789:AAH…` (`chmod 600 .env`). If it ever leaks, `/revoke` in
+   BotFather issues a new one.
+3. Optional, in BotFather: `/setdescription`, `/setuserpic` (the Argus icon), and
+   `/setjoingroups` → *Disable* once the bot is in the groups it needs, so nobody else can add it.
+4. Set `telegram.token: ${TELEGRAM_BOT_TOKEN}` in the site config and start the bot:
+   `uv run -m argus.telegram_bot --config configs/site.yaml`.
+5. **Get the chat ids:** each person opens the bot and sends `/id` (for a group: add the bot to the
+   group, then send `/id` there; group ids are negative). The bot answers with the id and nothing
+   else, because the chat is not allowed yet.
+6. Put the ids in the config and restart the bot:
+
+```yaml
+telegram:
+  token: ${TELEGRAM_BOT_TOKEN}
+  allowed_chats: [123456789, -1001234567890]   # these chats may ask; nobody else
+  images: false                # true: evidence thumbnails too (they leave the site)
+
+alerts:
+  channels:
+    - type: telegram
+      token: ${TELEGRAM_BOT_TOKEN}             # the same bot is fine
+      chat_id: -1001234567890                  # a person, group or channel; a list for several
+      images: false
+      video: false
+      events: [down, abandoned, tamper]        # the usual filters: rules, events, labels, hours, cooldown
+```
+
+7. Restart the recorders (`systemctl restart 'argus-camera@*'`) so the alert channel loads, and do
+   a walk test: the alert arrives in Telegram. Run the bot as a service (section 36).
+
+**How it connects.** The server only makes **outgoing** HTTPS calls to `api.telegram.org`: the bot
+asks Telegram for new messages (long polling) and sends its answers. No open port, no public
+address, no change to the site's router. If the site's firewall only allows listed hosts, allow
+`api.telegram.org` on port 443. Only one bot process per token may poll.
+
+**In the chat:** `/help` (examples), `/status` (cameras online, today's counts and alerts, any
+tamper), `/new` (a new conversation; one also starts after 30 minutes of quiet), `/id`. Answers
+come from the same model and tools as the chat (section 25), one question at a time. If the model
+server is down, the bot says so.
+
+**Face search from Telegram** (`telegram.face_search: true`, opt-in): send the bot a photo of a
+person, with the question as its caption ("did he come to the office between 1 and 4?").
+
+1. The bot downloads the photo **into memory** (it is never written to disk on the server) and
+   makes a face print exactly as the chat's `/photo` does (section 21.4): one usable face, sharp
+   and facing the camera, or it says why not.
+2. It searches **directly**, like `POST /search/face`: the caption's time and camera words set the
+   range by rules, so **no language model is needed**. The answer lists *likely* / *possible*
+   visits with their times and match scores, or says how many faces were compared ("no match is
+   not proof"). With `telegram.images`, the camera's best face of each visit follows.
+3. The photo stays attached as `photo1`, so a follow-up ("and yesterday?") goes to the chat model
+   with it.
+
+The photo itself stays in the Telegram chat, on Telegram's servers, and a face print is biometric
+data: turn this on only where the client agreed in writing (section 21), and only for the chats
+that need it. The laptop demo config has it on to try with your own face.
+
+**Checked:** `tests/test_telegram.py` (18 tests) against a stand-in Bot API server: text only by
+default, the snapshot and clip only when switched on, every chat of a list, long texts split, the
+token never in an error, reports, the bot answering only allowed chats and giving strangers only
+their id, conversations and `/new`, evidence images, `/status`, a model error, and face search
+(off by default, the largest photo size, a match without the chat model, no match, unusable
+photos, the follow-up). Tried with a real bot from a phone (2026-10-10): `/id`, the allowed chat,
+`/status`, `/help`, and a photo before face search existed.
 
 ## 18. Alert checking: a second look before sending
 
@@ -1095,7 +1193,7 @@ starts it as a command, and nothing new listens on the network.
 | | |
 | --- | --- |
 | **Tools** | `objects`, `search`, `alerts`, `people`, `plates`, `look`, where enabled; all marked read-only |
-| **Left out** | `face`: it needs a photo attached in the chat, and it is biometric |
+| **Face search** | opt-in (`mcp.face_search`): a `face` tool that takes a photo **file** on the server (below). Off, the instructions tell the model that face search exists in the chat, UI and Telegram bot, so it never says "Argus can't match faces" |
 | **Instructions** | the chat's own (cameras with their `about:`, alert rules, how to use each tool) |
 | **Time** | every result carries `site_time`, the site's clock, so "last night" is resolved right even when the client's model runs elsewhere |
 | **Images** | never sent: results list thumbnail paths; `look` has the site's vision model read them and returns text |
@@ -1121,11 +1219,29 @@ SSH (the server's SSH login is the only access needed):
 }
 ```
 
+**Face search over MCP** (`mcp.face_search: true`, and `faces.enabled`). A photo attached in the
+client's chat can't reach a tool: the model sees its pixels, not its file. So the `face` tool
+takes the **path of a photo file on the Argus server** ("is the person in
+`C:/photos/visitor.jpg` on the cameras today?"), makes its face print as the chat's `/photo` does,
+and returns likely / possible visits and what was checked, as JSON text. The photo is read, never
+copied or sent anywhere.
+
+```yaml
+mcp:
+  face_search: false           # biometric: the client's written approval first
+  photo_dirs: []               # only photos under these folders, e.g. [C:/argus-photos]; empty = any
+```
+
+Only image files (.jpg, .jpeg, .png, .webp, .bmp, up to 20 MB) are opened; with `photo_dirs`, only
+inside those folders. An unusable face comes back with the reason ("too small (31 px, needs 40)").
+
 Checked: `tests/test_mcp.py` (tool list, read-only hints, results with `site_time` and verdicts,
-errors, `look` on a listed snapshot, instructions, nothing printed on stdout), and a real stdio
-session against the laptop store (list tools, `objects`, `alerts`). Not yet tried from Claude
-Desktop itself. Later: a streamable-HTTP transport with authentication, for clients that can't
-start a command.
+errors, `look` on a listed snapshot, instructions, nothing printed on stdout; face search off by
+default with the "exists elsewhere" instruction, a photo file matched, a dark photo, a text file,
+a missing file, a file outside `photo_dirs`), a real stdio session against the laptop store
+(list tools, `objects`, `alerts`, `face` with the real models), and Claude Desktop answering from
+the laptop store (2026-10-10). Later: a streamable-HTTP transport with authentication, for clients
+that can't start a command.
 
 ## 26. Reports
 
@@ -1564,12 +1680,15 @@ WantedBy=multi-user.target
 
 `argus-api.service` is the same with `Description=Argus API` and
 `ExecStart=... uv run --group server -m argus.engine.server --config configs/site.yaml`;
-`argus-reports.service` with `ExecStart=... uv run -m argus.report --config configs/site.yaml`.
+`argus-reports.service` with `ExecStart=... uv run -m argus.report --config configs/site.yaml`;
+`argus-telegram.service` (only with the Telegram bot, section 17.1) with
+`ExecStart=... uv run -m argus.telegram_bot --config configs/site.yaml`.
 Replace `argus` with the server's user name, then:
 
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now argus-camera@gate argus-camera@yard argus-api argus-reports
+sudo systemctl enable --now argus-telegram                       # only with the Telegram bot
 systemctl status 'argus-*'
 journalctl -u argus-camera@gate -f               # live logs of one camera
 ```
@@ -2165,7 +2284,7 @@ tailgating (section 48), and the tools over MCP (built, section 25.3).
 | 4 | Composite detector + YOLOX fire/smoke + persistence check + alert checking (45) | M–L | Fire/smoke alerts, ready for a pilot |
 | 5 | Person-down on staged falls at a pilot site; a COCO-only small pose model (47.4) | M | Person-down alerts we can promise |
 | 6 | Running and tailgating rules; fight candidates from pose + sound (48) | S–M | More of the vendors' threat list |
-| 7 | Telegram, WhatsApp, SMS, siren channels; the chat in the dashboard; logins per person | M | Delivery and access |
+| 7 | WhatsApp, SMS, siren channels; the chat in the dashboard; logins per person | M | Delivery and access |
 | 8 | Evaluation questions on recorded footage to pick the chat model (`qwen3:4b` vs `qwen3.5:4b`…) | S | A measured default |
 | 9 | Open-vocabulary auto-labelling → per-customer YOLOX (47.5) | L | "Any object the customer names" |
 | 10 | Multi-camera timeline: one visit across cameras (47.7) | M | "Where did they go next?" |
@@ -2179,9 +2298,15 @@ S = days, M = 1–3 weeks, L = longer (rough).
 (2026-10-09) · pose, person-down, hands-up (2026-10-08) · sound events (2026-10-09) · tampering,
 abandoned bags, crowding (2026-10-09) · periodic reports · **alert checking (2026-10-10)** ·
 **MCP server (2026-10-10)** ·
-**dashboard with login (2026-10-10)**.
+**dashboard with login (2026-10-10)** ·
+**Telegram alerts and bot (2026-10-10)**.
 
 # Development log
+
+**2026-10-10 — Telegram.** `engine/telegram.py` (Bot API client), a `telegram` alert channel
+(text by default; snapshot and a clip from the recording optional) and `telegram_bot.py` (ask
+Argus from Telegram, allowed chats only, evidence images optional; face search from a photo,
+opt-in, without the chat model). 18 tests against a stand-in Bot API server, and a real bot. `engine/status.py`: camera status shared by the dashboard and the bot.
 
 **2026-10-10 — Dashboard and login.** `engine/dashboard.py` + `dashboard.html`: the page at `/`
 (cameras, live alerts with verdicts, search, plates), `GET /status`, and a token login in front of

@@ -108,3 +108,68 @@ def test_build_toolbox_leaves_face_search_out(tmp_path, capsys):
     assert "search" not in [t.name for t in toolbox.tools]  # no CLIP here
     assert capsys.readouterr().out == ""  # stdout is the MCP channel: nothing printed on it
     toolbox.close()
+
+
+# ------------------------------------------------------------------ face search over MCP
+
+class FakeFaces:
+    """A bright photo has one usable face; a dark one has none."""
+
+    def photo_faces(self, image):
+        from argus.engine.faces import FaceQuality, PhotoFace
+
+        if image.mean() < 50:
+            return []
+        v = np.zeros(128, np.float32)
+        v[0] = 1
+        return [PhotoFace(v, (0, 0, 80, 80), FaceQuality(0.9, 80, 0.1, 120), [])]
+
+
+def photo(path, value):
+    import cv2
+
+    cv2.imwrite(str(path), np.full((120, 120, 3), value, np.uint8))
+    return str(path)
+
+
+def test_face_off_by_default_and_the_model_is_told_it_exists_elsewhere(store):
+    toolbox = Toolbox(SearchEngine(store, FakeClip(), FakeFaces(), camera_names=["gate"]), now=NOW)
+    server = create_server(toolbox)  # face_search off
+    listed, called = call(server, [lambda c: c.list_tools(),
+                                   lambda c: c.call_tool("face", {"photo_path": "x.jpg"})])
+    assert "face" not in [t.name for t in listed.tools]
+    assert called.is_error and "not available" in called.content[0].text
+    assert "Never say Argus can't match faces" in server.instructions
+    assert "attached (photo1" not in server.instructions  # the chat's /photo help is left out
+
+
+def test_face_search_from_a_photo_file(store, tmp_path):
+    seen = NOW.replace(hour=10).timestamp()
+    v = np.zeros(128, np.float32)
+    v[0] = 1
+    store.add_faces([{"camera": "gate", "time": seen + k, "track_id": 5, "embedding": v}
+                     for k in range(3)])
+    toolbox = Toolbox(SearchEngine(store, FakeClip(), FakeFaces(), camera_names=["gate"]), now=NOW)
+    server = create_server(toolbox, face_search=True, photo_dirs=[str(tmp_path / "photos")])
+    (tmp_path / "photos").mkdir()
+    good = photo(tmp_path / "photos" / "visitor.jpg", 200)
+    dark = photo(tmp_path / "photos" / "dark.jpg", 10)
+    outside = photo(tmp_path / "elsewhere.jpg", 200)
+    (tmp_path / "photos" / "notes.txt").write_text("hello")
+    listed, found, refused, not_photo, missing, out_of_dirs = call(server, [
+        lambda c: c.list_tools(),
+        lambda c: c.call_tool("face", {"photo_path": good, "when": "today"}),
+        lambda c: c.call_tool("face", {"photo_path": dark}),
+        lambda c: c.call_tool("face", {"photo_path": str(tmp_path / "photos" / "notes.txt")}),
+        lambda c: c.call_tool("face", {"photo_path": str(tmp_path / "photos" / "none.jpg")}),
+        lambda c: c.call_tool("face", {"photo_path": outside}),
+    ])
+    face = next(t for t in listed.tools if t.name == "face")
+    assert face.input_schema["required"] == ["photo_path"]
+    assert "file on the Argus server" in server.instructions
+    out = json.loads(found.content[0].text)
+    assert not found.is_error and out["likely"] == 1 and out["visits"][0]["camera"] == "gate"
+    assert refused.is_error and "Error:" in refused.content[0].text
+    assert not_photo.is_error and "not a photo" in not_photo.content[0].text
+    assert missing.is_error and "does not exist" in missing.content[0].text
+    assert out_of_dirs.is_error and "only photos in these folders" in out_of_dirs.content[0].text

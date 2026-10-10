@@ -151,6 +151,12 @@ alerts:
   #    password: ${SMTP_PASSWORD}
   #    labels: [person]
   #    hours: "22:00-06:00"     # only people, only at night
+  #  - type: telegram           # a Telegram bot (DOCUMENTATION.md, 17.1): create it with @BotFather
+  #    token: ${TELEGRAM_BOT_TOKEN}
+  #    chat_id: ${TELEGRAM_CHAT_ID}   # a person, a group or a channel; a list for several
+  #    images: false            # true: attach the snapshot. Images and clips leave the site and
+  #    video: false             #   stay on Telegram's servers: only where the client agreed
+  #    video_seconds: 10        # clip from 3 s before the alert (needs recording: and ffmpeg)
   # Alert checking (engine/verify.py): before an alert is sent, the local vision model
   # (chat.vision) looks at its snapshot and a close-up and answers YES / NO / UNSURE. A NO
   # holds the alert back (it stays in the store, marked `verified: no`); anything else is sent
@@ -163,6 +169,23 @@ alerts:
     timeout: 60                # seconds; later answers count as errors (alert sent unverified)
     # questions: {enter: "Is there a real person (not a shadow or reflection) in the red box?"}
     # model: qwen3.5:4b        # default: chat.vision's model and server
+
+# Ask Argus from Telegram (src/argus/telegram_bot.py): uv run -m argus.telegram_bot
+# Same bot token as the alert channel is fine. Only the chats listed here get answers; send /id to
+# the bot from a chat to learn its id. The server only makes outgoing HTTPS calls: no open port.
+telegram:
+  token: ${TELEGRAM_BOT_TOKEN}  # from @BotFather; the value goes in .env, never here
+  allowed_chats: ["${TELEGRAM_CHAT_ID}"]   # ids in .env (quoted: YAML); several: ["${TELEGRAM_CHAT_ID}", -1001234567890]
+  images: false                # true: also send the evidence thumbnails (they leave the site)
+  face_search: false           # true: a photo sent to the bot searches the recorded faces
+                               # (biometric: client's written approval; needs faces.enabled)
+  # model: local               # chat.models entry (default: chat.model)
+
+# MCP server (src/argus/mcp_server.py): the chat's tools for Claude Desktop / Code or any agent.
+mcp:
+  face_search: false           # true: a `face` tool that takes a photo FILE on this server
+                               # (biometric: client's written approval; needs faces.enabled)
+  photo_dirs: []               # only photos under these folders, e.g. [C:/argus-photos]; empty = any
 
 # API server and dashboard (engine/server.py, engine/dashboard.py):
 #   uv run --group server -m argus.engine.server --config configs/default.yaml   -> http://127.0.0.1:8000/

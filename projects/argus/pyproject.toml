@@ -27,8 +27,10 @@ claude = [
 dev = [
     "httpx>=0.28.1",
     "mcp>=2.3.0",  # tests of the MCP server (argus.mcp_server)
+    "mypy>=2.4.0",
     "pytest>=9.1.1",
     "types-pyyaml>=6.0.12.20260906",
+    "types-regex>=2026.9.29.20261005",
 ]
 # One-off model exports (CLIP, ViTPose) to ONNX; never needed on a site.
 export = [

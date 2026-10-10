@@ -186,7 +186,7 @@ class Pipeline:
         vision = {k: expand_env(v) if isinstance(v, str) else v  # alerts.verify's defaults
                   for k, v in ((config.get("chat") or {}).get("vision") or {}).items()}
         alerts = AlertManager.from_config(config.get("alerts"), source=source, store=store,
-                                          vision=vision) if (
+                                          vision=vision, recording=config.get("recording")) if (
             monitor or (pose and pose.alert_types) or (plates and plates.watchlist) or sounds
             or tamper or abandoned
         ) else None
@@ -333,7 +333,7 @@ class Pipeline:
             scaled = hires * np.array([w / kw, h / kh, w / kw, h / kh])
             iou = iou_matrix(np.array([t.box for t in tracks], dtype=float), scaled)
             used: set[int] = set()
-            for ti, di in sorted(np.ndindex(iou.shape), key=lambda ij: -iou[ij]):  # greedy
+            for ti, di in sorted(np.ndindex(iou.shape), key=lambda ij: -float(iou[ij])):  # greedy
                 if iou[ti, di] < KEYFRAME_MIN_IOU:
                     break
                 if tracks[ti].id in boxes or di in used:

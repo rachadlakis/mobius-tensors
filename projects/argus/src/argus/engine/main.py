@@ -41,8 +41,11 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    from dotenv import load_dotenv
+
+    load_dotenv()  # ${VAR} secrets in the config (alert channels, cameras) come from .env
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    config = yaml.safe_load(args.config.read_text())
+    config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     source = args.source if args.source is not None else str(config.get("source", 0))
     # Alerts get the camera name, never the resolved URL (which may hold a password).
     camera_name = args.camera or source

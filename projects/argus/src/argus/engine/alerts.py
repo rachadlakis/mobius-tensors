@@ -9,6 +9,8 @@ Channels (config `alerts.channels`, a list; `type` picks the class in CHANNELS):
 
     webhook   POST the event as JSON (n8n, Zapier, Make, Slack/Teams workflows, your backend)
     email     SMTP, snapshot attached
+    telegram  a Telegram bot: the alert text, with the snapshot (`images`) and a short clip from
+              the recording (`video`), both optional: they leave the site (telegram.py)
 
 With `verify` (verify.py), a local vision model checks each alert's snapshot first: a NO holds it
 back from the channels (it stays in the store, marked), anything else is sent with the verdict.
@@ -61,6 +63,7 @@ class AlertManager:
         store: EventStore | None = None,
         verify: dict[str, Any] | AlertVerifier | None = None,
         vision: dict[str, Any] | None = None,
+        recording: dict[str, Any] | None = None,
     ) -> None:
         """
         events: only alert on these event types (e.g. [dwell, cross]); None = all.
@@ -73,6 +76,7 @@ class AlertManager:
         snapshots: save a JPEG per alert (needs a store) and attach it to emails.
         verify: the `alerts.verify` section, or a ready AlertVerifier (verify.py); vision: the
             `chat.vision` section, whose model settings `verify` defaults to.
+        recording: the `recording` section, for channels that send video clips (telegram).
         """
         self.console = console
         self.jsonl = Path(jsonl) if jsonl else None
@@ -87,6 +91,9 @@ class AlertManager:
         if email:
             configs.append({"type": "email", **email})
         self.sinks: list[Sink] = [make_channel(c) for c in configs]
+        for sink in self.sinks:
+            if isinstance(sink, TelegramSink):
+                sink.use_recordings(recording)
         self._dispatcher = Dispatcher(self.sinks) if self.sinks else None
         if isinstance(verify, dict):
             from argus.engine.verify import AlertVerifier
@@ -100,9 +107,11 @@ class AlertManager:
     @classmethod
     def from_config(cls, config: dict[str, Any] | None, source: str | None = None,
                     store: EventStore | None = None,
-                    vision: dict[str, Any] | None = None) -> AlertManager:
+                    vision: dict[str, Any] | None = None,
+                    recording: dict[str, Any] | None = None) -> AlertManager:
         """vision: the `chat.vision` section (defaults for `verify`)."""
-        return cls(**(config or {}), source=source, store=store, vision=vision)
+        return cls(**(config or {}), source=source, store=store, vision=vision,
+                   recording=recording)
 
     def handle(self, events: list[ZoneEvent], frame: np.ndarray | None = None,
                tracks: list[Track] | None = None, wall_time: float | None = None) -> list[ZoneEvent]:
@@ -166,7 +175,8 @@ class AlertManager:
             "iso_time": datetime.fromtimestamp(t).isoformat(timespec="seconds"),
             "snapshot": snapshot,
         }
-        if self.verifier and image is not None and self.verifier.applies(payload):
+        if (self.verifier and frame is not None and image is not None
+                and self.verifier.applies(payload)):
             from argus.engine.verify import close_up
 
             images = [image] + [close_up(frame, tr.box) for tr in tracks or []
@@ -358,7 +368,79 @@ class EmailSink(Sink):
             smtp.send_message(msg)
 
 
-CHANNELS: dict[str, type[Sink]] = {"webhook": WebhookSink, "email": EmailSink}
+class TelegramSink(Sink):
+    """A Telegram bot posts each alert to one or more chats (a person, a group, a channel).
+
+    images: attach the snapshot. video: then send a clip of the recording, from 3 s before the
+    alert, once it is recorded (needs `recording:` and ffmpeg). Both leave the site and stay on
+    Telegram's servers: turn them on only where the client agreed; off, only text goes out."""
+
+    def __init__(self, token: str, chat_id: int | str | list[int | str], images: bool = False,
+                 video: bool = False, video_seconds: float = 10.0,
+                 api_url: str = "https://api.telegram.org", timeout: float = 30.0) -> None:
+        from argus.engine.telegram import TelegramAPI
+
+        self.api = TelegramAPI(expand_env(token), api_url, timeout)
+        ids = chat_id if isinstance(chat_id, list) else [chat_id]
+        self.chat_ids = [expand_env(str(c)) for c in ids]
+        self.images, self.video = images, video
+        self.video_seconds = max(2.0, float(video_seconds))
+        self.recordings: Any = None
+
+    def use_recordings(self, recording: dict[str, Any] | None) -> None:
+        if not self.video:
+            return
+        if not recording or recording.get("enabled") is False:
+            log.warning("telegram video: needs the `recording:` section on; sending without clips")
+            return
+        from argus.engine.mainstream import Recordings
+
+        self.recordings = Recordings(recording.get("dir", "data/store/recordings"),
+                                     recording.get("segment_seconds", 60))
+
+    def send(self, payload: dict[str, Any], jpeg: bytes | None) -> None:
+        title, text = alert_message(payload)
+        message = f"{title}\n{text}"
+        for chat in self.chat_ids:
+            if self.images and jpeg:
+                self.api.send_photo(chat, jpeg, message)
+            else:
+                self.api.send_message(chat, message)
+        if self.video and self.recordings is not None:
+            start = payload["time"] - VIDEO_LEAD_SECONDS
+            ready = start + self.video_seconds + 2.0 - datetime.now().timestamp()
+            timer = threading.Timer(max(0.0, ready), self._send_clip, (payload, title))
+            timer.daemon = True
+            timer.start()
+
+    def _send_clip(self, payload: dict[str, Any], title: str) -> None:
+        from argus.engine.telegram import cut_clip
+
+        try:
+            found = self.recordings.find(payload["camera"], payload["time"] - VIDEO_LEAD_SECONDS)
+            path = self.recordings.path(found[0]) if found else None
+            clip = cut_clip(path, found[1], self.video_seconds) if path and found else None
+            if clip is None:
+                log.info("telegram: no recording for %s at %s, no clip", payload["camera"],
+                         payload.get("iso_time"))
+                return
+            for chat in self.chat_ids:
+                self.api.send_video(chat, clip, f"Clip: {title}")
+        except Exception as exc:  # a clip must never take anything else down
+            log.error("telegram clip failed for %s/%s: %s", payload.get("rule"),
+                      payload.get("type"), exc)
+
+    def send_report(self, title: str, text: str, payload: dict[str, Any],
+                    images: list[tuple[str, bytes]] | None = None) -> None:
+        for chat in self.chat_ids:
+            self.api.send_message(chat, f"{title}\n\n{text}")
+            if self.images and images:
+                self.api.send_photos(chat, [data for _, data in images])
+
+
+VIDEO_LEAD_SECONDS = 3  # clips start this long before the alert, to see it happen
+CHANNELS: dict[str, type[Sink]] = {"webhook": WebhookSink, "email": EmailSink,
+                                   "telegram": TelegramSink}
 FILTER_KEYS = ("rules", "events", "labels", "hours", "cooldown_seconds")
 
 

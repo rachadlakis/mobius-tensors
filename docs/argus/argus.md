@@ -19,8 +19,9 @@ evidence.
 
 It also alerts as things happen: areas and lines, crowding, abandoned bags, camera tampering,
 person down, watchlist plates and sounds. A local vision model can look at each alert before it
-is sent and hold back false alarms. Alerts go to webhook and email and appear on a dashboard
-with a token login. The chat's tools are also an MCP server for other agents.
+is sent and hold back false alarms. Alerts go to webhook, email and Telegram and appear on a
+dashboard with a token login. The chat also runs as a Telegram bot, and its tools are an MCP
+server for other agents.
 
 ## Key choices
 
