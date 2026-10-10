@@ -109,7 +109,8 @@ POSE_COLUMNS = ("posture", "arms", "facing", "head", "motion", "carrying", "uppe
 # Columns added after the first release: stores made before get them on open (NULL in old rows).
 ADDED_COLUMNS = {"poses": ("head", "motion", "carrying"),
                  # the plate read (watchlist `plate` events), how many (`crowd` events)
-                 "events": ("plate", "count INTEGER"),
+                 # alert verification (verify.py): yes | no | unsure | error | skipped, reason
+                 "events": ("plate", "count INTEGER", "verified", "verification"),
                  "sightings": ("model",)}  # CLIP model of the embedding (empty = legacy)
 
 
@@ -136,7 +137,7 @@ class Match:
 class EventStore:
     def __init__(
         self,
-        path: str | Path = "data/store/mobius.db",
+        path: str | Path = "data/store/argus.db",
         media_dir: str | Path | None = None,
         retention_days: float | None = 30,
         face_retention_days: float | None = 7,
@@ -219,6 +220,13 @@ class EventStore:
             )
             self._db.commit()
             return int(cur.lastrowid or 0)
+
+    def set_verification(self, event_id: int, verified: str, verification: str) -> None:
+        """The vision model's verdict on a stored event (verify.py)."""
+        with self._lock:
+            self._db.execute("UPDATE events SET verified = ?, verification = ? WHERE id = ?",
+                             (verified, verification, event_id))
+            self._db.commit()
 
     def add_sightings(self, rows: list[dict[str, Any]]) -> None:
         """rows: camera, time, kind, track_id, label, box, thumb, embedding (np.float32),

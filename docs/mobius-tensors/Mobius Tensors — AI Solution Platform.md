@@ -18,7 +18,7 @@
 > camera** ([`pipeline.py`](../../projects/argus/src/argus/engine/pipeline.py)), and
 > the Argus product layer builds video memory and chat on top of it. ZeroMQ
 > services, the FastAPI dashboard backend and the multi-site control plane below are still plans.
-> How to install a site today: [Site Installation Guide](Site%20Installation%20Guide%20—%20IP%20Cameras,%20PoE%20Switch%20and%20Server.md).
+> How to install a site today: [Argus documentation, Part 3: Installing a site](../../projects/argus/DOCUMENTATION.md#part-3--installing-a-site).
 
 ## Contents
 
@@ -869,7 +869,7 @@ flowchart TB
 
 ### 14.10 Deploy and pilot
 
-- Deploy on a commodity, CPU-only server (per the platform's "no GPU required to start" goal) — see the [Site Installation Guide](Site%20Installation%20Guide%20—%20IP%20Cameras,%20PoE%20Switch%20and%20Server.md)
+- Deploy on a commodity, CPU-only server (per the platform's "no GPU required to start" goal) — see [Argus documentation, Part 3: Installing a site](../../projects/argus/DOCUMENTATION.md#part-3--installing-a-site)
 - Run against a real camera/site for a trial period
 - Track real-world false-positive / false-negative rates — compare against the ideas' Trust Level assumptions
 

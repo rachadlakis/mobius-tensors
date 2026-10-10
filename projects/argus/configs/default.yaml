@@ -10,7 +10,7 @@ source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name bel
 model:
   backend: yolox_onnx
   # YOLOX-S: the default for CPU sites, much better than nano on small and far objects (COCO AP
-  # 40.5 vs 25.8), ~76 ms a frame on a laptop CPU (ENGINE.md, "Choosing a model").
+  # 40.5 vs 25.8), ~76 ms a frame on a laptop CPU (DOCUMENTATION.md, 15.1 "Choosing a model").
   # yolox_m.onnx for GPU servers or sites with few cameras; yolox_nano.onnx only for weak machines.
   path: models/yolox_s.onnx
   conf_threshold: 0.25
@@ -151,6 +151,18 @@ alerts:
   #    password: ${SMTP_PASSWORD}
   #    labels: [person]
   #    hours: "22:00-06:00"     # only people, only at night
+  # Alert checking (engine/verify.py): before an alert is sent, the local vision model
+  # (chat.vision) looks at its snapshot and a close-up and answers YES / NO / UNSURE. A NO
+  # holds the alert back (it stays in the store, marked `verified: no`); anything else is sent
+  # with the verdict. Model down or too slow: sent unverified. Seconds per check on a CPU.
+  verify:
+    enabled: false
+    events: [down, hands_up, abandoned]   # check these; empty = every type with a question
+    rules: []                  # only these areas / lines; empty = all
+    mode: veto                 # veto: a NO is not sent | tag: everything sent, with the verdict
+    timeout: 60                # seconds; later answers count as errors (alert sent unverified)
+    # questions: {enter: "Is there a real person (not a shadow or reflection) in the red box?"}
+    # model: qwen3.5:4b        # default: chat.vision's model and server
 
 # Periodic reports (src/argus/report.py, keep it running next to the recorders): at the end of each
 # period, exact counts from the store plus a summary written by the chat model, focused on what
@@ -191,7 +203,7 @@ chat:
       temperature: 0.2
       note: Qwen3 4B · Apache-2.0 · 2.5 GB · CPU
     # Newer open models to compare on the same questions (licences checked 2026-10-08,
-    # see docs/argus "Argus — Documentation", Part 3). `note` is only shown in the UI.
+    # see DOCUMENTATION.md, sections 25.1 and 47.2). `note` is only shown in the UI.
     qwen3.5-4b:                # successor of qwen3:4b, also reads images (see chat.vision)
       api: openai
       base_url: http://127.0.0.1:11434/v1
@@ -240,7 +252,7 @@ chat:
     max_images: 4              # per look
     max_side: 640              # shrink images to this (longest side): speed vs detail
 
-# Face prints are biometric data: off unless a client has approved it (see ENGINE.md).
+# Face prints are biometric data: off unless a client has approved it (DOCUMENTATION.md, section 21).
 # When on, the chat can look for a person from a photo: /photo visitor.jpg, then ask.
 faces:
   enabled: false
@@ -276,7 +288,7 @@ pose:
 # store.plate_retention_days (default: retention_days). Best with `recording:` on: plates are
 # read from the main stream's full-resolution keyframes. Models:
 # `uv run -m argus.engine.download_model plates` (the finder is for trials until a legal check,
-# see ENGINE.md).
+# DOCUMENTATION.md, section 23).
 plates:
   enabled: false
   cameras: []                  # empty = every camera; better: only those facing the entrance

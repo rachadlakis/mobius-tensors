@@ -43,7 +43,7 @@ alerts:
   cooldown_seconds: 10
   snapshots: true              # JPEG per alert, saved in the store and attached to emails
   # webhook:                   # POST JSON to n8n / Zapier / your backend
-  #   url: https://example.com/hooks/mobius
+  #   url: https://example.com/hooks/argus
   #   headers: {Authorization: "Bearer ${WEBHOOK_TOKEN}"}
   # email:
   #   host: smtp.gmail.com
@@ -54,7 +54,7 @@ alerts:
   #   to: [security@client.com]
 
 store:
-  path: data/store/mobius.db   # SQLite, shared by all cameras of a site and the API server
+  path: data/store/argus.db   # SQLite, shared by all cameras of a site and the API server
   media_dir: data/store/media  # snapshots, thumbnails, scene images
   retention_days: 30           # events + search index
   face_retention_days: 7       # face prints are kept for a shorter time

@@ -89,6 +89,7 @@ class PlateReader:
     def preprocess(self, crop: np.ndarray) -> np.ndarray:
         """BGR plate crop -> (H, W, C) uint8 as the model was trained."""
         w, h = self.size
+        image: np.ndarray
         if self.keep_aspect:  # letterbox
             scale = min(w / crop.shape[1], h / crop.shape[0])
             resized = cv2.resize(crop, (max(1, round(crop.shape[1] * scale)),

@@ -97,7 +97,10 @@ TOOLS = [
         "up (hands_up), and a vehicle whose number plate is on the site's watchlist (plate, "
         "rule = the watchlist entry's name), and sounds heard by a camera's microphone (sound, "
         "rule = smoke_alarm, glass_break, gunshot, explosion, scream, car_alarm or siren; label "
-        "= what the sound model heard). Exact, from the event log. Use it for: did any "
+        "= what the sound model heard). Where alert checking is on, `verified` is the local "
+        "vision model's look at the snapshot (yes / no / unsure; no = held back as a likely "
+        "false alarm, not sent) with its reason in `verification`. Exact, from the event log. "
+        "Use it for: did any "
         "alert go off, who "
         "entered an area, what crossed a line, did anyone fall. Rule names are the areas and "
         "lines configured on each camera."),
@@ -367,8 +370,9 @@ class Toolbox:
         prints = []
         for i, image in enumerate(images, 1):
             chosen = choose_face(self.engine.faces.photo_faces(image), choice)
-            if isinstance(chosen, str):
-                return None, (f"Photo {i}: " if len(images) > 1 else "") + chosen
+            if isinstance(chosen, str) or chosen.print is None:
+                reason = chosen if isinstance(chosen, str) else "The face in the photo can't be used."
+                return None, (f"Photo {i}: " if len(images) > 1 else "") + reason
             prints.append(chosen.print)
         name = f"photo{len(self.photos) + 1}"
         self.photos[name] = prints
@@ -452,7 +456,7 @@ class Toolbox:
         if bad:
             raise ValueError(f"types: {bad} unknown; use {', '.join(ALERT_TYPES)}")
         sql = ("SELECT camera, time, type, rule, label, track_id, direction, dwell_seconds, "
-               "snapshot, plate, count FROM events WHERE 1=1")
+               "snapshot, plate, count, verified, verification FROM events WHERE 1=1")
         args: list[Any] = []
         for column, values in (("camera", rng.cameras), ("rule", _strings(rules, lower=False)),
                                ("type", wanted_types), ("label", _strings(labels))):
@@ -469,7 +473,7 @@ class Toolbox:
         shown = rows[: max(1, min(int(limit), 200))]
         self.evidence += [r[8] for r in shown[:3] if r[8]]
         keys = ("camera", "time", "type", "rule", "label", "track_id", "direction",
-                "dwell_seconds", "snapshot", "plate", "count")
+                "dwell_seconds", "snapshot", "plate", "count", "verified", "verification")
         events = [{k: (_iso(v) if k == "time" else v) for k, v in zip(keys, r) if v is not None}
                   for r in shown]
         return {"when": rng.describe(), "cameras": rng.cameras or "all", "total": len(rows),

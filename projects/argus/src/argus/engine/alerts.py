@@ -10,6 +10,9 @@ Channels (config `alerts.channels`, a list; `type` picks the class in CHANNELS):
     webhook   POST the event as JSON (n8n, Zapier, Make, Slack/Teams workflows, your backend)
     email     SMTP, snapshot attached
 
+With `verify` (verify.py), a local vision model checks each alert's snapshot first: a NO holds it
+back from the channels (it stays in the store, marked), anything else is sent with the verdict.
+
 A new channel (Telegram, WhatsApp, SMS, a siren relay...) is one Sink subclass with
 `send(payload, jpeg)`, registered in CHANNELS; `alert_message()` gives it the same title/text
 as email. `send_report()` carries longer messages on the same channels (Argus's periodic
@@ -38,6 +41,7 @@ from argus.engine.zones import ZoneEvent
 if TYPE_CHECKING:
     from argus.engine.store import EventStore
     from argus.engine.tracker import Track
+    from argus.engine.verify import AlertVerifier
 
 log = logging.getLogger(__name__)
 
@@ -55,6 +59,8 @@ class AlertManager:
         channels: list[dict[str, Any]] | None = None,
         snapshots: bool = True,
         store: EventStore | None = None,
+        verify: dict[str, Any] | AlertVerifier | None = None,
+        vision: dict[str, Any] | None = None,
     ) -> None:
         """
         events: only alert on these event types (e.g. [dwell, cross]); None = all.
@@ -65,6 +71,8 @@ class AlertManager:
             global cooldown_seconds also skips storing the event.
         webhook / email: shorthand for one channel of that type (older configs).
         snapshots: save a JPEG per alert (needs a store) and attach it to emails.
+        verify: the `alerts.verify` section, or a ready AlertVerifier (verify.py); vision: the
+            `chat.vision` section, whose model settings `verify` defaults to.
         """
         self.console = console
         self.jsonl = Path(jsonl) if jsonl else None
@@ -80,14 +88,21 @@ class AlertManager:
             configs.append({"type": "email", **email})
         self.sinks: list[Sink] = [make_channel(c) for c in configs]
         self._dispatcher = Dispatcher(self.sinks) if self.sinks else None
+        if isinstance(verify, dict):
+            from argus.engine.verify import AlertVerifier
+
+            verify = AlertVerifier.from_config(verify, vision)
+        self.verifier = verify
         self._last: dict[tuple[str, str], float] = {}
         if self.jsonl:
             self.jsonl.parent.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def from_config(cls, config: dict[str, Any] | None, source: str | None = None,
-                    store: EventStore | None = None) -> AlertManager:
-        return cls(**(config or {}), source=source, store=store)
+                    store: EventStore | None = None,
+                    vision: dict[str, Any] | None = None) -> AlertManager:
+        """vision: the `chat.vision` section (defaults for `verify`)."""
+        return cls(**(config or {}), source=source, store=store, vision=vision)
 
     def handle(self, events: list[ZoneEvent], frame: np.ndarray | None = None,
                tracks: list[Track] | None = None, wall_time: float | None = None) -> list[ZoneEvent]:
@@ -108,7 +123,9 @@ class AlertManager:
         return emitted
 
     def close(self) -> None:
-        """Wait for queued webhooks/emails to go out."""
+        """Wait for pending checks and queued webhooks/emails to go out."""
+        if self.verifier:
+            self.verifier.close()
         if self._dispatcher:
             self._dispatcher.close()
 
@@ -132,9 +149,10 @@ class AlertManager:
 
         t = wall_time if wall_time is not None else datetime.now().timestamp()
         camera = self.source or "camera"
-        jpeg, snapshot = None, None
-        if self.snapshots and frame is not None:
+        jpeg, snapshot, image = None, None, None
+        if frame is not None and (self.snapshots or self.verifier):
             image = snapshot_image(frame, event, tracks)
+        if self.snapshots and image is not None:
             ok, buf = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 85])
             jpeg = buf.tobytes() if ok else None
             if self.store is not None:
@@ -143,12 +161,34 @@ class AlertManager:
         event_id = None
         if self.store is not None:
             event_id = self.store.add_event(camera, t, event.to_dict(), snapshot)
-        if self._dispatcher:
-            payload = {
-                **event.to_dict(), "id": event_id, "camera": camera, "time": t,
-                "iso_time": datetime.fromtimestamp(t).isoformat(timespec="seconds"),
-                "snapshot": snapshot,
-            }
+        payload = {
+            **event.to_dict(), "id": event_id, "camera": camera, "time": t,
+            "iso_time": datetime.fromtimestamp(t).isoformat(timespec="seconds"),
+            "snapshot": snapshot,
+        }
+        if self.verifier and image is not None and self.verifier.applies(payload):
+            from argus.engine.verify import close_up
+
+            images = [image] + [close_up(frame, tr.box) for tr in tracks or []
+                                if tr.id == event.track_id][:1]
+            self.verifier.submit(payload, images,
+                                 lambda p, verdict, reason: self._verified(p, verdict, reason,
+                                                                           jpeg))
+        elif self._dispatcher:
+            self._dispatcher.submit(payload, jpeg)
+
+    def _verified(self, payload: dict[str, Any], verdict: str, reason: str,
+                  jpeg: bytes | None) -> None:
+        """The vision model's verdict: stored with the event; sent unless it vetoes."""
+        assert self.verifier is not None
+        payload["verified"], payload["verification"] = verdict, reason
+        if self.store is not None and payload.get("id"):
+            self.store.set_verification(payload["id"], verdict, reason)
+        sent = self.verifier.sends(verdict)
+        log.info("%s %s/%s #%s checked: %s (%s)%s", payload["camera"], payload["rule"],
+                 payload["type"], payload.get("track_id"), verdict, reason,
+                 "" if sent else ", not sent")
+        if sent and self._dispatcher:
             self._dispatcher.submit(payload, jpeg)
 
 
@@ -183,7 +223,8 @@ def alert_message(payload: dict[str, Any], prefix: str = "") -> tuple[str, str]:
         f"Event:  {payload['type']} ({payload['rule']}) {what}".rstrip(),
         f"Object: {payload.get('label')} #{payload.get('track_id')}" if payload.get("track_id")
         is not None else f"Heard:  {payload.get('label')}",
-    ])
+    ] + ([f"Check:  {payload['verified']} ({payload.get('verification') or 'no reason'})"]
+         if payload.get("verified") else []))
     return title, text
 
 
@@ -277,7 +318,7 @@ class EmailSink(Sink):
     def __init__(self, host: str, sender: str, to: list[str] | str, port: int = 587,
                  username: str | None = None, password: str | None = None,
                  starttls: bool = True, ssl: bool = False,
-                 subject_prefix: str = "[Mobius Tensors]", timeout: float = 20.0):
+                 subject_prefix: str = "[Argus]", timeout: float = 20.0):
         self.host, self.port = expand_env(host), port
         self.sender = expand_env(sender)
         self.to = [to] if isinstance(to, str) else list(to)

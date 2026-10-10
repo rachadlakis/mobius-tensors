@@ -87,7 +87,7 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
         yield
         task.cancel()
 
-    app = FastAPI(title="Mobius Tensors API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Argus API", version="0.1.0", lifespan=lifespan)
 
     def media_url(rel: str | None) -> str | None:
         return f"/media/{rel}" if rel else None
@@ -216,7 +216,7 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
 def main() -> None:
     import uvicorn
 
-    parser = argparse.ArgumentParser(description="Mobius Tensors API server")
+    parser = argparse.ArgumentParser(description="Argus API server")
     parser.add_argument("--config", type=Path, default=Path("configs/engine/search_example.yaml"))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)

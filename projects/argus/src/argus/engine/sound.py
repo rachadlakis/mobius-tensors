@@ -147,19 +147,17 @@ def read_wav(path: str | Path) -> np.ndarray:
     with wave.open(str(path), "rb") as w:
         channels, width, rate = w.getnchannels(), w.getsampwidth(), w.getframerate()
         raw = w.readframes(w.getnframes())
-    dtype = {1: np.uint8, 2: np.int16, 4: np.int32}.get(width)
-    if dtype is None:
+    dtypes = {1: np.uint8, 2: np.int16, 4: np.int32}
+    if width not in dtypes:
         raise ValueError(f"{path}: {8 * width}-bit samples are not supported")
-    audio = np.frombuffer(raw, dtype).astype(np.float32)
-    if width == 1:
-        audio = (audio - 128) / 128
-    else:
-        audio /= float(np.iinfo(dtype).max)
-    audio = audio.reshape(-1, channels).mean(axis=1)
-    if rate != SAMPLE_RATE and len(audio):
-        n = int(round(len(audio) * SAMPLE_RATE / rate))
-        audio = np.interp(np.linspace(0, len(audio) - 1, n), np.arange(len(audio)), audio)
-    return audio.astype(np.float32)
+    samples = np.frombuffer(raw, dtypes[width]).astype(np.float64)
+    # 8-bit WAV is unsigned around 128; 16/32-bit are signed
+    scaled = (samples - 128) / 128 if width == 1 else samples / float(2 ** (8 * width - 1) - 1)
+    mono = scaled.reshape(-1, channels).mean(axis=1)
+    if rate != SAMPLE_RATE and len(mono):
+        n = int(round(len(mono) * SAMPLE_RATE / rate))
+        mono = np.interp(np.linspace(0, len(mono) - 1, n), np.arange(len(mono)), mono)
+    return mono.astype(np.float32)
 
 
 def ffmpeg_command(source: str, ffmpeg: str = "ffmpeg") -> list[str]:

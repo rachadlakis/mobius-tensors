@@ -8,7 +8,7 @@ source: 0  # webcam index (1, 2... for a USB camera)
 model:
   backend: yolox_onnx
   # Nano keeps a laptop demo fluid (~10 ms a frame). Sites use yolox_s.onnx (default.yaml);
-  # yolox_m.onnx on a GPU. Better on small and far objects, slower: see ENGINE.md.
+  # yolox_m.onnx on a GPU. Better on small and far objects, slower: see DOCUMENTATION.md, 15.1.
   path: models/yolox_nano.onnx
   conf_threshold: 0.25
   nms_threshold: 0.45
@@ -35,7 +35,7 @@ store:
   retention_days: 7
   face_retention_days: 7
 
-# Visual search by description needs the CLIP models (see ENGINE.md). Without
+# Visual search by description needs the CLIP models (see the README). Without
 # them, objects and faces are still recorded and searchable.
 search:
   enabled: true

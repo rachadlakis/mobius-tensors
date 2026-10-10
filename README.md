@@ -23,11 +23,10 @@ The website lives in its own repo, next to this one: `../mobius-website`.
 Company-wide, in [docs/mobius-tensors](docs/mobius-tensors/):
 
 - [Mobius Tensors — AI Solution Platform](docs/mobius-tensors/Mobius%20Tensors%20—%20AI%20Solution%20Platform.md): company, use cases and ideas, architecture, roadmap and build plan, risks, glossary
-- [Site Installation Guide — IP Cameras, PoE Switch and Server](docs/mobius-tensors/Site%20Installation%20Guide%20—%20IP%20Cameras,%20PoE%20Switch%20and%20Server.md): hands-on install steps for a client site
 
-Per project, in `docs/<project>/`:
+Per project, next to its code:
 
-- [argus](docs/argus/): documentation (product, technical, model research; .md + .pdf), partner programme and presentation (.pptx)
+- [Argus](projects/argus/README.md): [README](projects/argus/README.md) and [DOCUMENTATION.md](projects/argus/DOCUMENTATION.md) (product, how it works, site installation, model research, roadmap); presentation, project summary PDF and partner programme in [projects/argus/docs](projects/argus/docs/)
 
 ## Layout
 

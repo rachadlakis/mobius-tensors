@@ -68,8 +68,9 @@ class VisionModel:
             raise ValueError("chat.vision needs an OpenAI-compatible server (api: openai)")
         return cls(**options)
 
-    def ask(self, images: list[np.ndarray], question: str) -> str:
-        """Images (BGR) + a question -> the model's answer, without its thinking."""
+    def ask(self, images: list[np.ndarray], question: str, system: str = PROMPT) -> str:
+        """Images (BGR) + a question -> the model's answer, without its thinking.
+        system: the instructions (alert verification has its own, see engine/verify.py)."""
         if not images:
             raise ValueError("No image to look at")
         if len(images) > self.max_images:
@@ -79,7 +80,7 @@ class VisionModel:
             content.append({"type": "image_url", "image_url": {
                 "url": "data:image/jpeg;base64," + encode_jpeg(image, self.max_side)}})
         body = {"model": self.model, "temperature": self.temperature, "stream": False,
-                "messages": [{"role": "system", "content": PROMPT},
+                "messages": [{"role": "system", "content": system},
                              {"role": "user", "content": content}]}
         reply = post_json(self.url, body, self.api_key, self.timeout, self.model)
         text = reply["choices"][0]["message"].get("content") or ""

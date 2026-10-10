@@ -21,6 +21,9 @@ sirens become `sound` events through the same channels. The audio itself is neve
 
 Two rules need no model: `tamper` (tamper.py: the picture covered, dark, blurred, turned or
 frozen) and `abandoned` (abandoned.py: a bag or suitcase left still with nobody near it).
+
+With `alerts.verify` (verify.py), a local vision model checks each alert's snapshot before it
+is sent, and can hold back false alarms.
 """
 
 from __future__ import annotations
@@ -178,7 +181,12 @@ class Pipeline:
             tracking.get("enabled") or config.get("zones") or indexer or pose or plates
             or abandoned
         ) else None
-        alerts = AlertManager.from_config(config.get("alerts"), source=source, store=store) if (
+        from argus.engine.cameras import expand_env
+
+        vision = {k: expand_env(v) if isinstance(v, str) else v  # alerts.verify's defaults
+                  for k, v in ((config.get("chat") or {}).get("vision") or {}).items()}
+        alerts = AlertManager.from_config(config.get("alerts"), source=source, store=store,
+                                          vision=vision) if (
             monitor or (pose and pose.alert_types) or (plates and plates.watchlist) or sounds
             or tamper or abandoned
         ) else None
