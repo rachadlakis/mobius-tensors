@@ -10,11 +10,17 @@ One reusable AI solution platform, configured per use case.
 
 ## Projects
 
-| Project | Description |
-| --- | --- |
-| [argus](projects/argus/) | Record everything cameras see as embeddings, then ask about it; includes the detection engine (YOLOX → ONNX Runtime) |
-| [agents](projects/agents/) | Not started |
-| [agent-deployment](projects/agent-deployment/) | Installing and managing AI agents (Claude Code, Cowork, Codex, …) on the customer side |
+One folder per project in [docs/](docs/), each with a short page:
+
+| Project | Description | Status |
+| --- | --- | --- |
+| [argus](docs/argus/argus.md) | Ask your cameras what happened; alerts with a local check, dashboard, MCP server; includes the detection engine (YOLOX → ONNX Runtime) | Working code |
+| [agent-deployment](docs/agent-deployment/agent-deployment.md) | Installing and managing AI agents (Claude Code, Cowork, Codex, …) on the customer side | Research and templates |
+| [agents](docs/agents/agents.md) | AI agents for customers' workflows | Not started |
+| [automations](docs/automations/automations.md) | Business workflows automated with AI | Not started |
+| [distributed-training](docs/distributed-training/distributed-training.md) | Training and fine-tuning models across GPUs | Not started |
+| [forecasting](docs/forecasting/forecasting.md) | Forecasts from customers' time series | Not started |
+| [object-detection](docs/object-detection/object-detection.md) | Merged into Argus as `argus.engine` (2026-10-09) | Merged |
 
 The website lives in its own repo, next to this one: `../mobius-website`.
 
@@ -33,8 +39,9 @@ Per project, next to its code:
 ```
 mobius-tensors/
 ├── docs/
-│   ├── mobius-tensors/   company, architecture, roadmap and installation docs
-│   └── <project>/        one folder per project (descriptions, presentations)
+│   ├── mobius-tensors/   company, architecture and roadmap docs
+│   └── <project>/        one folder per project: <project>.md (what it is, status, links), and room
+│                         for decks and PDFs
 ├── Images/      logo, banner and brand kit (Mobius Tensors in brand-kit/, Argus in argus/)
 └── projects/    one folder per product, each with its own uv environment
 ```

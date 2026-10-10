@@ -32,7 +32,9 @@ header .brand { display: flex; align-items: center; gap: 10px; font-weight: 700;
   letter-spacing: .02em; }
 header .brand img { width: 30px; height: 30px; }
 #live { margin-left: auto; color: var(--muted); font-size: 13px; display: flex; align-items: center;
-  gap: 6px; }
+  gap: 6px; min-width: 0; }
+#live-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#logout .btn { white-space: nowrap; }
 #live .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
 #live.down .dot { background: var(--bad); }
 .btn { border: 1px solid var(--line); background: var(--soft); border-radius: 8px;
@@ -91,7 +93,8 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: v
 @media (max-width: 520px) {
   .ev { grid-template-columns: 1fr; }
   .ev .shot { width: 100%; height: 160px; }
-  header { padding: 10px 16px; } main { padding: 14px 16px 32px; }
+  header { padding: 10px 16px; gap: 8px; } main { padding: 14px 16px 32px; }
+  header .brand span { display: none; }
 }
 
 /* side tools */
@@ -124,7 +127,7 @@ dialog .cap .btn { margin-left: auto; }
 </head>
 <body>
 <header>
-  <div class="brand"><img src="/favicon.svg" alt="">Argus</div>
+  <div class="brand"><img src="/favicon.svg" alt="Argus"><span>Argus</span></div>
   <div id="live"><span class="dot"></span><span id="live-text">Connecting…</span></div>
   <form method="post" action="/logout" id="logout" hidden><button class="btn" type="submit">Sign out</button></form>
 </header>
@@ -233,6 +236,13 @@ function when(iso) {
   return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }) + " " + time;
 }
 
+function short(iso) {
+  const d = new Date(iso), now = new Date();
+  const t = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === now.toDateString() ? t
+    : d.toLocaleDateString([], { day: "numeric", month: "short" }) + " " + t;
+}
+
 function title(e) {
   const label = e.label ? e.label[0].toUpperCase() + e.label.slice(1) : "Object";
   const rule = (e.rule || "").replaceAll("_", " ");
@@ -282,7 +292,8 @@ async function loadStatus() {
       el("div", { class: "top" },
         el("span", { class: "name", text: c.camera, title: c.camera }),
         el("span", { class: "state " + (c.online ? "on" : "off"), text: c.online ? "Online" : "Offline" })),
-      el("div", { class: "seen", text: "Last activity " + ago(c.seconds_ago) }),
+      el("div", { class: "seen", text: c.seconds_ago === null ? "Nothing recorded yet"
+        : "Last activity " + ago(c.seconds_ago) }),
       counts.length ? el("div", { class: "chips" },
         ...counts.slice(0, 6).map(([k, n]) => el("span", { class: "chip", text: `${k} ${n}` })))
         : el("div", { class: "seen", text: "Nothing tracked today" }),
@@ -367,7 +378,7 @@ $("search-form").addEventListener("submit", async (ev) => {
       out.append(el("div", { class: "res" },
         el("button", { type: "button", "aria-label": "Open", onclick: () => openViewer(m.thumb_url, cap, m.video_url) },
           el("img", { src: m.thumb_url, alt: m.label || "", loading: "lazy" })),
-        el("div", { text: `${m.camera} · ${when(m.first_seen)}` })));
+        el("div", { text: `${m.camera} · ${short(m.first_seen)}` })));
     }
   } catch (e) { out.replaceChildren(el("div", { class: "msg", text: e.message })); }
 });
@@ -396,7 +407,7 @@ async function refresh() {
   try {
     await Promise.all([loadStatus(), loadEvents()]);
     $("live").classList.remove("down");
-    $("live-text").textContent = "Live · updated " + new Date().toLocaleTimeString();
+    $("live-text").textContent = "Live · " + new Date().toLocaleTimeString();
   } catch (e) {
     if (e.message === "signed out") return;
     $("live").classList.add("down");

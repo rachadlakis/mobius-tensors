@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/projects/argus/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/projects/argus/src"],
+  "python.testing.pytestEnabled": true,
+  "python.testing.cwd": "${workspaceFolder}/projects/argus",
+  "python.testing.pytestArgs": ["tests"]
+}

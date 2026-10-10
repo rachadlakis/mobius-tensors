@@ -212,7 +212,8 @@ Weapons are not offered: no model, and both false alarms and misses are costly (
 | Sound events from camera microphones | Check on a site's real camera audio |
 | Periodic reports, saved and sent | Set them up from the UI; "what did last night's report say" |
 | **MCP server: the chat's tools for any MCP client (2026-10-10)**, tested over stdio | Try it from Claude Desktop over SSH; an HTTP transport with login |
-| — | Fire and smoke model; chat in the browser; API login; a dashboard |
+| **Dashboard with a token login (2026-10-10)**: live alerts with verdicts, camera status, search | A pilot site's feedback; logins per person; the chat in the dashboard |
+| — | Fire and smoke model |
 
 ## 10. Limits worth saying out loud
 
@@ -233,7 +234,8 @@ Weapons are not offered: no model, and both false alarms and misses are costly (
 - Alert checking costs seconds per alert on a CPU, so a checked alert arrives that much later;
   small vision models can be wrong both ways. It is a filter for false alarms, not a guarantee.
 - Retention purging runs inside the HTTP server (`server.py`): a site needs that service running.
-- The API has **no authentication yet**: keep it on `127.0.0.1` or behind a proxy with login.
+- One shared login token per site (section 27.1); no accounts per person yet. Over a network,
+  HTTPS in front of it.
 
 ## 11. How to try it
 
@@ -370,6 +372,7 @@ src/argus/
     query.py           "red shirt last friday" -> what / when / which camera
     search.py          text, face, people and plate search, results grouped into visits
     server.py          FastAPI: events, media, recordings, /search, /search/face, /people, /plates
+    dashboard.py       the dashboard page (dashboard.html), /status, the token login
     stream.py          frame sources (webcam, image, video, URL)
     cameras.py         IP cameras: config, capture with reconnect, discovery
     mainstream.py      main stream via ffmpeg: MP4 recording + keyframes for hi-res crops
@@ -1190,8 +1193,46 @@ uv run --group server -m argus.engine.server --config configs/default.yaml   # h
 | `GET /recordings/{path}` | main-stream MP4s; results carry a `video_url` that opens the moment, 3 s early |
 | `GET /health`, `GET /cameras`, `POST /maintenance/purge` | status, camera list, apply retention now |
 
-The API has **no authentication yet**: keep it on `127.0.0.1` or behind a reverse proxy with
-login (section 37).
+### 27.1 Dashboard and login
+
+The API server also serves the **dashboard** at `/` (`engine/dashboard.py`, `dashboard.html`):
+one plain web page for the people who watch a site, on a desktop or a phone, light or dark. No
+framework and no build step: it reads the endpoints above and refreshes every 5 s.
+
+![The dashboard on the street video's demo store](docs/images/dashboard.jpg)
+
+*The dashboard on a demo store: the street video recorded with the zones of section 16 and alert
+checking on. With no vision model running, real checks came back "Not checked (model error)" and
+the alerts went out unverified, as designed; the two verdicts shown ("Checked: real", "Held back")
+were set by hand for this picture.*
+
+- **Cameras:** online (something stored in the last 2 minutes) or offline, last activity, objects
+  tracked today per class, alerts today and how many the check held back, and a tamper alert from
+  the last hour. From `GET /status`.
+- **Alerts:** the feed, newest first, with the snapshot (click for full size and the recording),
+  what happened in words, the check's verdict and reason. Filters: today / 24 h / 7 days, camera,
+  type, and sent vs held back. New alerts flash as they arrive.
+- **Find by description** (`/search`) and **number plate** (`/plates`), with thumbnails.
+
+**Login.** One token per site, in the config:
+
+```yaml
+server:
+  token: ${ARGUS_TOKEN}       # in .env: python -c "import secrets; print(secrets.token_urlsafe(24))"
+```
+
+- With a token, **every route needs it**: the page shows a sign-in form and sets a session cookie
+  (HttpOnly, SameSite=Strict, derived from the token, not the token itself); scripts send
+  `Authorization: Bearer <token>`. A wrong token waits a second before answering.
+- Without a token (`token: ""`, the default), the server **refuses any `--host` but this machine**.
+  A `${VAR}` that isn't set is an error, never "no login".
+- Over a network, put HTTPS in front (a reverse proxy, section 37) so the cookie can't be read on
+  the way. One shared token per site is a start; logins per person are an open question.
+
+Checked: `tests/engine/test_dashboard.py` (every route closed without the token, Bearer and cookie
+sign-in, logout, the cookie isn't the token, `/status` counts, the host check, slowed wrong
+logins), and in the browser on the demo store: sign-in, feed, filters, viewer, search, phone width,
+light and dark, no console errors.
 
 ## 28. Test UIs
 
@@ -1538,16 +1579,19 @@ its log shows the stream reconnecting by itself.
 
 ## 37. Access the API safely
 
-The API listens on `127.0.0.1:8000` only and has **no login yet**: never `--host 0.0.0.0` on a site
-server. From a laptop, open an SSH tunnel and use it as if local:
+The API and dashboard listen on `127.0.0.1:8000` by default. Set `server.token` (section 27.1)
+before anything else: without it the server refuses any other `--host`. From a laptop, the
+simplest safe route is an SSH tunnel, using it as if local:
 
 ```bash
 ssh -L 8000:127.0.0.1:8000 argus@<server-LAN-IP>
 ```
 
-Then <http://127.0.0.1:8000/docs>. For permanent remote access: a VPN (WireGuard / Tailscale) or a
-reverse proxy with authentication and HTTPS, never a raw port forward.
-*Check:* `/health` returns counts, `/cameras` lists every camera, `/events` fills up.
+Then <http://127.0.0.1:8000/> (dashboard) or `/docs` (API). For permanent access from the office
+or a phone: a VPN (WireGuard / Tailscale), or a reverse proxy with HTTPS (Caddy, nginx) in front of
+`127.0.0.1:8000`, with the token set; never a raw port forward.
+*Check:* the dashboard asks for the token, then shows every camera online and alerts arriving
+during the walk test.
 
 ## 38. Checklists
 
@@ -1557,7 +1601,7 @@ reverse proxy with authentication and HTTPS, never a raw port forward.
 - [ ] Camera P2P/cloud and UPnP are off; firmware is up to date.
 - [ ] The PoE switch is connected to the server only, never to the office LAN.
 - [ ] `net.ipv4.ip_forward = 0`; the camera port has no gateway; firewall on; no port forwards.
-- [ ] API bound to `127.0.0.1`, reached through SSH tunnel / VPN / authenticated proxy.
+- [ ] `server.token` set (in `.env`); API on `127.0.0.1`, reached through SSH tunnel / VPN / HTTPS proxy.
 - [ ] `.env` is `chmod 600` and not committed anywhere.
 - [ ] Faces only with the client's **written approval**, local law checked, notices posted,
       `face_retention_days` set. Plates and sounds likewise only where agreed.
@@ -2121,7 +2165,7 @@ tailgating (section 48), and the tools over MCP (built, section 25.3).
 | 4 | Composite detector + YOLOX fire/smoke + persistence check + alert checking (45) | M–L | Fire/smoke alerts, ready for a pilot |
 | 5 | Person-down on staged falls at a pilot site; a COCO-only small pose model (47.4) | M | Person-down alerts we can promise |
 | 6 | Running and tailgating rules; fight candidates from pose + sound (48) | S–M | More of the vendors' threat list |
-| 7 | Telegram, WhatsApp, SMS, siren channels; chat in the browser; API login | M | Delivery and access |
+| 7 | Telegram, WhatsApp, SMS, siren channels; the chat in the dashboard; logins per person | M | Delivery and access |
 | 8 | Evaluation questions on recorded footage to pick the chat model (`qwen3:4b` vs `qwen3.5:4b`…) | S | A measured default |
 | 9 | Open-vocabulary auto-labelling → per-customer YOLOX (47.5) | L | "Any object the customer names" |
 | 10 | Multi-camera timeline: one visit across cameras (47.7) | M | "Where did they go next?" |
@@ -2134,9 +2178,15 @@ S = days, M = 1–3 weeks, L = longer (rough).
 **Done:** CLIP LAION-2B (2026-10-09) · `look` tool (2026-10-09) · plates with a trial finder
 (2026-10-09) · pose, person-down, hands-up (2026-10-08) · sound events (2026-10-09) · tampering,
 abandoned bags, crowding (2026-10-09) · periodic reports · **alert checking (2026-10-10)** ·
-**MCP server (2026-10-10)**.
+**MCP server (2026-10-10)** ·
+**dashboard with login (2026-10-10)**.
 
 # Development log
+
+**2026-10-10 — Dashboard and login.** `engine/dashboard.py` + `dashboard.html`: the page at `/`
+(cameras, live alerts with verdicts, search, plates), `GET /status`, and a token login in front of
+the whole API; the server refuses to listen beyond the machine without one. 6 tests and a browser
+check on a demo store.
 
 **2026-10-10 — Alert checking; one documentation.** `engine/verify.py`: the local vision model
 checks each alert's snapshot and close-up before sending (YES / NO / UNSURE, veto or tag mode,

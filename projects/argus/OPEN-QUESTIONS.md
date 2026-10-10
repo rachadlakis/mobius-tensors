@@ -58,7 +58,7 @@ the answer into the documentation and delete it here.
   (section 47.8)
 - **Channels:** Telegram, WhatsApp, SMS, on-site siren. Which first? (section 8, roadmap #7)
 - **Dashboard and login.** A first dashboard (live alerts, camera cards, search) and a token login
-  are now in the code (`engine/dashboard.py`), not yet in the documentation. Does the chat go into
+  are in the code (`engine/dashboard.py`) and documented (section 27.1). Does the chat go into
   it too? Is one shared token enough, or do sites need a login per person? (sections 10, 27,
   roadmap #7)
 - **MCP over HTTP with login**, for agents that can't start a command. (section 25.3)
