@@ -8,6 +8,12 @@
       "port": 7860
     },
     {
+      "name": "argus-dashboard",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "server", "-m", "argus.engine.server", "--config", "C:/Users/user/AppData/Local/Temp/claude/C--Users-user-Desktop-my-files-projects-mobius-tensors/d67e9fdc-9285-400f-a99a-f43453084331/scratchpad/demo/demo.yaml"],
+      "port": 8000
+    },
+    {
       "name": "argus-bench",
       "runtimeExecutable": "uv",
       "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "ui", "-m", "argus.engine.app"],

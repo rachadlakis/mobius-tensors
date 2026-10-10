@@ -74,6 +74,11 @@ def session_value(token: str) -> str:
 
 
 def server_token(config: dict[str, Any] | None) -> str | None:
+    """`server.token`, with ${VAR} from the environment or .env (an unset VAR is an error, so a
+    missing secret never silently means no login)."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
     token = expand_env(str((config or {}).get("token") or "")).strip()
     return token or None
 

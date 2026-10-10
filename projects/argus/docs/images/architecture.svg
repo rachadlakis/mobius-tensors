@@ -1,0 +1,263 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1200" height="600" fill="#ffffff"/>
+<defs><marker id="e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6675"/></marker><marker id="s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#5b6675"/></marker></defs>
+<text x="20" y="28" text-anchor="start" font-size="11" font-weight="700" fill="#b8862b">1  PERCEPTION: ONE RECORDER PER CAMERA, ON A CPU</text>
+<text x="735" y="28" text-anchor="start" font-size="11" font-weight="700" fill="#b8862b">2  AGENT: AT QUESTION TIME</text>
+<line x1="712" y1="20" x2="712" y2="580" stroke="#d9dee5"/>
+<rect x="20" y="150" width="110" height="270" rx="6" fill="none" stroke="#9aa4b1" stroke-dasharray="7 6"/>
+<rect x="49" y="174" width="52" height="52" rx="5" fill="#c05621"/>
+<rect x="60" y="189" width="27" height="15" rx="2" fill="#fff" transform="rotate(18 75 200)"/>
+<path d="M61,206 v13 M61,212 h9" stroke="#fff" stroke-width="2.5" fill="none"/>
+<text x="75" y="245" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">IP camera</text>
+<text x="75" y="259" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">RTSP, any brand</text>
+<rect x="49" y="304" width="52" height="52" rx="5" fill="#c05621"/>
+<rect x="60" y="319" width="27" height="15" rx="2" fill="#fff" transform="rotate(18 75 330)"/>
+<path d="M61,336 v13 M61,342 h9" stroke="#fff" stroke-width="2.5" fill="none"/>
+<text x="75" y="375" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">IP camera</text>
+<text x="75" y="389" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">sub, main, audio</text>
+<polygon points="255.0,68.0 278.4,81.5 278.4,108.5 255.0,122.0 231.6,108.5 231.6,81.5" fill="#2f855a"/>
+<line x1="255" y1="84" x2="265" y2="101" stroke="#fff" stroke-width="1.3"/>
+<line x1="265" y1="90" x2="255" y2="107" stroke="#fff" stroke-width="1.3"/>
+<line x1="265" y1="101" x2="245" y2="101" stroke="#fff" stroke-width="1.3"/>
+<line x1="255" y1="107" x2="245" y2="90" stroke="#fff" stroke-width="1.3"/>
+<line x1="245" y1="101" x2="255" y2="84" stroke="#fff" stroke-width="1.3"/>
+<line x1="245" y1="90" x2="265" y2="90" stroke="#fff" stroke-width="1.3"/>
+<circle cx="255" cy="84" r="2.6" fill="#fff"/>
+<circle cx="265" cy="90" r="2.6" fill="#fff"/>
+<circle cx="265" cy="101" r="2.6" fill="#fff"/>
+<circle cx="255" cy="107" r="2.6" fill="#fff"/>
+<circle cx="245" cy="101" r="2.6" fill="#fff"/>
+<circle cx="245" cy="90" r="2.6" fill="#fff"/>
+<text x="255" y="140" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Detect + track</text>
+<text x="255" y="153" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">YOLOX-S, IoU tracker</text>
+<polygon points="255.0,178.0 278.4,191.5 278.4,218.5 255.0,232.0 231.6,218.5 231.6,191.5" fill="#2f855a"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(0 255 205)"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(45 255 205)"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(90 255 205)"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(135 255 205)"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(180 255 205)"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(225 255 205)"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(270 255 205)"/>
+<rect x="252.5" y="192" width="5" height="6" fill="#fff" transform="rotate(315 255 205)"/>
+<circle cx="255" cy="205" r="8.5" fill="#fff"/><circle cx="255" cy="205" r="3.5" fill="#2f855a"/>
+<text x="255" y="250" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Rules</text>
+<text x="255" y="263" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">areas, lines, crowding,</text>
+<text x="255" y="276" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">abandoned bags, tamper</text>
+<polygon points="255.0,298.0 278.4,311.5 278.4,338.5 255.0,352.0 231.6,338.5 231.6,311.5" fill="#2f855a"/>
+<line x1="255" y1="314" x2="265" y2="331" stroke="#fff" stroke-width="1.3"/>
+<line x1="265" y1="320" x2="255" y2="337" stroke="#fff" stroke-width="1.3"/>
+<line x1="265" y1="331" x2="245" y2="331" stroke="#fff" stroke-width="1.3"/>
+<line x1="255" y1="337" x2="245" y2="320" stroke="#fff" stroke-width="1.3"/>
+<line x1="245" y1="331" x2="255" y2="314" stroke="#fff" stroke-width="1.3"/>
+<line x1="245" y1="320" x2="265" y2="320" stroke="#fff" stroke-width="1.3"/>
+<circle cx="255" cy="314" r="2.6" fill="#fff"/>
+<circle cx="265" cy="320" r="2.6" fill="#fff"/>
+<circle cx="265" cy="331" r="2.6" fill="#fff"/>
+<circle cx="255" cy="337" r="2.6" fill="#fff"/>
+<circle cx="245" cy="331" r="2.6" fill="#fff"/>
+<circle cx="245" cy="320" r="2.6" fill="#fff"/>
+<text x="255" y="370" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Indexes</text>
+<text x="255" y="383" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">CLIP, pose, faces, plates</text>
+<polygon points="255.0,403.0 278.4,416.5 278.4,443.5 255.0,457.0 231.6,443.5 231.6,416.5" fill="#2f855a"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(0 255 430)"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(45 255 430)"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(90 255 430)"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(135 255 430)"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(180 255 430)"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(225 255 430)"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(270 255 430)"/>
+<rect x="252.5" y="417" width="5" height="6" fill="#fff" transform="rotate(315 255 430)"/>
+<circle cx="255" cy="430" r="8.5" fill="#fff"/><circle cx="255" cy="430" r="3.5" fill="#2f855a"/>
+<text x="255" y="475" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Alert checking</text>
+<text x="255" y="488" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">vision model: YES / NO</text>
+<polygon points="255.0,501.0 275.8,513.0 275.8,537.0 255.0,549.0 234.2,537.0 234.2,513.0" fill="#6b8f7b"/>
+<line x1="255" y1="514" x2="265" y2="531" stroke="#fff" stroke-width="1.3"/>
+<line x1="265" y1="520" x2="255" y2="537" stroke="#fff" stroke-width="1.3"/>
+<line x1="265" y1="531" x2="245" y2="531" stroke="#fff" stroke-width="1.3"/>
+<line x1="255" y1="537" x2="245" y2="520" stroke="#fff" stroke-width="1.3"/>
+<line x1="245" y1="531" x2="255" y2="514" stroke="#fff" stroke-width="1.3"/>
+<line x1="245" y1="520" x2="265" y2="520" stroke="#fff" stroke-width="1.3"/>
+<circle cx="255" cy="514" r="2.6" fill="#fff"/>
+<circle cx="265" cy="520" r="2.6" fill="#fff"/>
+<circle cx="265" cy="531" r="2.6" fill="#fff"/>
+<circle cx="255" cy="537" r="2.6" fill="#fff"/>
+<circle cx="245" cy="531" r="2.6" fill="#fff"/>
+<circle cx="245" cy="520" r="2.6" fill="#fff"/>
+<text x="255" y="563" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Sound (opt-in)</text>
+<text x="255" y="576" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">YAMNet</text>
+<path d="M130,200 H170 V95 H222" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<text x="160" y="88" text-anchor="middle" font-size="9.5" font-weight="400" fill="#5b6675">sub stream</text>
+<path d="M130,345 H160 V525 H225" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<text x="165" y="505" text-anchor="start" font-size="9.5" font-weight="400" fill="#5b6675">audio</text>
+<path d="M130,395 H145 V588 H680 V365 H660" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<text x="300" y="582" text-anchor="start" font-size="9.5" font-weight="400" fill="#5b6675">main stream: ffmpeg, MP4 per minute + keyframes, no re-encode</text>
+<path d="M255,159 V175" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<text x="415.0" y="87" text-anchor="middle" font-size="10" font-weight="400" fill="#1b2430" font-family="Consolas, Menlo, monospace">tracks + metadata</text>
+<path d="M360,95 H466" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<text x="415.0" y="197" text-anchor="middle" font-size="10" font-weight="400" fill="#1b2430" font-family="Consolas, Menlo, monospace">events</text>
+<path d="M360,205 H466" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<text x="415.0" y="317" text-anchor="middle" font-size="10" font-weight="400" fill="#1b2430" font-family="Consolas, Menlo, monospace">vectors + facts</text>
+<path d="M360,325 H466" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<text x="415.0" y="422" text-anchor="middle" font-size="10" font-weight="400" fill="#1b2430" font-family="Consolas, Menlo, monospace">verdicts</text>
+<path d="M360,430 H466" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)" marker-start="url(#s)"/>
+<text x="415.0" y="517" text-anchor="middle" font-size="10" font-weight="400" fill="#1b2430" font-family="Consolas, Menlo, monospace">sound events</text>
+<path d="M360,525 H466" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<rect x="470" y="60" width="26" height="490" rx="3" fill="#d9dee5" stroke="#9aa4b1"/>
+<text x="483" y="305" text-anchor="middle" font-size="11" font-weight="400" fill="#1b2430" transform="rotate(90 483 305)">pipeline.py: threads, no message bus</text>
+<path d="M496,305 H548" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<rect x="552" y="200" width="140" height="210" rx="6" fill="none" stroke="#9aa4b1" stroke-dasharray="7 6"/>
+<text x="566" y="305" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1b2430" transform="rotate(-90 566 305)">Storage</text>
+<rect x="604" y="234" width="52" height="52" rx="5" fill="#c05621"/>
+<path d="M618,266 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M618,258 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M618,250 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<ellipse cx="630" cy="250" rx="12" ry="4" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<text x="630" y="305" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Store</text>
+<text x="630" y="318" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">one SQLite file</text>
+<text x="630" y="331" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">per site + media</text>
+<rect x="604" y="339" width="52" height="52" rx="5" fill="#c05621"/>
+<path d="M618,371 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M618,363 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M618,355 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<ellipse cx="630" cy="355" rx="12" ry="4" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<circle cx="617" cy="377" r="8" fill="#c05621" stroke="#fff" stroke-width="1.8"/>
+<path d="M614.5,373 l7,4 l-7,4 z" fill="#fff"/>
+<text x="630" y="405" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Recordings</text>
+<rect x="552" y="90" width="140" height="62" rx="8" fill="#f4f6f9" stroke="#d9dee5"/>
+<text x="622" y="114" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Channels</text>
+<text x="622" y="127" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">webhook, email,</text>
+<text x="622" y="140" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">console</text>
+<path d="M496,121 H550" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<circle cx="955" cy="75" r="27" fill="#2b6cb0"/>
+<rect x="940" y="62" width="30" height="21" rx="2" fill="none" stroke="#fff" stroke-width="2.2"/>
+<circle cx="955" cy="70" r="4" fill="#fff"/>
+<path d="M947,81 a8,6 0 0 1 16,0 z" fill="#fff"/>
+<path d="M949,88 h12" stroke="#fff" stroke-width="2.2"/>
+<text x="955" y="118" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">User</text>
+<text x="955" y="131" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">chat, test UI, Claude Desktop</text>
+<path d="M955,140 V160" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)" marker-start="url(#s)"/>
+<polygon points="955.0,165.0 981.0,180.0 981.0,210.0 955.0,225.0 929.0,210.0 929.0,180.0" fill="#2f855a"/>
+<polygon points="955.0,169.0 977.5,182.0 977.5,208.0 955.0,221.0 932.5,208.0 932.5,182.0" fill="#fff"/>
+<circle cx="955" cy="190" r="8" fill="#2f855a"/>
+<path d="M942,210 a13,10 0 0 1 26,0 z" fill="#2f855a"/>
+<path d="M946,190 h18" stroke="#fff" stroke-width="1.6"/>
+<text x="955" y="240" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Chat model</text>
+<text x="955" y="253" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">Qwen3 4B local, or Claude</text>
+<path d="M955,262 V275" stroke="#5b6675" stroke-width="1.5" fill="none"/>
+<path d="M785,275 H1130" stroke="#5b6675" stroke-width="1.5" fill="none"/>
+<path d="M785,275 V292" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<rect x="733" y="294" width="104" height="26" fill="#fff" stroke="#1b2430"/>
+<text x="785" y="311" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1b2430">tools · MCP</text>
+<rect x="733" y="320" width="104" height="128" fill="#fff" stroke="#1b2430"/>
+<rect x="760" y="330" width="50" height="50" rx="3" fill="#2f855a"/>
+<rect x="771" y="341" width="11" height="11" fill="#fff"/>
+<rect x="787" y="341" width="11" height="11" fill="#fff"/>
+<rect x="771" y="357" width="11" height="11" fill="#fff"/>
+<path d="M792.5,356 v13 M786,362.5 h13" stroke="#fff" stroke-width="3"/>
+<text x="785" y="398" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Events</text>
+<text x="785" y="411" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">objects, alerts</text>
+<path d="M785,452 V470" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)" marker-start="url(#s)"/>
+<path d="M900,275 V292" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<rect x="848" y="294" width="104" height="26" fill="#fff" stroke="#1b2430"/>
+<text x="900" y="311" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1b2430">tools · MCP</text>
+<rect x="848" y="320" width="104" height="128" fill="#fff" stroke="#1b2430"/>
+<rect x="875" y="330" width="50" height="50" rx="3" fill="#2f855a"/>
+<rect x="886" y="341" width="11" height="11" fill="#fff"/>
+<rect x="902" y="341" width="11" height="11" fill="#fff"/>
+<rect x="886" y="357" width="11" height="11" fill="#fff"/>
+<path d="M907.5,356 v13 M901,362.5 h13" stroke="#fff" stroke-width="3"/>
+<text x="900" y="398" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Search</text>
+<text x="900" y="411" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">search, people,</text>
+<text x="900" y="424" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">plates, face*</text>
+<path d="M900,452 V470" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)" marker-start="url(#s)"/>
+<path d="M1015,275 V292" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<rect x="963" y="294" width="104" height="26" fill="#fff" stroke="#1b2430"/>
+<text x="1015" y="311" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1b2430">tool · MCP</text>
+<rect x="963" y="320" width="104" height="128" fill="#fff" stroke="#1b2430"/>
+<rect x="990" y="330" width="50" height="50" rx="3" fill="#2f855a"/>
+<rect x="1001" y="341" width="11" height="11" fill="#fff"/>
+<rect x="1017" y="341" width="11" height="11" fill="#fff"/>
+<rect x="1001" y="357" width="11" height="11" fill="#fff"/>
+<path d="M1022.5,356 v13 M1016,362.5 h13" stroke="#fff" stroke-width="3"/>
+<text x="1015" y="398" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Look</text>
+<text x="1015" y="411" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">evidence images</text>
+<text x="1015" y="424" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">→ vision model</text>
+<path d="M1015,452 V470" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)" marker-start="url(#s)"/>
+<path d="M1130,275 V292" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)"/>
+<rect x="1078" y="294" width="104" height="26" fill="#fff" stroke="#1b2430"/>
+<text x="1130" y="311" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1b2430">schedule</text>
+<rect x="1078" y="320" width="104" height="128" fill="#fff" stroke="#1b2430"/>
+<rect x="1105" y="330" width="50" height="50" rx="3" fill="#2f855a"/>
+<rect x="1116" y="341" width="11" height="11" fill="#fff"/>
+<rect x="1132" y="341" width="11" height="11" fill="#fff"/>
+<rect x="1116" y="357" width="11" height="11" fill="#fff"/>
+<path d="M1137.5,356 v13 M1131,362.5 h13" stroke="#fff" stroke-width="3"/>
+<text x="1130" y="398" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Reports</text>
+<text x="1130" y="411" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">counts + summary</text>
+<path d="M1130,452 V470" stroke="#5b6675" stroke-width="1.5" fill="none" marker-end="url(#e)" marker-start="url(#s)"/>
+<rect x="733" y="474" width="210" height="112" rx="6" fill="none" stroke="#9aa4b1" stroke-dasharray="7 6"/>
+<text x="746" y="530" text-anchor="middle" font-size="10.5" font-weight="400" fill="#1b2430" transform="rotate(-90 746 530)">Storage</text>
+<rect x="774" y="489" width="52" height="52" rx="5" fill="#c05621"/>
+<path d="M788,521 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M788,513 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M788,505 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<ellipse cx="800" cy="505" rx="12" ry="4" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<text x="800" y="557" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Store + media</text>
+<rect x="864" y="489" width="52" height="52" rx="5" fill="#c05621"/>
+<path d="M878,521 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M878,513 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<path d="M878,505 v6 a12,4 0 0 0 24,0 v-6" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<ellipse cx="890" cy="505" rx="12" ry="4" fill="#fff" stroke="#c05621" stroke-width="1.4"/>
+<circle cx="877" cy="527" r="8" fill="#c05621" stroke="#fff" stroke-width="1.8"/>
+<path d="M874.5,523 l7,4 l-7,4 z" fill="#fff"/>
+<text x="890" y="557" text-anchor="middle" font-size="11.5" font-weight="600" fill="#1b2430">Recordings</text>
+<text x="890" y="569" text-anchor="middle" font-size="10" font-weight="400" fill="#5b6675">via API video_url</text>
+<rect x="955" y="474" width="228" height="112" rx="6" fill="none" stroke="#9aa4b1" stroke-dasharray="7 6"/>
+<text x="1069" y="490" text-anchor="middle" font-size="10" font-weight="400" fill="#1b2430">Local models (Ollama, ONNX Runtime)</text>
+<polygon points="1000.0,503.0 1016.5,512.5 1016.5,531.5 1000.0,541.0 983.5,531.5 983.5,512.5" fill="#2f855a"/>
+<line x1="1000" y1="511" x2="1010" y2="528" stroke="#fff" stroke-width="1.3"/>
+<line x1="1010" y1="517" x2="1000" y2="534" stroke="#fff" stroke-width="1.3"/>
+<line x1="1010" y1="528" x2="990" y2="528" stroke="#fff" stroke-width="1.3"/>
+<line x1="1000" y1="534" x2="990" y2="517" stroke="#fff" stroke-width="1.3"/>
+<line x1="990" y1="528" x2="1000" y2="511" stroke="#fff" stroke-width="1.3"/>
+<line x1="990" y1="517" x2="1010" y2="517" stroke="#fff" stroke-width="1.3"/>
+<circle cx="1000" cy="511" r="2.6" fill="#fff"/>
+<circle cx="1010" cy="517" r="2.6" fill="#fff"/>
+<circle cx="1010" cy="528" r="2.6" fill="#fff"/>
+<circle cx="1000" cy="534" r="2.6" fill="#fff"/>
+<circle cx="990" cy="528" r="2.6" fill="#fff"/>
+<circle cx="990" cy="517" r="2.6" fill="#fff"/>
+<text x="1000" y="555" text-anchor="middle" font-size="9.5" font-weight="400" fill="#5b6675">qwen3:4b</text>
+<text x="1000" y="567" text-anchor="middle" font-size="9.5" font-weight="400" fill="#5b6675">chat</text>
+<polygon points="1069.0,503.0 1085.5,512.5 1085.5,531.5 1069.0,541.0 1052.5,531.5 1052.5,512.5" fill="#2f855a"/>
+<line x1="1069" y1="511" x2="1079" y2="528" stroke="#fff" stroke-width="1.3"/>
+<line x1="1079" y1="517" x2="1069" y2="534" stroke="#fff" stroke-width="1.3"/>
+<line x1="1079" y1="528" x2="1059" y2="528" stroke="#fff" stroke-width="1.3"/>
+<line x1="1069" y1="534" x2="1059" y2="517" stroke="#fff" stroke-width="1.3"/>
+<line x1="1059" y1="528" x2="1069" y2="511" stroke="#fff" stroke-width="1.3"/>
+<line x1="1059" y1="517" x2="1079" y2="517" stroke="#fff" stroke-width="1.3"/>
+<circle cx="1069" cy="511" r="2.6" fill="#fff"/>
+<circle cx="1079" cy="517" r="2.6" fill="#fff"/>
+<circle cx="1079" cy="528" r="2.6" fill="#fff"/>
+<circle cx="1069" cy="534" r="2.6" fill="#fff"/>
+<circle cx="1059" cy="528" r="2.6" fill="#fff"/>
+<circle cx="1059" cy="517" r="2.6" fill="#fff"/>
+<text x="1069" y="555" text-anchor="middle" font-size="9.5" font-weight="400" fill="#5b6675">qwen3.5:4b</text>
+<text x="1069" y="567" text-anchor="middle" font-size="9.5" font-weight="400" fill="#5b6675">look + checking</text>
+<polygon points="1138.0,503.0 1154.5,512.5 1154.5,531.5 1138.0,541.0 1121.5,531.5 1121.5,512.5" fill="#2f855a"/>
+<line x1="1138" y1="511" x2="1148" y2="528" stroke="#fff" stroke-width="1.3"/>
+<line x1="1148" y1="517" x2="1138" y2="534" stroke="#fff" stroke-width="1.3"/>
+<line x1="1148" y1="528" x2="1128" y2="528" stroke="#fff" stroke-width="1.3"/>
+<line x1="1138" y1="534" x2="1128" y2="517" stroke="#fff" stroke-width="1.3"/>
+<line x1="1128" y1="528" x2="1138" y2="511" stroke="#fff" stroke-width="1.3"/>
+<line x1="1128" y1="517" x2="1148" y2="517" stroke="#fff" stroke-width="1.3"/>
+<circle cx="1138" cy="511" r="2.6" fill="#fff"/>
+<circle cx="1148" cy="517" r="2.6" fill="#fff"/>
+<circle cx="1148" cy="528" r="2.6" fill="#fff"/>
+<circle cx="1138" cy="534" r="2.6" fill="#fff"/>
+<circle cx="1128" cy="528" r="2.6" fill="#fff"/>
+<circle cx="1128" cy="517" r="2.6" fill="#fff"/>
+<text x="1138" y="555" text-anchor="middle" font-size="9.5" font-weight="400" fill="#5b6675">CLIP B/32</text>
+<text x="1138" y="567" text-anchor="middle" font-size="9.5" font-weight="400" fill="#5b6675">search text</text>
+<text x="735" y="596" text-anchor="start" font-size="9.5" font-weight="400" fill="#5b6675">* face is chat-only, not served over MCP (biometric, needs a photo)</text>
+</svg>

@@ -277,6 +277,57 @@ on its own thread and **skips samples rather than slowing detection**, so a busy
 more sparsely instead of lagging behind. Live cameras drop stale frames: a slower model means
 fewer frames per camera, not a growing delay.
 
+### 12.1 Two pipelines
+
+![Argus: the perception pipeline (left) and the agent pipeline (right)](docs/images/architecture.svg)
+
+The same picture as NVIDIA's Public Safety blueprint (section 49), drawn for Argus: a perception
+pipeline that runs all the time, and an agent pipeline that runs when someone asks.
+
+**Perception pipeline (left).** Each camera gives three streams. The **sub stream** goes to
+**detect + track** (YOLOX-S and an IoU tracker), whose tracks feed:
+
+- **Rules**: areas, lines, crowding, loitering, abandoned bags, tampering → events.
+- **Indexes**: CLIP vectors of objects and scenes, pose facts, face prints and plate reads (faces
+  and plates opt-in), for search and the chat later. The pose and plate indexes also raise events:
+  person down, hands up, a watchlist plate.
+- **Alert checking**: a local vision model (Qwen3.5 4B by default) looks at each alert's snapshot
+  and answers YES / NO / UNSURE before it is sent (section 18).
+
+The **audio** goes to **YAMNet** for sound events (opt-in, audio never kept). The **main stream**
+is copied by ffmpeg into 1-minute MP4s plus keyframes, with no re-encoding (section 20). There is
+no message bus: `pipeline.py` passes results between threads in one process per camera, and
+everything lands in **one SQLite store per site** with its media. Alerts go out to **channels**
+(webhook, email, console).
+
+**Agent pipeline (right).** The user asks in the chat (`chat.py` or the test UI) or from any MCP
+client (Claude Desktop, Claude Code, a client's own agent). The **chat model** (Qwen3 4B on the
+site's CPU by default, any OpenAI-compatible server, or Claude) answers by calling tools:
+
+- **Events**: `objects`, `alerts`: what was tracked and which alerts fired, with exact counts.
+- **Search**: `search`, `people`, `plates`, `face`: ranked or exact lookups in the store.
+- **Look**: `look`: the local vision model reads evidence images and returns text, so images never
+  leave the site.
+- **Reports**: `report.py`, on a schedule: exact counts plus a summary that the chat model writes
+  with the same tools.
+
+The same tools are served over **MCP** (`mcp_server.py`, section 25.3), except `face`. Recordings
+are opened through the API's `video_url` (section 27).
+
+**Local models** do the work: `qwen3:4b` for the chat, `qwen3.5:4b` for `look` and alert checking,
+CLIP B/32 to turn a question into a search vector; on the perception side YOLOX-S, ViTPose-B,
+YuNet + SFace, the plate models and YAMNet. All of them run on a CPU.
+
+| Component | Purpose |
+| --- | --- |
+| Perception pipeline | Detect, track and index everything; raise events from rules |
+| Alert checking | A local vision model holds back false alarms before they are sent |
+| Vision model | Checks alerts; reads evidence images for the chat (`look`) |
+| Chat model + tools | Questions in plain language, answered with evidence; reports |
+| MCP server | The same tools for any MCP agent |
+| Store + recordings | One SQLite file per site with its media; MP4s from the main stream |
+| API + dashboard | `server.py`: search, people, plates, events, media, recordings; `dashboard.py`: one web page with live alerts, camera cards and search, behind a token login; Gradio test UI for development |
+
 ## 13. Code layout
 
 One Python package, `argus`, with one `uv` environment (Python ≥ 3.11). About 10,000 lines of
@@ -2041,6 +2092,7 @@ by the vision model; a skeleton model once labelled clips exist.
 
 NVIDIA's Public Safety AI Blueprint (VSS 3.0, July 2026) is a reference design with the same shape
 as Argus: perception → rules → a vision model that verifies alerts → storage → an agent with tools.
+Section 12.1 draws Argus in the blueprint's layout.
 
 | NVIDIA blueprint | Argus |
 | --- | --- |

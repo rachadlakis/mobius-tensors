@@ -17,9 +17,12 @@ Endpoints
          (posture, arms=up|both_up, facing=camera, head=down, motion=running,
           carrying=suitcase, upper=red, lower=blue; needs `pose`)
     POST /maintenance/purge               apply retention now (also runs every hour)
+    GET  /status                          per camera: online, tracked and alerts today, tamper
+    GET  /                                the dashboard (dashboard.py)
 
-No authentication yet: bind to 127.0.0.1 (default) or put it behind a reverse proxy with auth
-before exposing it on a network. Face search results are biometric data.
+Login: with `server.token` in the config, every route needs it (the dashboard's session cookie,
+or `Authorization: Bearer <token>`); without one, the server refuses any --host but this machine.
+Over a network, serve it through HTTPS (a reverse proxy). Face search results are biometric data.
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from argus.engine.cameras import camera_aliases
+from argus.engine.dashboard import add_dashboard, check_host, server_token
 from argus.engine.faces import SAME_PERSON_THRESHOLD
 from argus.engine.mainstream import Recordings
 from argus.engine.search import SearchEngine
@@ -208,6 +212,7 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
     def purge() -> dict[str, Any]:
         return {"deleted": store.purge()}
 
+    add_dashboard(app, store, cameras, server_token(config.get("server")))
     app.state.store = store
     app.state.engine = engine
     return app
@@ -222,9 +227,10 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    config = yaml.safe_load(args.config.read_text())
+    config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
+    check_host(args.host, server_token(config.get("server")))
     app = create_app(config)
-    print(f"* API on http://{args.host}:{args.port}  (interactive docs: /docs)")
+    print(f"* Dashboard on http://{args.host}:{args.port}/  (API docs: /docs)")
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
 
 

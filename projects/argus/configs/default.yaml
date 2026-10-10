@@ -164,6 +164,14 @@ alerts:
     # questions: {enter: "Is there a real person (not a shadow or reflection) in the red box?"}
     # model: qwen3.5:4b        # default: chat.vision's model and server
 
+# API server and dashboard (engine/server.py, engine/dashboard.py):
+#   uv run --group server -m argus.engine.server --config configs/default.yaml   -> http://127.0.0.1:8000/
+# token: the login for the dashboard and the API. Empty = no login, and the server then refuses
+# any --host but this machine. On a site: token: ${ARGUS_TOKEN}, with ARGUS_TOKEN in .env
+# (python -c "import secrets; print(secrets.token_urlsafe(24))"), and HTTPS in front of it.
+server:
+  token: ""
+
 # Periodic reports (src/argus/report.py, keep it running next to the recorders): at the end of each
 # period, exact counts from the store plus a summary written by the chat model, focused on what
 # the owner asked to watch. Saved under data/store/reports/<name>/ (UI Reports tab, --show) and
