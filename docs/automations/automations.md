@@ -1,4 +1,8 @@
+<img src="../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors" width="200" align="right" />
+
 # Automations
+
+*A Mobius Tensors project.*
 
 Automating business workflows with AI.
 
@@ -15,7 +19,7 @@ written down yet.*
 
 - Workflows that move data between a customer's tools and call a model where judgement is
   needed (classify, extract, summarise, route), e.g. with n8n, Make or plain scripts.
-- Argus's alert webhook is one natural input: an alert can start a workflow in the customer's
+- Histor's alert webhook is one natural input: an alert can start a workflow in the customer's
   own systems.
 
 Open: which tool to standardise on, and where this ends and [agents](../agents/agents.md) begins.

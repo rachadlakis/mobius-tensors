@@ -1,4 +1,8 @@
+<img src="../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors" width="200" align="right" />
+
 # Playbook — Customer Engagement
+
+*A Mobius Tensors project.*
 
 Steps for one customer, from first call to handover. Details per agent are in [research.md](research.md);
 starting policy files are in [templates/](templates/).

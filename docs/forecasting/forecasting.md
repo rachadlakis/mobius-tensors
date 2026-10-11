@@ -1,6 +1,11 @@
-# Forecasting
+<img src="../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors" width="200" align="right" />
 
-Forecasting from a customer's time series (demand, sales, load, traffic…).
+# Forecasting & Statistical Studies
+
+*A Mobius Tensors project.*
+
+Forecasting from a customer's time series (demand, sales, load, traffic…), and statistical
+studies of their data.
 
 | | |
 | --- | --- |
@@ -14,7 +19,9 @@ Forecasting from a customer's time series (demand, sales, load, traffic…).
 services ("recommendation systems", "A/B testing", "statistical studies").*
 
 - Forecasts from historical data, with uncertainty ranges, refreshed on a schedule.
-- Possibly from Argus data: people and vehicle counts per camera and hour are already in its
+- Statistical studies: one-off analyses and reports on a customer's data (trends, drivers,
+  A/B tests).
+- Possibly from Histor data: people and vehicle counts per camera and hour are already in its
   store (e.g. "how busy will the car park be on Friday?").
 
 Open: first customer use case, data available, and which models (classical statistics vs

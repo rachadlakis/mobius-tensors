@@ -1,4 +1,8 @@
+<img src="../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors" width="200" align="right" />
+
 # Research — Deploying AI Agents on the Customer Side
+
+*A Mobius Tensors project.*
 
 State as of October 2026. Vendors change install methods, setting names and plans often:
 re-check the official docs (linked at the bottom) before each customer.

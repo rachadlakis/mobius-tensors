@@ -1,4 +1,8 @@
+<img src="../../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors" width="200" align="right" />
+
 # Templates
+
+*A Mobius Tensors project.*
 
 Starting policy files. Copy per customer, then edit. None of these is tested on a customer fleet yet.
 

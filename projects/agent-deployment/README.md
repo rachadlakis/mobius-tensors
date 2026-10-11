@@ -1,4 +1,8 @@
+<img src="../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors" width="200" align="right" />
+
 # Agent Deployment
+
+*A Mobius Tensors project.*
 
 Install and manage AI agents (Claude Code, Claude Desktop / Cowork, Codex, Gemini CLI, open-source agents)
 on the customer's side: their machines, their network, their cloud account, under their rules.

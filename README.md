@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="Images/logo.jpeg" alt="Mobius Tensors logo" width="140" />
+<img src="Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors logo" width="420" />
 
 # Mobius Tensors
 
-One reusable AI solution platform, configured per use case.
+A computer vision and AI solutions company. One tested core, configured per use case.
 
 </div>
 
@@ -14,13 +14,13 @@ One folder per project in [docs/](docs/), each with a short page:
 
 | Project | Description | Status |
 | --- | --- | --- |
-| [argus](docs/argus/argus.md) | Ask your cameras what happened; alerts with a local check, dashboard, MCP server; includes the detection engine (YOLOX → ONNX Runtime) | Working code |
+| [histor](docs/histor/histor.md) | Ask your cameras what happened; alerts with a local check, dashboard, MCP server; includes the detection engine (YOLOX → ONNX Runtime) | Working code |
 | [agent-deployment](docs/agent-deployment/agent-deployment.md) | Installing and managing AI agents (Claude Code, Cowork, Codex, …) on the customer side | Research and templates |
-| [agents](docs/agents/agents.md) | AI agents for customers' workflows | Not started |
+| [agents](docs/agents/agents.md) | Agentic AI agents and chatbots for customers' workflows | Not started |
 | [automations](docs/automations/automations.md) | Business workflows automated with AI | Not started |
-| [distributed-training](docs/distributed-training/distributed-training.md) | Training and fine-tuning models across GPUs | Not started |
-| [forecasting](docs/forecasting/forecasting.md) | Forecasts from customers' time series | Not started |
-| [object-detection](docs/object-detection/object-detection.md) | Merged into Argus as `argus.engine` (2026-10-09) | Merged |
+| [distributed-training](docs/distributed-training/distributed-training.md) | Training and fine-tuning LLMs, object detection models and VLMs, across GPUs when needed | Not started |
+| [forecasting](docs/forecasting/forecasting.md) | Forecasts from customers' time series, and statistical studies | Not started |
+| [object-detection](docs/object-detection/object-detection.md) | Merged into Histor as `histor.engine` (2026-10-09) | Merged |
 
 The website lives in its own repo, next to this one: `../mobius-website`.
 
@@ -32,7 +32,7 @@ Company-wide, in [docs/mobius-tensors](docs/mobius-tensors/):
 
 Per project, next to its code:
 
-- [Argus](projects/argus/README.md): [README](projects/argus/README.md) and [DOCUMENTATION.md](projects/argus/DOCUMENTATION.md) (product, how it works, site installation, model research, roadmap); presentation, project summary PDF and partner programme in [projects/argus/docs](projects/argus/docs/)
+- [Histor](projects/histor/README.md): [README](projects/histor/README.md) and [DOCUMENTATION.md](projects/histor/DOCUMENTATION.md) (product, how it works, site installation, model research, roadmap); presentation, project summary PDF and partner programme in [projects/histor/docs](projects/histor/docs/)
 
 ## Layout
 
@@ -42,7 +42,7 @@ mobius-tensors/
 │   ├── mobius-tensors/   company, architecture and roadmap docs
 │   └── <project>/        one folder per project: <project>.md (what it is, status, links), and room
 │                         for decks and PDFs
-├── Images/      logo, banner and brand kit (Mobius Tensors in brand-kit/, Argus in argus/)
+├── Images/      logo, banner and brand kit (Mobius Tensors in brand-kit/, Histor in histor/)
 └── projects/    one folder per product, each with its own uv environment
 ```
 

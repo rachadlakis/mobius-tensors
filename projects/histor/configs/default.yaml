@@ -1,0 +1,360 @@
+# Histor: record everything the camera sees, ask about it later.
+# Models in models/ (download them once, see README).
+#
+#   uv run -m histor.record --source gate                # one recorder per camera
+#   uv run -m histor.record --source data/vtest.avi --camera street --start-time 2026-09-25T14:00
+#   uv run -m histor.ask "person with an umbrella yesterday"
+
+source: 0  # webcam index, image/video path, rtsp/http URL, or a camera name below
+
+model:
+  backend: yolox_onnx
+  # YOLOX-S: the default for CPU sites, much better than nano on small and far objects (COCO AP
+  # 40.5 vs 25.8), ~76 ms a frame on a laptop CPU (DOCUMENTATION.md, 15.1 "Choosing a model").
+  # yolox_m.onnx for GPU servers or sites with few cameras; yolox_nano.onnx only for weak machines.
+  path: models/yolox_s.onnx
+  conf_threshold: 0.25
+  nms_threshold: 0.45
+  class_agnostic_nms: true
+  classes: null              # null = every class the model knows
+  device: auto               # GPU if there is one, else CPU (also `device:` under search.clip, pose)
+
+tracking:
+  track_threshold: 0.45
+  max_missed: 30
+  min_hits: 3
+
+# Same format as configs/engine/default.yaml; passwords as ${VAR} in .env.
+# `about:` is filled in at install time, standing at the camera: the chat reads it to pick the
+# right camera ("did anyone reach the office") and to explain its answers. Roles, not names.
+cameras: {}
+#  office:
+#    vendor: hikvision
+#    host: 192.168.1.64
+#    username: admin
+#    password: ${OFFICE_CAM_PASSWORD}
+#    stream: sub
+#    about:
+#      description: Inside the manager's office, above the door, looking at the desk
+#      aliases: [manager's office, office 2]   # other names people use (also in ask.py)
+#      location: Ground floor, end of the corridor, past reception
+#      covers: entrance        # entrance | exit | passage | room | outdoor | parking
+#      faces: good             # good | poor | none: is a face big and frontal enough here?
+#      hours: "08:00-18:00"    # normal activity; outside it is "after hours"
+#      notes: Staff only. Cleaners come in around 19:00.
+#      zones:                  # what the alert areas / lines on this camera mean
+#        door: The office door; entering it means entering the office
+
+store:
+  path: data/store/histor.db   # SQLite, shared by all recorders of a site and by ask.py
+  media_dir: data/store/media
+  retention_days: 30
+  face_retention_days: 7
+
+# Main stream of each live camera (needs ffmpeg >= 5.1: sudo apt install ffmpeg).
+# The detector keeps reading the cheap sub stream; this opens the full-resolution one too.
+# Set the camera's main-stream I-frame interval to 1 s (= its FPS): one keyframe per second.
+recording:
+  enabled: true                # save the main stream untouched (-c copy, ~no CPU), 1 file/minute
+  dir: data/store/recordings
+  segment_seconds: 60
+  retention_days: 7            # 1080p at 4 Mbit/s = ~43 GB per camera per day
+  min_free_gb: 20              # also delete the oldest files when the disk gets this full
+  hires_crops: true            # crop search/face images from main-stream keyframes (+1 detection/s)
+
+search:
+  enabled: true
+  clip:
+    image: models/clip_image.onnx
+    text: models/clip_text.onnx
+    vocab: models/clip_bpe_vocab.txt.gz
+  # Every COCO class gets embedded, not only people and vehicles.
+  classes: [
+    person, bicycle, car, motorcycle, airplane, bus, train, truck, boat, traffic light,
+    fire hydrant, stop sign, parking meter, bench, bird, cat, dog, horse, sheep, cow,
+    elephant, bear, zebra, giraffe, backpack, umbrella, handbag, tie, suitcase, frisbee,
+    skis, snowboard, sports ball, kite, baseball bat, baseball glove, skateboard, surfboard,
+    tennis racket, bottle, wine glass, cup, fork, knife, spoon, bowl, banana, apple,
+    sandwich, orange, broccoli, carrot, hot dog, pizza, donut, cake, chair, couch,
+    potted plant, bed, dining table, toilet, tv, laptop, mouse, remote, keyboard,
+    cell phone, microwave, oven, toaster, sink, refrigerator, book, clock, vase, scissors,
+    teddy bear, hair drier, toothbrush,
+  ]
+  object_interval_seconds: 2   # re-embed each tracked object at most this often
+  scene_interval_seconds: 5    # whole frame + tiles: catches what the detector has no class for
+  scene_tiles: 2
+  min_box_height: 40           # smaller crops carry too few pixels for CLIP to describe
+
+# Alerts: rules evaluated live on every tracked object, next to the memory. Off until a rule is
+# listed. Draw areas/lines in the test bench (Zones & lines tab) and paste them here.
+# Points are 0..1 of the frame; a zone without points is the whole picture ("seen anywhere").
+# Every alert is stored (with a snapshot) and the chat can answer about it ("any alerts last night?").
+zones: []
+#  - name: yard                 # someone in the yard: enter / exit, and stays > 60 s
+#    type: zone
+#    points: [[0.10, 0.55], [0.60, 0.50], [0.65, 0.95], [0.05, 0.95]]
+#    classes: [person]
+#    dwell_seconds: 60
+#  - name: gate_line            # vehicles crossing the gate, inbound only
+#    type: line
+#    points: [[0.40, 0.30], [0.40, 0.80]]
+#    classes: [car, truck, bus, motorcycle]
+#    direction: in
+#  - name: anywhere_dog         # no points: anywhere in the picture
+#    classes: [dog]
+#  - name: till_queue           # crowd: 6+ people in the area for 30 s (a queue, a crowd)
+#    points: [[0.55, 0.40], [0.95, 0.40], [0.95, 0.95], [0.55, 0.95]]
+#    classes: [person]
+#    max_count: 6
+#    count_seconds: 30
+# A one-way line (direction: in) is a wrong-way alarm: anything crossing the other way is
+# ignored, so set it to the forbidden direction.
+
+# Abandoned objects (abandoned.py): a bag or suitcase still for `seconds` with nobody near it.
+abandoned:
+  enabled: false
+  cameras: []                  # empty = every camera; best on lobbies, platforms, waiting rooms
+  classes: [backpack, handbag, suitcase]
+  seconds: 60                  # still and unattended this long
+  owner_distance: 1.5          # person-heights: anyone this close attends it
+  zones: []                    # only inside these areas (names from `zones`); empty = anywhere
+
+# Camera tampering (tamper.py): a `tamper` alert when the picture is covered (blocked), dark,
+# blurred, turned (moved) or frozen for `hold_seconds`. No model; about 1 ms every 2 s.
+tamper:
+  enabled: true
+  cameras: []
+  hold_seconds: 20
+  checks: [blocked, dark, blurred, moved, frozen]
+  dark_mean: 12                # 0-255: raise it for cameras without infrared at night
+  blur_ratio: 0.25             # below this share of the camera's usual sharpness
+  moved_similarity: 0.5        # structure vs the usual view (same view ~0.8, turned < 0.5)
+
+alerts:
+  console: true
+  events: null                 # e.g. [enter, dwell] to alert on only some event types
+  cooldown_seconds: 0          # 0: store every event (the chat needs them all); hold back
+                               # repeated messages with a cooldown per channel instead
+  snapshots: true
+  # Where alerts are sent. Each channel can filter: rules, events, labels, hours ("22:00-06:00")
+  # and cooldown_seconds (at most one message per rule + event type in that time).
+  # More channels (Telegram, WhatsApp, SMS, siren) plug in the same way: see the README.
+  channels: []
+  #  - type: webhook            # JSON POST: n8n, Zapier, Make, Slack/Teams workflows, your backend
+  #    url: ${ALERT_WEBHOOK_URL}
+  #    cooldown_seconds: 30
+  #  - type: email
+  #    host: smtp.example.com
+  #    sender: alerts@example.com
+  #    to: [security@example.com]
+  #    username: ${SMTP_USER}
+  #    password: ${SMTP_PASSWORD}
+  #    labels: [person]
+  #    hours: "22:00-06:00"     # only people, only at night
+  #  - type: telegram           # a Telegram bot (DOCUMENTATION.md, 17.1): create it with @BotFather
+  #    token: ${TELEGRAM_BOT_TOKEN}
+  #    chat_id: ${TELEGRAM_CHAT_ID}   # a person, a group or a channel; a list for several
+  #    images: false            # true: attach the snapshot. Images and clips leave the site and
+  #    video: false             #   stay on Telegram's servers: only where the client agreed
+  #    video_seconds: 10        # clip from 3 s before the alert (needs recording: and ffmpeg)
+  # Alert checking (engine/verify.py): before an alert is sent, the local vision model
+  # (chat.vision) looks at its snapshot and a close-up and answers YES / NO / UNSURE. A NO
+  # holds the alert back (it stays in the store, marked `verified: no`); anything else is sent
+  # with the verdict. Model down or too slow: sent unverified. Seconds per check on a CPU.
+  verify:
+    enabled: false
+    events: [down, hands_up, abandoned]   # check these; empty = every type with a question
+    rules: []                  # only these areas / lines; empty = all
+    mode: veto                 # veto: a NO is not sent | tag: everything sent, with the verdict
+    timeout: 60                # seconds; later answers count as errors (alert sent unverified)
+    # questions: {enter: "Is there a real person (not a shadow or reflection) in the red box?"}
+    # model: qwen3.5:4b        # default: chat.vision's model and server
+
+# Ask Histor from Telegram (src/histor/telegram_bot.py): uv run -m histor.telegram_bot
+# Same bot token as the alert channel is fine. Only the chats listed here get answers; send /id to
+# the bot from a chat to learn its id. The server only makes outgoing HTTPS calls: no open port.
+telegram:
+  token: ${TELEGRAM_BOT_TOKEN}  # from @BotFather; the value goes in .env, never here
+  allowed_chats: ["${TELEGRAM_CHAT_ID}"]   # ids in .env (quoted: YAML); several: ["${TELEGRAM_CHAT_ID}", -1001234567890]
+  images: false                # true: also send the evidence thumbnails (they leave the site)
+  face_search: false           # true: a photo sent to the bot searches the recorded faces
+                               # (biometric: client's written approval; needs faces.enabled)
+  # model: local               # chat.models entry (default: chat.model)
+
+# MCP server (src/histor/mcp_server.py): the chat's tools for Claude Desktop / Code or any agent.
+mcp:
+  face_search: false           # true: a `face` tool that takes a photo FILE on this server
+                               # (biometric: client's written approval; needs faces.enabled)
+  photo_dirs: []               # only photos under these folders, e.g. [C:/histor-photos]; empty = any
+
+# API server and dashboard (engine/server.py, engine/dashboard.py):
+#   uv run --group server -m histor.engine.server --config configs/default.yaml   -> http://127.0.0.1:8000/
+# token: the login for the dashboard and the API. Empty = no login, and the server then refuses
+# any --host but this machine. On a site: token: ${HISTOR_TOKEN}, with HISTOR_TOKEN in .env
+# (python -c "import secrets; print(secrets.token_urlsafe(24))"), and HTTPS in front of it.
+server:
+  token: ""
+
+# Periodic reports (src/histor/report.py, keep it running next to the recorders): at the end of each
+# period, exact counts from the store plus a summary written by the chat model, focused on what
+# the owner asked to watch. Saved under data/store/reports/<name>/ (UI Reports tab, --show) and
+# sent to the report's channels. Set up at install time, with the owner.
+reports: []
+#  - name: morning
+#    every: daily               # hourly | daily | weekly
+#    at: "07:00"                # daily / weekly: the period ends (and the report goes out) then
+#    # day: monday              # weekly only
+#    cameras: [gate, yard]      # names or aliases; empty = every camera
+#    interests:                 # in the owner's words; empty = what happened + anything unusual
+#      - vehicles at the gate after hours
+#      - anyone in the yard at night
+#      - parcels left by the door
+#    # model: local             # chat.models entry (default: chat.model)
+#    # words: 200               # length of the written summary
+#    channels:                  # same settings as alerts.channels; none = saved only
+#      - type: email
+#        host: smtp.example.com
+#        sender: histor@example.com
+#        to: [owner@example.com]
+#        username: ${SMTP_USER}
+#        password: ${SMTP_PASSWORD}
+#  - name: weekly_overview
+#    every: weekly
+#    day: monday
+#    at: "08:00"
+
+# Chat (src/histor/chat.py): which LLM answers questions. Switch with --model <name> or /model <name>.
+chat:
+  model: local
+  models:
+    local:                     # runs on the site's server, footage never leaves it
+      api: openai              # any OpenAI-compatible server: Ollama, llama.cpp, LM Studio, vLLM
+      base_url: http://127.0.0.1:11434/v1   # Ollama; llama.cpp server: http://127.0.0.1:8080/v1
+      model: qwen3:4b          # Apache-2.0, good tool calling on CPU; `ollama pull qwen3:4b`
+      temperature: 0.2
+      note: Qwen3 4B · Apache-2.0 · 2.5 GB · CPU
+    # Newer open models to compare on the same questions (licences checked 2026-10-08,
+    # see DOCUMENTATION.md, sections 25.1 and 47.2). `note` is only shown in the UI.
+    qwen3.5-4b:                # successor of qwen3:4b, also reads images (see chat.vision)
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3.5:4b
+      temperature: 0.2
+      note: Qwen3.5 4B · Apache-2.0 · 3.4 GB · CPU · tools + vision
+    granite-3b:                # smallest: for weak servers
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: granite4.1:3b
+      temperature: 0.2
+      note: IBM Granite 4.1 3B · Apache-2.0 · 2.1 GB · CPU · tuned for tool use
+    gemma4-e4b:
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: gemma4:e4b
+      temperature: 0.2
+      note: Gemma 4 E4B · Apache-2.0 · 6.6 GB · CPU · tools + vision
+    local-large:               # better answers, needs ~20 GB RAM or a GPU
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3:30b-a3b
+      note: Qwen3 30B-A3B · Apache-2.0 · 19 GB · 32 GB RAM or GPU
+    qwen3.6-large:             # newer large option, 3B active: still usable on a strong CPU
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: qwen3.6:35b
+      note: Qwen3.6 35B-A3B · Apache-2.0 · 24 GB · 32 GB RAM or GPU · tools + vision
+    nemotron-large:            # Mamba-MoE, 3B active, long context; licence: read OpenMDW 1.1 first
+      api: openai
+      base_url: http://127.0.0.1:11434/v1
+      model: nemotron-3.5-lightning
+      note: NVIDIA Nemotron 3.5 Lightning 30B-A3B · OpenMDW 1.1 · 25 GB · 32 GB RAM or GPU
+    claude:                    # cloud: only search results (text) are sent, never video
+      api: anthropic           # uv sync --group claude; key from ANTHROPIC_API_KEY in .env
+      model: claude-opus-5-5
+      effort: low              # low | medium | high: chat questions rarely need more
+      note: Claude Opus 5.5 · Anthropic API (cloud)
+  # `look` tool: a local vision model reads the evidence images when a question needs eyes
+  # (counts, actions, "is the gate open"). Runs here even with the claude model: images never
+  # leave the site, only its text answer. Seconds per image on a CPU. `ollama pull qwen3.5:4b`.
+  vision:
+    enabled: true
+    model: qwen3.5:4b          # Apache-2.0; also gemma4:e4b, qwen3-vl:2b (smaller, faster)
+    base_url: http://127.0.0.1:11434/v1
+    max_images: 4              # per look
+    max_side: 640              # shrink images to this (longest side): speed vs detail
+
+# Face prints are biometric data: off unless a client has approved it (DOCUMENTATION.md, section 21).
+# When on, the chat can look for a person from a photo: /photo visitor.jpg, then ask.
+faces:
+  enabled: false
+  cameras: []                  # empty = every camera; better: only those with `about.faces: good`
+  detector: models/face_detection_yunet_2023mar.onnx
+  recognizer: models/face_recognition_sface_2021dec.onnx
+  min_face_size: 32
+  interval_seconds: 1          # look for a face on each tracked person this often
+  max_per_track: 5             # keep a person's 5 clearest faces per visit, not one per second
+  min_sharpness: 15            # skip blurred faces (sharp ~30-300, motion blur < 10)
+  max_turn: 0.6                # skip faces turned away (0 = facing the camera, 0.5 ~ 60 deg)
+
+# Body poses (17 keypoints per tracked person, about once a second): posture, hands up, facing,
+# head down, still / walking / running, bags carried, top / bottom colour, searchable with the chat's `people` tool and GET /people. Not biometric
+# like faces, but a walk can still be recognised: same retention as the search index.
+# Model: `uv run --group export -m histor.engine.export_pose` (ViTPose-B, COCO only,
+# Apache-2.0). Missing model: everything else is still recorded, with a warning.
+pose:
+  enabled: true
+  cameras: []                  # empty = every camera
+  model: models/pose_vitpose_b.onnx   # trials: pose_rtmpose_t.onnx (10x faster)
+  interval_seconds: 1          # per tracked person; 3x less often while they stand still
+  min_box_height: 80           # pixels: smaller people give unreliable keypoints
+  heartbeat_seconds: 10        # a row on every change, and at least this often
+  store_keypoints: true        # 102 bytes a row: new facts can be derived later without the model
+  alerts: [down]               # down (lying for down_seconds) | hands_up (both hands up)
+  down_seconds: 10
+  hands_up_seconds: 3
+
+# Number plates (plates.py): each tracked vehicle's plate read about once a second, searchable
+# with the chat's `plates` tool and GET /plates, and a `plate` alert for the watchlist. Plates
+# are personal data in many countries: off until the client agrees, and kept for
+# store.plate_retention_days (default: retention_days). Best with `recording:` on: plates are
+# read from the main stream's full-resolution keyframes. Models:
+# `uv run -m histor.engine.download_model plates` (the finder is for trials until a legal check,
+# DOCUMENTATION.md, section 23).
+plates:
+  enabled: false
+  cameras: []                  # empty = every camera; better: only those facing the entrance
+  detector:
+    model: models/plate_yolov9_t_384.onnx
+    type: yolov9               # or yolox: our own plate model (one class)
+    min_score: 0.4
+  reader:
+    model: models/plate_ocr_cct_s_v2.onnx
+    config: models/plate_ocr_cct_s_v2.yaml
+  interval_seconds: 1          # per tracked vehicle
+  min_plate_width: 40          # pixels: narrower plates are not read
+  min_confidence: 0.6          # every character at least this sure
+  max_per_track: 5             # rows per vehicle: new texts, or clearly better reads
+  watchlist: []                # e.g. - {plate: "AB 123 CD", name: banned_van}
+  max_distance: 1              # watchlist: edits forgiven after look-alikes (0/O, 8/B...)
+  min_reads: 2                 # watchlist: the plate must be read this many times
+
+# Sound events from camera microphones (sound.py): YAMNet hears smoke alarms, breaking glass,
+# gunshots, explosions, screams, car alarms and sirens, and raises a `sound` alert (rule = the
+# group below) through the alert channels. Audio is classified in memory and never stored.
+# Listening is regulated in many places, often more than video: off until the client and the
+# local law allow it, and only on cameras that have a microphone. Reads the main stream's audio
+# (needs ffmpeg). Model: `uv run -m histor.engine.download_model sounds`.
+sounds:
+  enabled: false
+  cameras: []                  # empty = every camera with audio
+  model: models/sound_yamnet.onnx
+  classes: models/sound_yamnet_classes.csv
+  min_score: 0.3               # a class of the group at least this sure...
+  min_frames: 2                # ...in this many frames in a row (a frame = 0.96 s, every 0.48 s)
+  cooldown_seconds: 30         # per group
+  scores:                      # stricter per group, where false alarms cost more
+    glass_break: 0.4
+    gunshot: 0.4
+  # groups:                    # default: smoke_alarm, glass_break, gunshot, explosion, scream,
+  #   smoke_alarm: ["Smoke detector, smoke alarm", "Fire alarm"]   # car_alarm, siren
+  #   dog: ["Dog", "Bark"]     # any AudioSet class name (models/sound_yamnet_classes.csv)

@@ -2,22 +2,61 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "argus-ui",
+      "name": "histor-ui",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "ui", "-m", "argus.ui", "--no-browser"],
+      "runtimeArgs": [
+        "run",
+        "--directory",
+        "projects/histor",
+        "--group",
+        "ui",
+        "-m",
+        "histor.ui",
+        "--no-browser"
+      ],
       "port": 7860
     },
     {
-      "name": "argus-dashboard",
+      "name": "histor-dashboard",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "server", "-m", "argus.engine.server", "--config", "configs/default.yaml"],
+      "runtimeArgs": [
+        "run",
+        "--directory",
+        "projects/histor",
+        "--group",
+        "server",
+        "-m",
+        "histor.engine.server",
+        "--config",
+        "configs/default.yaml"
+      ],
       "port": 8000
     },
     {
-      "name": "argus-bench",
+      "name": "histor-bench",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "--directory", "projects/argus", "--group", "ui", "-m", "argus.engine.app"],
+      "runtimeArgs": [
+        "run",
+        "--directory",
+        "projects/histor",
+        "--group",
+        "ui",
+        "-m",
+        "histor.engine.app"
+      ],
       "port": 7860
+    },
+    {
+      "name": "website",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8080",
+        "--directory",
+        "../mobius-website/site"
+      ],
+      "port": 8080
     }
   ]
 }

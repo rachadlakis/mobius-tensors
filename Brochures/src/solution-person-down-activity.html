@@ -3,9 +3,9 @@
 <head>
 <!-- Source of Brochures/solution-person-down-activity.pdf. Print: Chrome, A4, no margins,
      no headers/footers (chrome --headless=new --no-pdf-header-footer --print-to-pdf=...).
-     Hero: real output of the Argus engine's pipeline with pose on data/vtest.avi. -->
+     Hero: real output of the Histor engine's pipeline with pose on data/vtest.avi. -->
 <meta charset="utf-8">
-<title>Person Down &amp; Activity — Argus</title>
+<title>Person Down &amp; Activity — Histor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
@@ -24,6 +24,9 @@
            color: #fff; padding: 10mm 14mm 7mm; }
   .top { display: flex; justify-content: space-between; align-items: center; }
   .top img { height: 9mm; }
+  .brandblk { display: flex; flex-direction: column; gap: 1mm; }
+  .mt-sub { display: flex; align-items: center; gap: 1mm; font-size: 6.5pt; color: #9aa8c7; }
+  .top .mt-sub img { height: 8mm; margin: -2.4mm -4mm; }
   .kicker { font-family: "JetBrains Mono", monospace; font-size: 7pt; letter-spacing: .22em;
             color: var(--cyan); text-transform: uppercase; }
   .hero { display: grid; grid-template-columns: 1fr 88mm; gap: 9mm; margin-top: 6mm; align-items: start; }
@@ -75,7 +78,8 @@
 <div class="page">
   <header>
     <div class="top">
-      <img src="../../Images/argus/svg/argus-horizontal-transparent-for-dark.svg" alt="Argus">
+      <div class="brandblk"><img src="../../Images/histor/svg/histor-horizontal-transparent-for-dark.svg" alt="Histor">
+        <div class="mt-sub">a product of <img src="../../Images/brand-kit/svg/logo-horizontal-transparent-for-dark.svg" alt="Mobius Tensors"></div></div>
       <div class="kicker">Solution sheet · Safety</div>
     </div>
     <div class="hero">
@@ -86,7 +90,7 @@
       </div>
       <figure>
         <img src="person-down-activity-hero.jpg" alt="Street camera view with a body skeleton drawn on each tracked person">
-        <figcaption>Real output from Argus: 17 body points on every tracked person, about once a second.</figcaption>
+        <figcaption>Real output from Histor: 17 body points on every tracked person, about once a second.</figcaption>
       </figure>
     </div>
   </header>
@@ -100,7 +104,7 @@
       </section>
       <section>
         <h2>What it does</h2>
-        <p>Argus reads the body of every person it tracks: standing, sitting, crouching or lying,
+        <p>Histor reads the body of every person it tracks: standing, sitting, crouching or lying,
           hands up or down, and the colour of their top and trousers. It alerts you when someone stays
           down, and remembers the rest so you can ask about it later.</p>
       </section>
@@ -146,7 +150,7 @@
       <div class="note">
         <h3>Good to know</h3>
         <p>People need to be at least 80 pixels tall in the picture. Colours are lost at night on
-          infrared cameras. Argus is an extra pair of eyes, not a medical alarm: we test person-down
+          infrared cameras. Histor is an extra pair of eyes, not a medical alarm: we test person-down
           on staged falls at your site, and agree the false-alarm level with you, before it goes live.</p>
       </div>
     </div>

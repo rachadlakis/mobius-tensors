@@ -1,0 +1,106 @@
+# Events + snapshots + search index, demo on the OpenCV street sample (data/vtest.avi).
+#
+# 1) Models (once):
+#      uv run -m histor.engine.download_model yolox_s
+#      uv run -m histor.engine.download_model faces         # only if you enable faces below
+#      uv run --group export -m histor.engine.export_clip   # CLIP for text search (~600 MB)
+# 2) Record (one process per camera; --start-time only for recorded files):
+#      uv run -m histor.engine.main --config configs/engine/search_example.yaml --start-time 2026-09-25T14:00
+# 3) API:
+#      uv run --group server -m histor.engine.server --config configs/engine/search_example.yaml
+#      curl "http://127.0.0.1:8000/search?q=man%20in%20black%20jacket%20friday"
+
+source: data/vtest.avi
+
+model:
+  backend: yolox_onnx
+  path: models/yolox_s.onnx
+  conf_threshold: 0.25
+  nms_threshold: 0.45
+  class_agnostic_nms: true
+  classes: [person, car, truck, bus, motorcycle, bicycle, backpack, handbag, suitcase]
+
+tracking:
+  track_threshold: 0.45
+  max_missed: 30
+  min_hits: 3
+
+zones:
+  - name: junction
+    type: zone
+    points: [[0.729, 0.330], [1.0, 0.260], [1.0, 0.729], [0.729, 0.608]]
+    classes: [person]
+    dwell_seconds: 5
+  - name: path_line
+    type: line
+    points: [[0.456, 0.330], [0.456, 0.573]]
+    classes: [person]
+    direction: both
+
+alerts:
+  console: true
+  events: [dwell, cross]
+  cooldown_seconds: 10
+  snapshots: true              # JPEG per alert, saved in the store and attached to emails
+  # webhook:                   # POST JSON to n8n / Zapier / your backend
+  #   url: https://example.com/hooks/histor
+  #   headers: {Authorization: "Bearer ${WEBHOOK_TOKEN}"}
+  # email:
+  #   host: smtp.gmail.com
+  #   port: 587
+  #   username: ${SMTP_USER}
+  #   password: ${SMTP_PASSWORD}   # put secrets in .env, never in this file
+  #   sender: alerts@your-company.com
+  #   to: [security@client.com]
+
+store:
+  path: data/store/histor.db   # SQLite, shared by all cameras of a site and the API server
+  media_dir: data/store/media  # snapshots, thumbnails, scene images
+  retention_days: 30           # events + search index
+  face_retention_days: 7       # face prints are kept for a shorter time
+
+# Main stream of each live camera (needs ffmpeg >= 5.1: sudo apt install ffmpeg).
+# The detector keeps reading the cheap sub stream; this opens the full-resolution one too.
+# Set the camera's main-stream I-frame interval to 1 s (= its FPS): one keyframe per second.
+recording:
+  enabled: true                # save the main stream untouched (-c copy, ~no CPU), 1 file/minute
+  dir: data/store/recordings
+  segment_seconds: 60
+  retention_days: 7            # 1080p at 4 Mbit/s = ~43 GB per camera per day
+  min_free_gb: 20              # also delete the oldest files when the disk gets this full
+  hires_crops: true            # crop search/face images from main-stream keyframes (+1 detection/s)
+
+search:
+  enabled: true
+  clip:
+    image: models/clip_image.onnx
+    text: models/clip_text.onnx
+    vocab: models/clip_bpe_vocab.txt.gz
+  classes: [person, car, truck, bus, motorcycle, bicycle, backpack, handbag, suitcase]
+  object_interval_seconds: 2   # re-embed each tracked object at most this often
+  scene_interval_seconds: 5    # whole frame + tiles, catches what the detector ignores
+  scene_tiles: 2               # 2 -> 2x2 grid (+ the whole frame); 0 = whole frame only
+  min_box_height: 40           # ignore tiny, far-away objects (too few pixels to describe)
+
+# Face prints are biometric data: OFF unless enabled, and can be limited to some cameras.
+# Check local law and put up notices before enabling it at a client site.
+faces:
+  enabled: false
+  cameras: []                  # e.g. [shop_entrance]; empty = every camera when enabled
+  detector: models/face_detection_yunet_2023mar.onnx
+  recognizer: models/face_recognition_sface_2021dec.onnx
+  min_face_size: 32            # pixels; faces smaller than this are not identifiable
+  interval_seconds: 1          # look for a face on each tracked person this often
+  max_per_track: 5             # keep a person's 5 clearest faces per visit, not one per second
+  min_sharpness: 15            # skip blurred faces (sharp ~30-300, motion blur < 10)
+  max_turn: 0.6                # skip faces turned away (0 = facing the camera, 0.5 ~ 60 deg)
+
+# Body poses for tracked people (src/histor/engine/pose.py): searchable with GET /people, `down` / `hands_up`
+# alerts. Export the model once: uv run --group export -m histor.engine.export_pose
+pose:
+  enabled: true
+  model: models/pose_vitpose_b.onnx   # trials: models/pose_rtmpose_t.onnx (10x faster)
+  interval_seconds: 1
+  min_box_height: 60                  # vtest.avi people are small
+  alerts: [down]
+  down_seconds: 10

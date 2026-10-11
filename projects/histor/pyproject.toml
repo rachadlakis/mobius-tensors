@@ -1,0 +1,69 @@
+[project]
+name = "histor"
+version = "0.1.0"
+description = "Record everything the cameras see as searchable embeddings, then ask about it"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.4.6",
+    "opencv-python>=5.0.0.93",
+    "python-dotenv>=1.2.3",
+    "pyyaml>=6.0.3",
+    "regex>=2026.9.29",
+]
+
+[dependency-groups]
+# ONNX Runtime: the CPU build by default; on an NVIDIA machine swap it for the GPU one
+# (CUDA and cuDNN come as wheels, only the driver is needed): uv sync --no-group cpu --group gpu
+cpu = [
+    "onnxruntime>=1.30.0",
+]
+gpu = [
+    "onnxruntime-gpu[cuda,cudnn]>=1.30.0; sys_platform != 'darwin'",
+]
+claude = [
+    "anthropic>=1.11.0",
+]
+dev = [
+    "httpx>=0.28.1",
+    "mcp>=2.3.0",  # tests of the MCP server (histor.mcp_server)
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "types-pyyaml>=6.0.12.20260906",
+    "types-regex>=2026.9.29.20261005",
+]
+# One-off model exports (CLIP, ViTPose) to ONNX; never needed on a site.
+export = [
+    "onnx>=1.23.0",
+    "open-clip-torch>=3.3.0",
+    "torch>=2.14.0",
+    "transformers>=5.19.0",
+]
+notebook = [
+    "ipykernel>=7.4.0",
+    "ipython-autotime>=0.3.2",
+    "matplotlib>=3.11.2",
+]
+server = [
+    "fastapi>=0.141.1",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.53.0",
+]
+ui = [
+    "gradio>=6.28.0",
+]
+# The chat's tools as an MCP server (histor.mcp_server): uv run --group mcp -m histor.mcp_server
+mcp = [
+    "mcp>=2.3.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+default-groups = ["cpu", "dev"]
+conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

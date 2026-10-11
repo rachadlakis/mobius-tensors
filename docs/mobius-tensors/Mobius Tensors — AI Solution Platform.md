@@ -13,12 +13,12 @@
 ---
 
 > **Status, October 2026.** This is the plan written in September 2026. The code has since taken a
-> simpler shape: [`projects/argus`](../../projects/argus/)'s engine runs detection
+> simpler shape: [`projects/histor`](../../projects/histor/)'s engine runs detection
 > (YOLOX on ONNX Runtime), tracking, zone/line rules, alerts and search in **one process per
-> camera** ([`pipeline.py`](../../projects/argus/src/argus/engine/pipeline.py)), and
-> the Argus product layer builds video memory and chat on top of it. ZeroMQ
+> camera** ([`pipeline.py`](../../projects/histor/src/histor/engine/pipeline.py)), and
+> the Histor product layer builds video memory and chat on top of it. ZeroMQ
 > services, the FastAPI dashboard backend and the multi-site control plane below are still plans.
-> How to install a site today: [Argus documentation, Part 3: Installing a site](../../projects/argus/DOCUMENTATION.md#part-3--installing-a-site).
+> How to install a site today: [Histor documentation, Part 3: Installing a site](../../projects/histor/DOCUMENTATION.md#part-3--installing-a-site).
 
 ## Contents
 
@@ -869,7 +869,7 @@ flowchart TB
 
 ### 14.10 Deploy and pilot
 
-- Deploy on a commodity, CPU-only server (per the platform's "no GPU required to start" goal) — see [Argus documentation, Part 3: Installing a site](../../projects/argus/DOCUMENTATION.md#part-3--installing-a-site)
+- Deploy on a commodity, CPU-only server (per the platform's "no GPU required to start" goal) — see [Histor documentation, Part 3: Installing a site](../../projects/histor/DOCUMENTATION.md#part-3--installing-a-site)
 - Run against a real camera/site for a trial period
 - Track real-world false-positive / false-negative rates — compare against the ideas' Trust Level assumptions
 

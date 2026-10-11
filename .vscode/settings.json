@@ -1,7 +1,7 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/projects/argus/.venv/Scripts/python.exe",
-  "python.analysis.extraPaths": ["${workspaceFolder}/projects/argus/src"],
+  "python.defaultInterpreterPath": "${workspaceFolder}/projects/histor/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/projects/histor/src"],
   "python.testing.pytestEnabled": true,
-  "python.testing.cwd": "${workspaceFolder}/projects/argus",
+  "python.testing.cwd": "${workspaceFolder}/projects/histor",
   "python.testing.pytestArgs": ["tests"]
 }
