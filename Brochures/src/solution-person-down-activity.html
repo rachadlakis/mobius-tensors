@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<!-- Source of Brochures/solution-person-down-activity.pdf. Print: Chrome, A4, no margins,
+<!-- Source of Brochures/en/solution-person-down-activity.pdf (fr/ and ar/ are built from it by i18n.py in brochures-source.zip). Print: Chrome, A4, no margins,
      no headers/footers (chrome --headless=new --no-pdf-header-footer --print-to-pdf=...).
      Hero: real output of the Histor engine's pipeline with pose on data/vtest.avi. -->
 <meta charset="utf-8">
@@ -24,6 +24,8 @@
            color: #fff; padding: 10mm 14mm 7mm; }
   .top { display: flex; justify-content: space-between; align-items: center; }
   .top img { height: 9mm; }
+  .top img.mtlogo { height: 22mm; margin: -6mm -7mm -5mm 0; }
+  .mtblk { display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
   .brandblk { display: flex; flex-direction: column; gap: 1mm; }
   .mt-sub { display: flex; align-items: center; gap: 1mm; font-size: 6.5pt; color: #9aa8c7; }
   .top .mt-sub img { height: 8mm; margin: -2.4mm -4mm; }
@@ -78,9 +80,9 @@
 <div class="page">
   <header>
     <div class="top">
-      <div class="brandblk"><img src="../../Images/histor/svg/histor-horizontal-transparent-for-dark.svg" alt="Histor">
-        <div class="mt-sub">a product of <img src="../../Images/brand-kit/svg/logo-horizontal-transparent-for-dark.svg" alt="Mobius Tensors"></div></div>
-      <div class="kicker">Solution sheet · Safety</div>
+      <img src="../../Images/histor/svg/histor-horizontal-transparent-for-dark.svg" alt="Histor">
+      <div class="mtblk"><img class="mtlogo" src="../../Images/brand-kit/svg/logo-horizontal-transparent-for-dark.svg" alt="Mobius Tensors">
+        <div class="kicker">Solution sheet · Safety</div></div>
     </div>
     <div class="hero">
       <div>
@@ -162,9 +164,9 @@
       <p>Start with a short pilot on a few cameras at your site.</p>
     </div>
     <div class="contact">
-      <span>www.your-website.com</span>
+      <span dir="ltr">www.mobius-tensors.com</span>
       <span>hello@your-website.com</span>
-      <span>+961 00 000 000</span>
+      <span dir="ltr">+961 3 004 362</span>
     </div>
   </footer>
 </div>
