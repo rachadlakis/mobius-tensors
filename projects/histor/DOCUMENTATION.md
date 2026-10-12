@@ -39,7 +39,7 @@ the code; keep it that way when editing: if a feature is on the roadmap, say so.
   [44 Where new models plug in](#44-where-new-models-plug-in) · [45 Fire and smoke](#45-fire-and-smoke) ·
   [46 Weapons](#46-weapons) · [47 Other models](#47-other-models-worth-adding) ·
   [48 Threat detection, October 2026](#48-threat-detection-update-october-2026) ·
-  [49 NVIDIA's Public Safety blueprint](#49-compared-with-nvidias-public-safety-blueprint)
+  [49 NVIDIA&#39;s Public Safety blueprint](#49-compared-with-nvidias-public-safety-blueprint)
 - [Roadmap](#roadmap) · [Development log](#development-log) · [Sources](#sources)
 
 **New on 2026-10-10**
@@ -49,7 +49,7 @@ the code; keep it that way when editing: if a feature is on the roadmap, say so.
   (it stays in the store, marked); a model that is down or slow never stops an alert.
 - **One place for the docs:** this file and the README replace `ENGINE.md`, `REPORT.md`, the old
   `docs/histor` documentation and the site installation guide.
-- **MCP server** (section 25.3): the chat's tools for Claude Desktop, Claude Code or any MCP
+- **MCP server** (section 25.3): the chat's tools for Claude, ChatGPT or any other MCP
   agent, over stdio (also through SSH from a laptop). Images stay on the site. New figures for detection, search,
   plates, sounds, tampering, alerts and the chat.
 - **Research:** threat detection models and NVIDIA's Public Safety blueprint (sections 48–49).
@@ -117,27 +117,27 @@ in advance; today's question was usually not one of them. And the rules it has r
 
 ## 5. Kinds of answer, and it says which
 
-| Kind | How | Good for |
-| --- | --- | --- |
-| **Counted (exact)** | Straight from the detector and tracker: what, when, how many. One tracked object = one visit. | "How many cars came in today?", "What happened 6pm to 9pm?", "Anyone with a dog this morning?" |
-| **Described (ranked)** | Visual search (CLIP) by appearance, colour, clothing, or things with no detector class. Ranked best matches, not certainties. | "A man in a red jacket near a car?", "A white van at the gate?" |
-| **Pose (measured)** | Body keypoints of each person: seconds standing / sitting / crouching / bending / lying, hands above the head, facing the camera, head down, still / walking / running, a bag on them, main colour of top and trousers (11 colour names). Facts per visit, not a ranking (section 22). | "Anyone lying on the floor last night?", "Anyone running in the car park?", "Red top and blue jeans?" |
-| **Plate (exact, opt-in)** | The plate text read on each vehicle; look-alike characters (0/O, 8/B…) and one wrong character forgiven (section 23). | "When did AB 123 CD come in?" |
-| **Face (scored, on approval only)** | A face print from an uploaded photo compared with the faces recorded on the cameras; each visit *likely* or *possible* (section 21). | "Did the person in this photo come to the office between 1 and 4?" |
-| **Looked at (described)** | A local vision model reads the evidence images: counts, actions, text (`look`, section 25). | "How many people were at the counter at 3pm?" |
+| Kind                                      | How                                                                                                                                                                                                                                                                                    | Good for                                                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **Counted (exact)**                 | Straight from the detector and tracker: what, when, how many. One tracked object = one visit.                                                                                                                                                                                          | "How many cars came in today?", "What happened 6pm to 9pm?", "Anyone with a dog this morning?"        |
+| **Described (ranked)**              | Visual search (CLIP) by appearance, colour, clothing, or things with no detector class. Ranked best matches, not certainties.                                                                                                                                                          | "A man in a red jacket near a car?", "A white van at the gate?"                                       |
+| **Pose (measured)**                 | Body keypoints of each person: seconds standing / sitting / crouching / bending / lying, hands above the head, facing the camera, head down, still / walking / running, a bag on them, main colour of top and trousers (11 colour names). Facts per visit, not a ranking (section 22). | "Anyone lying on the floor last night?", "Anyone running in the car park?", "Red top and blue jeans?" |
+| **Plate (exact, opt-in)**           | The plate text read on each vehicle; look-alike characters (0/O, 8/B…) and one wrong character forgiven (section 23).                                                                                                                                                                 | "When did AB 123 CD come in?"                                                                         |
+| **Face (scored, on approval only)** | A face print from an uploaded photo compared with the faces recorded on the cameras; each visit*likely* or *possible* (section 21).                                                                                                                                                | "Did the person in this photo come to the office between 1 and 4?"                                    |
+| **Looked at (described)**           | A local vision model reads the evidence images: counts, actions, text (`look`, section 25).                                                                                                                                                                                          | "How many people were at the counter at 3pm?"                                                         |
 
 "Together" ("a person with a dog") means the same camera at the same time (within 15 seconds by
 default), not touching in the image.
 
 ## 6. Where it fits
 
-| Site | Example question |
-| --- | --- |
-| Gates and car parks | "How many trucks came in this morning?", "When did AB 123 CD leave?" |
-| Warehouses and yards | "Was anyone at the loading bay camera yesterday evening?", "Did anyone fall?" |
-| Campuses and public spaces | "When did a bag first appear by the bench?" |
-| Construction sites | "Was there a white van at the gate yesterday evening?" |
-| Shops and offices | "How long was the queue at the till at noon?", "Was any camera covered?" |
+| Site                       | Example question                                                              |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| Gates and car parks        | "How many trucks came in this morning?", "When did AB 123 CD leave?"          |
+| Warehouses and yards       | "Was anyone at the loading bay camera yesterday evening?", "Did anyone fall?" |
+| Campuses and public spaces | "When did a bag first appear by the bench?"                                   |
+| Construction sites         | "Was there a white van at the gate yesterday evening?"                        |
+| Shops and offices          | "How long was the queue at the till at noon?", "Was any camera covered?"      |
 
 ## 7. Private by design
 
@@ -203,23 +203,23 @@ Weapons are not offered: no model, and both false alarms and misses are costly (
 
 ## 9. Where it is today
 
-| Working now | Next |
-| --- | --- |
-| Recording and indexing per camera, all 80 object types plus scene snapshots; CLIP LAION-2B vectors tagged per model | Re-index footage recorded with the old CLIP model |
-| Plain-language questions (`ask.py`), no language model needed | A fixed set of test questions on recorded footage, to compare chat models |
-| Chat with switchable models, local by default; `look` reads the evidence images | Try `qwen3.5:4b` as the chat model itself (tools + vision in one) |
-| Main-stream recording with full-resolution crops | A multi-camera timeline: one visit across cameras |
-| Alerts by area, line, crowding, abandoned bags, tampering, to webhook, email and **Telegram (2026-10-10)** with filters | WhatsApp, SMS and on-site siren channels |
-| **Telegram bot (2026-10-10)**: ask Histor from a phone; images and clips optional | Try it with a real bot at a pilot site |
-| **Alert checking by a local vision model (2026-10-10)**, tested against a stand-in server | Run on a real Ollama, then false alarms per day at a pilot site with and without it |
-| Body poses: facts, `people` search, person-down and hands-up alerts | Staged-fall test at a pilot site; a smaller COCO-only pose model |
-| Face search by photo (opt-in) | Calibrate the thresholds on a pilot site's footage |
-| Number plates, `plates` search, watchlist alerts (trial finder) | **Our own YOLOX plate finder**; read rates on real cameras |
-| Sound events from camera microphones | Check on a site's real camera audio |
-| Periodic reports, saved and sent | Set them up from the UI; "what did last night's report say" |
-| **MCP server: the chat's tools for any MCP client (2026-10-10)**, tested over stdio | Try it from Claude Desktop over SSH; an HTTP transport with login |
-| **Dashboard with a token login (2026-10-10)**: live alerts with verdicts, camera status, search | A pilot site's feedback; logins per person; the chat in the dashboard |
-| — | Fire and smoke model |
+| Working now                                                                                                                  | Next                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Recording and indexing per camera, all 80 object types plus scene snapshots; CLIP LAION-2B vectors tagged per model          | Re-index footage recorded with the old CLIP model                                   |
+| Plain-language questions (`ask.py`), no language model needed                                                              | A fixed set of test questions on recorded footage, to compare chat models           |
+| Chat with switchable models, local by default;`look` reads the evidence images                                             | Try`qwen3.5:4b` as the chat model itself (tools + vision in one)                  |
+| Main-stream recording with full-resolution crops                                                                             | A multi-camera timeline: one visit across cameras                                   |
+| Alerts by area, line, crowding, abandoned bags, tampering, to webhook, email and**Telegram (2026-10-10)** with filters | WhatsApp, SMS and on-site siren channels                                            |
+| **Telegram bot (2026-10-10)**: ask Histor from a phone; images and clips optional                                      | Try it with a real bot at a pilot site                                              |
+| **Alert checking by a local vision model (2026-10-10)**, tested against a stand-in server                              | Run on a real Ollama, then false alarms per day at a pilot site with and without it |
+| Body poses: facts,`people` search, person-down and hands-up alerts                                                         | Staged-fall test at a pilot site; a smaller COCO-only pose model                    |
+| Face search by photo (opt-in)                                                                                                | Calibrate the thresholds on a pilot site's footage                                  |
+| Number plates,`plates` search, watchlist alerts (trial finder)                                                             | **Our own YOLOX plate finder**; read rates on real cameras                    |
+| Sound events from camera microphones                                                                                         | Check on a site's real camera audio                                                 |
+| Periodic reports, saved and sent                                                                                             | Set them up from the UI; "what did last night's report say"                         |
+| **MCP server: the chat's tools for any MCP client (2026-10-10)**, tested over stdio                                    | Try it from Claude Desktop over SSH; an HTTP transport with login                   |
+| **Dashboard with a token login (2026-10-10)**: live alerts with verdicts, camera status, search                        | A pilot site's feedback; logins per person; the chat in the dashboard               |
+| —                                                                                                                           | Fire and smoke model                                                                |
 
 ## 10. Limits worth saying out loud
 
@@ -289,8 +289,7 @@ fewer frames per camera, not a growing delay.
 
 ![Histor: the perception pipeline (left) and the agent pipeline (right)](docs/images/architecture.svg)
 
-The same picture as NVIDIA's Public Safety blueprint (section 49), drawn for Histor: a perception
-pipeline that runs all the time, and an agent pipeline that runs when someone asks.
+A perception pipeline that runs all the time, and an agent pipeline that runs when someone asks.
 
 **Perception pipeline (left).** Each camera gives three streams. The **sub stream** goes to
 **detect + track** (YOLOX-S and an IoU tracker), whose tracks feed:
@@ -309,7 +308,7 @@ everything lands in **one SQLite store per site** with its media. Alerts go out 
 (webhook, email, console).
 
 **Agent pipeline (right).** The user asks in the chat (`chat.py` or the test UI) or from any MCP
-client (Claude Desktop, Claude Code, a client's own agent). The **chat model** (Qwen3 4B on the
+client (Claude, ChatGPT, a client's own agent). The **chat model** (Qwen3 4B on the
 site's CPU by default, any OpenAI-compatible server, or Claude) answers by calling tools:
 
 - **Events**: `objects`, `alerts`: what was tracked and which alerts fired, with exact counts.
@@ -326,15 +325,15 @@ are opened through the API's `video_url` (section 27).
 CLIP B/32 to turn a question into a search vector; on the perception side YOLOX-S, ViTPose-B,
 YuNet + SFace, the plate models and YAMNet. All of them run on a CPU.
 
-| Component | Purpose |
-| --- | --- |
-| Perception pipeline | Detect, track and index everything; raise events from rules |
-| Alert checking | A local vision model holds back false alarms before they are sent |
-| Vision model | Checks alerts; reads evidence images for the chat (`look`) |
-| Chat model + tools | Questions in plain language, answered with evidence; reports |
-| MCP server | The same tools for any MCP agent |
-| Store + recordings | One SQLite file per site with its media; MP4s from the main stream |
-| API + dashboard | `server.py`: search, people, plates, events, media, recordings; `dashboard.py`: one web page with live alerts, camera cards and search, behind a token login; Gradio test UI for development |
+| Component           | Purpose                                                                                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Perception pipeline | Detect, track and index everything; raise events from rules                                                                                                                                      |
+| Alert checking      | A local vision model holds back false alarms before they are sent                                                                                                                                |
+| Vision model        | Checks alerts; reads evidence images for the chat (`look`)                                                                                                                                     |
+| Chat model + tools  | Questions in plain language, answered with evidence; reports                                                                                                                                     |
+| MCP server          | The same tools for any MCP agent                                                                                                                                                                 |
+| Store + recordings  | One SQLite file per site with its media; MP4s from the main stream                                                                                                                               |
+| API + dashboard     | `server.py`: search, people, plates, events, media, recordings; `dashboard.py`: one web page with live alerts, camera cards and search, behind a token login; Gradio test UI for development |
 
 ## 13. Code layout
 
@@ -351,7 +350,7 @@ src/histor/
   ask.py               question -> ranked sightings (no LLM)
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
   tools.py             what the LLM may call: objects, search, alerts, people, plates, face, look
-  mcp_server.py        the same tools over MCP (stdio), for Claude Desktop / Code or any agent
+  mcp_server.py        the same tools over MCP (stdio), for Claude, ChatGPT or any agent
   telegram_bot.py      the chat as a Telegram bot, for allowed chats
   llm.py               model backends: OpenAI-compatible (local) and Claude
   vision.py            the local vision model behind `look` and alert checking
@@ -401,25 +400,24 @@ needs `model.path` and `model.class_names`; another backend implements
 
 ## 14. Models and licences
 
-| Role | Model | File | Licence | Size | Cost on a laptop CPU |
-| --- | --- | --- | --- | --- | --- |
-| Objects | **YOLOX-S** (COCO, 80 classes); YOLOX-M for GPU servers, YOLOX-Nano for weak machines | `yolox_s.onnx` · `yolox_m.onnx` · `yolox_nano.onnx` | Apache-2.0 | 36 · 101 · 4 MB | ~76 ms a frame |
-| Visual search | CLIP ViT-B/32, OpenCLIP LAION-2B `laion2b_s34b_b79k`, float32 | `clip_image.onnx`, `clip_text.onnx`, `clip_bpe_vocab.txt.gz` | MIT | 350 + 250 MB | ~30 ms per crop |
-| Body pose | ViTPose-B "simple", COCO only | `pose_vitpose_b.onnx` | Apache-2.0 | 344 MB | 100–175 ms per person |
-| Body pose (trials) | RTMPose-t (training data not all commercial) | `pose_rtmpose_t.onnx` | Apache-2.0 code | 13 MB | 10–17 ms per person |
-| Faces (opt-in) | YuNet detector + SFace recogniser (OpenCV Zoo) | `face_detection_yunet_2023mar.onnx`, `face_recognition_sface_2021dec.onnx` | MIT / Apache-2.0 | 0.2 + 37 MB | a few ms per face |
-| Plate finder (opt-in, trials) | open-image-models YOLOv9-t 384 | `plate_yolov9_t_384.onnx` | MIT code; weights via a GPL-3.0 fork | 8 MB | ~11 ms per vehicle |
-| Plate reader (opt-in) | fast-plate-ocr CCT-S v2 global | `plate_ocr_cct_s_v2.onnx`, `.yaml` | MIT | 5 MB | ~10 ms per plate |
-| Sounds (opt-in) | YAMNet (AudioSet, 521 classes), tf2onnx conversion, pinned revision | `sound_yamnet.onnx`, `sound_yamnet_classes.csv` | Apache-2.0 | 16 MB | ~3 ms per 3 s of audio |
-| `look`, alert checking | Qwen3.5 4B via Ollama (vision); others selectable | — | Apache-2.0 | — | seconds per image |
-| Chat (default) | Qwen3 4B via Ollama; others selectable (section 25) | — | Apache-2.0 | — | seconds per answer |
+| Role                          | Model                                                                                       | File                                                                           | Licence                              | Size              | Cost on a laptop CPU   |
+| ----------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------ | ----------------- | ---------------------- |
+| Objects                       | **YOLOX-S** (COCO, 80 classes); YOLOX-M for GPU servers, YOLOX-Nano for weak machines | `yolox_s.onnx` · `yolox_m.onnx` · `yolox_nano.onnx`                    | Apache-2.0                           | 36 · 101 · 4 MB | ~76 ms a frame         |
+| Visual search                 | CLIP ViT-B/32, OpenCLIP LAION-2B`laion2b_s34b_b79k`, float32                              | `clip_image.onnx`, `clip_text.onnx`, `clip_bpe_vocab.txt.gz`             | MIT                                  | 350 + 250 MB      | ~30 ms per crop        |
+| Body pose                     | ViTPose-B "simple", COCO only                                                               | `pose_vitpose_b.onnx`                                                        | Apache-2.0                           | 344 MB            | 100–175 ms per person |
+| Body pose (trials)            | RTMPose-t (training data not all commercial)                                                | `pose_rtmpose_t.onnx`                                                        | Apache-2.0 code                      | 13 MB             | 10–17 ms per person   |
+| Faces (opt-in)                | YuNet detector + SFace recogniser (OpenCV Zoo)                                              | `face_detection_yunet_2023mar.onnx`, `face_recognition_sface_2021dec.onnx` | MIT / Apache-2.0                     | 0.2 + 37 MB       | a few ms per face      |
+| Plate finder (opt-in, trials) | open-image-models YOLOv9-t 384                                                              | `plate_yolov9_t_384.onnx`                                                    | MIT code; weights via a GPL-3.0 fork | 8 MB              | ~11 ms per vehicle     |
+| Plate reader (opt-in)         | fast-plate-ocr CCT-S v2 global                                                              | `plate_ocr_cct_s_v2.onnx`, `.yaml`                                         | MIT                                  | 5 MB              | ~10 ms per plate       |
+| Sounds (opt-in)               | YAMNet (AudioSet, 521 classes), tf2onnx conversion, pinned revision                         | `sound_yamnet.onnx`, `sound_yamnet_classes.csv`                            | Apache-2.0                           | 16 MB             | ~3 ms per 3 s of audio |
+| `look`, alert checking      | Qwen3.5 4B via Ollama (vision); others selectable                                           | —                                                                             | Apache-2.0                           | —                | seconds per image      |
+| Chat (default)                | Qwen3 4B via Ollama; others selectable (section 25)                                         | —                                                                             | Apache-2.0                           | —                | seconds per answer     |
 
 All vision models run as ONNX graphs with numpy/OpenCV pre- and post-processing: no PyTorch at
 run time and a straightforward port to C++. PyTorch is only used in the one-off export scripts.
 CLIP stays in float32: int8 was 4× smaller but reordered search results too much.
 
-**GPU:** every ONNX model runs on the GPU when ONNX Runtime sees one, else on the CPU (`device:
-auto` in `model`, `search.clip` and `pose`; also `cpu`, `cuda`, `cuda:1`, `directml`, `coreml`;
+**GPU:** every ONNX model runs on the GPU when ONNX Runtime sees one, else on the CPU (`device: auto` in `model`, `search.clip` and `pose`; also `cpu`, `cuda`, `cuda:1`, `directml`, `coreml`;
 the log says which device each model got). On an NVIDIA machine swap the CPU build for the GPU
 one; CUDA and cuDNN come as wheels, so only the driver is needed (CUDA 13: driver 580+):
 `uv sync --no-group cpu --group gpu`, then keep those flags on `uv run`, or set `UV_NO_SYNC=1`.
@@ -450,13 +448,13 @@ the last 40 frames.*
 
 ### 15.1 Choosing a model
 
-| Model | Input | COCO AP (val) | CPU here: ms / frame (FPS) | Use when |
-| --- | --- | --- | --- | --- |
-| `yolox_nano` | 416 | 25.8 | 9.5 (105) | Weak machines, laptop demos (`configs/laptop.yaml`) |
-| `yolox_tiny` | 416 | 32.8 | not measured | A weak CPU that needs more than nano |
-| **`yolox_s`** | 640 | 40.5 | 75.6 (13.2) | **Default for CPU sites**: much better on small and far objects |
-| `yolox_m` | 640 | 46.9 | 199 (5.0) | GPU servers, or sites with few cameras |
-| `yolox_l` / `x` | 640 | 49.7 / 51.1 | not measured | GPU, accuracy first |
+| Model                 | Input | COCO AP (val) | CPU here: ms / frame (FPS) | Use when                                                              |
+| --------------------- | ----- | ------------- | -------------------------- | --------------------------------------------------------------------- |
+| `yolox_nano`        | 416   | 25.8          | 9.5 (105)                  | Weak machines, laptop demos (`configs/laptop.yaml`)                 |
+| `yolox_tiny`        | 416   | 32.8          | not measured               | A weak CPU that needs more than nano                                  |
+| **`yolox_s`** | 640   | 40.5          | 75.6 (13.2)                | **Default for CPU sites**: much better on small and far objects |
+| `yolox_m`           | 640   | 46.9          | 199 (5.0)                  | GPU servers, or sites with few cameras                                |
+| `yolox_l` / `x`   | 640   | 49.7 / 51.1   | not measured               | GPU, accuracy first                                                   |
 
 Measured 2026-10-09 on a laptop (Intel Core 13th gen, 20 threads, CPU only, ONNX Runtime), 300
 frames of `data/vtest.avi`, detection only, after a warm-up. AP from the YOLOX README. The CPU
@@ -476,11 +474,11 @@ uv run -m histor.engine.main --source gate --show                  # IP camera n
 Draw **zones** (polygons) and **lines** (tripwires) on a camera's view and get events when tracked
 objects interact with them:
 
-| Rule | Events | Typical use |
-| --- | --- | --- |
-| zone | `enter`, `exit`, `dwell` (inside longer than `dwell_seconds`) | restricted area, loitering, a car parked > 60 s |
-| zone with `max_count` | `crowd`: at least that many of its classes inside for `count_seconds`; again once the count has dropped | queues, crowding |
-| line | `cross` with direction `in` / `out`; `direction: in` alone is a wrong-way alarm | counting people / cars through a gate |
+| Rule                   | Events                                                                                                      | Typical use                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| zone                   | `enter`, `exit`, `dwell` (inside longer than `dwell_seconds`)                                       | restricted area, loitering, a car parked > 60 s |
+| zone with`max_count` | `crowd`: at least that many of its classes inside for `count_seconds`; again once the count has dropped | queues, crowding                                |
+| line                   | `cross` with direction `in` / `out`; `direction: in` alone is a wrong-way alarm                     | counting people / cars through a gate           |
 
 ```yaml
 zones:
@@ -516,13 +514,13 @@ the clock. Optional `zones`: only inside these areas. Off by default (`abandoned
 
 Every 2 s, on a 320 px grey copy of the picture, with no model (about 1 ms):
 
-| Check | Fires when |
-| --- | --- |
-| *blocked* | almost no contrast (grey level spread < 6): covered, sprayed, facing a wall |
-| *dark* | very dark (mean < 12) with some contrast |
+| Check       | Fires when                                                                                                      |
+| ----------- | --------------------------------------------------------------------------------------------------------------- |
+| *blocked* | almost no contrast (grey level spread < 6): covered, sprayed, facing a wall                                     |
+| *dark*    | very dark (mean < 12) with some contrast                                                                        |
 | *blurred* | sharpness (variance of the Laplacian) below a quarter of this camera's own usual, learned over its first minute |
-| *moved* | the structure no longer matches the reference view: correlation of 80 × 45 edge-strength maps below 0.5 |
-| *frozen* | not a single grey level changed |
+| *moved*   | the structure no longer matches the reference view: correlation of 80 × 45 edge-strength maps below 0.5        |
+| *frozen*  | not a single grey level changed                                                                                 |
 
 Each must last `hold_seconds` (20) and fires once until it clears. On by default (`tamper:`).
 
@@ -571,14 +569,14 @@ alerts:
 - Sending happens on a background thread with 2 retries; a slow mail server never stalls
   detection, and failures are logged, not fatal.
 
-| Channel | Status | How | Needs |
-| --- | --- | --- | --- |
-| Webhook | works | JSON POST to any URL; also the quick route to Slack, Teams, n8n, Zapier, Make | a URL |
-| Email | works | SMTP, snapshot attached | an SMTP account |
-| Telegram | works | A Telegram bot posts the alert text; the snapshot and a video clip are optional (section 17.1) | a bot token (@BotFather) and the chat id |
-| WhatsApp | planned | WhatsApp Business Cloud API; messages the business starts use a pre-approved template | a Meta business account, number id, token, template |
-| SMS | planned | an SMS provider's HTTP API (e.g. Twilio) | an account and a sender number |
-| Siren / relay | planned | HTTP call to an IP relay or a camera's alarm output | a device with an HTTP API |
+| Channel       | Status  | How                                                                                            | Needs                                               |
+| ------------- | ------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Webhook       | works   | JSON POST to any URL; also the quick route to Slack, Teams, n8n, Zapier, Make                  | a URL                                               |
+| Email         | works   | SMTP, snapshot attached                                                                        | an SMTP account                                     |
+| Telegram      | works   | A Telegram bot posts the alert text; the snapshot and a video clip are optional (section 17.1) | a bot token (@BotFather) and the chat id            |
+| WhatsApp      | planned | WhatsApp Business Cloud API; messages the business starts use a pre-approved template          | a Meta business account, number id, token, template |
+| SMS           | planned | an SMS provider's HTTP API (e.g. Twilio)                                                       | an account and a sender number                      |
+| Siren / relay | planned | HTTP call to an IP relay or a camera's alarm output                                            | a device with an HTTP API                           |
 
 Adding a channel is one class in `src/histor/engine/alerts.py` (`TelegramSink` is the latest
 example); filters, cooldowns, retries and the background thread come for free:
@@ -599,21 +597,21 @@ CHANNELS["sms"] = SmsSink                  # config: channels: [{type: sms, ...}
 
 One Telegram bot does two things, each optional:
 
-| | What | Runs in | Config |
-| --- | --- | --- | --- |
-| **Alerts** | Each alert to a person, a group or a channel, with the check's verdict | the recorders (an alert channel) | `alerts.channels: [{type: telegram, ...}]` |
-| **Questions** | Ask the chat from Telegram, get the answer (and the evidence) back | its own process, `histor.telegram_bot` | `telegram:` |
+|                     | What                                                                   | Runs in                                 | Config                                       |
+| ------------------- | ---------------------------------------------------------------------- | --------------------------------------- | -------------------------------------------- |
+| **Alerts**    | Each alert to a person, a group or a channel, with the check's verdict | the recorders (an alert channel)        | `alerts.channels: [{type: telegram, ...}]` |
+| **Questions** | Ask the chat from Telegram, get the answer (and the evidence) back     | its own process,`histor.telegram_bot` | `telegram:`                                |
 
 **What leaves the site.** Telegram is a cloud service: what the bot sends is stored on its
 servers. By default only **text** goes out (the alert, the question, the answer). Images and video
 are switches, to turn on only where the client agreed in writing:
 
-| Switch | Sends | Default |
-| --- | --- | --- |
-| `alerts.channels[].images` | the alert's snapshot, with the text as caption | off |
-| `alerts.channels[].video` | then a clip from the main-stream recording, from 3 s before the alert, `video_seconds` long (10), once it is recorded; needs `recording:` and ffmpeg | off |
-| `telegram.images` | the evidence thumbnails (up to 4) after each answer; for face search, the camera's best face of each visit | off |
-| `telegram.face_search` | lets a photo sent to the bot search the recorded faces (below); needs `faces.enabled` | off |
+| Switch                       | Sends                                                                                                                                                   | Default |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `alerts.channels[].images` | the alert's snapshot, with the text as caption                                                                                                          | off     |
+| `alerts.channels[].video`  | then a clip from the main-stream recording, from 3 s before the alert,`video_seconds` long (10), once it is recorded; needs `recording:` and ffmpeg | off     |
+| `telegram.images`          | the evidence thumbnails (up to 4) after each answer; for face search, the camera's best face of each visit                                              | off     |
+| `telegram.face_search`     | lets a photo sent to the bot search the recorded faces (below); needs`faces.enabled`                                                                  | off     |
 
 **Create the bot (5 minutes, once per site):**
 
@@ -711,14 +709,14 @@ default), on the site's server.
    queue (20 waiting) sends the alert *unverified* (`error` / `skipped`). The model can veto an
    alert; it never raises one.
 
-| Event | Question (default) |
-| --- | --- |
-| `enter`, `exit`, `dwell`, `cross` | Is there a real {label} in the red box, not a shadow, reflection, poster or other object? |
-| `crowd` | Are there at least {count} {label}s in the picture? |
-| `down` | Is the person in the red box lying or fallen on the ground? |
-| `hands_up` | Does the person in the red box have both hands raised above their head? |
-| `abandoned` | Is the object in the red box a bag or suitcase left on its own, with nobody holding or standing next to it? |
-| `tamper`, `sound`, `plate` | Not checked: the picture alone can't confirm a sound; a blocked or blurred view is what the check measures; the plate reader already voted. A question can be added in the config. |
+| Event                                     | Question (default)                                                                                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enter`, `exit`, `dwell`, `cross` | Is there a real {label} in the red box, not a shadow, reflection, poster or other object?                                                                                          |
+| `crowd`                                 | Are there at least {count} {label}s in the picture?                                                                                                                                |
+| `down`                                  | Is the person in the red box lying or fallen on the ground?                                                                                                                        |
+| `hands_up`                              | Does the person in the red box have both hands raised above their head?                                                                                                            |
+| `abandoned`                             | Is the object in the red box a bag or suitcase left on its own, with nobody holding or standing next to it?                                                                        |
+| `tamper`, `sound`, `plate`          | Not checked: the picture alone can't confirm a sound; a blocked or blurred view is what the check measures; the plate reader already voted. A question can be added in the config. |
 
 ```yaml
 alerts:
@@ -841,10 +839,10 @@ identify. Code: [faces.py](src/histor/engine/faces.py), [indexer.py](src/histor/
 
 ### 21.1 Two small models
 
-| Step | Model | Licence | What it gives |
-| --- | --- | --- | --- |
-| Find the face | **YuNet** (`face_detection_yunet_2023mar.onnx`) | MIT | A box around each face and 5 landmarks: both eyes, the nose tip, both mouth corners |
-| Describe the face | **SFace** (`face_recognition_sface_2021dec.onnx`) | Apache-2.0 | A *face print*: 128 numbers. 99.4 % on the LFW verification benchmark |
+| Step              | Model                                                     | Licence    | What it gives                                                                       |
+| ----------------- | --------------------------------------------------------- | ---------- | ----------------------------------------------------------------------------------- |
+| Find the face     | **YuNet** (`face_detection_yunet_2023mar.onnx`)   | MIT        | A box around each face and 5 landmarks: both eyes, the nose tip, both mouth corners |
+| Describe the face | **SFace** (`face_recognition_sface_2021dec.onnx`) | Apache-2.0 | A*face print*: 128 numbers. 99.4 % on the LFW verification benchmark              |
 
 Download both with `uv run -m histor.engine.download_model faces`.
 
@@ -866,11 +864,11 @@ Download both with `uv run -m histor.engine.download_model faces`.
 
 Blurred, tiny or side-on faces "match everyone a little", which is worse than no face at all:
 
-| Check | Measure | Default |
-| --- | --- | --- |
-| Size | Shorter side of the face box | ≥ 32 px on cameras (`min_face_size`), ≥ 40 px in an uploaded photo |
-| Sharpness | Variance of the Laplacian of the aligned face (sharp ≈ 30–300, motion blur < 10) | ≥ 15 (`min_sharpness`) |
-| Facing | *Turn*: nose-tip offset from the middle of the eyes, divided by the eye distance (≈ 0–0.3 facing, ≈ 0.5 at 60°) | ≤ 0.6 (`max_turn`) |
+| Check     | Measure                                                                                                               | Default                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Size      | Shorter side of the face box                                                                                          | ≥ 32 px on cameras (`min_face_size`), ≥ 40 px in an uploaded photo |
+| Sharpness | Variance of the Laplacian of the aligned face (sharp ≈ 30–300, motion blur < 10)                                    | ≥ 15 (`min_sharpness`)                                              |
+| Facing    | *Turn*: nose-tip offset from the middle of the eyes, divided by the eye distance (≈ 0–0.3 facing, ≈ 0.5 at 60°) | ≤ 0.6 (`max_turn`)                                                  |
 
 To rank a visit's faces, the measures are combined into one quality value (0–1): detector
 confidence × size × frontal × sharp.
@@ -949,10 +947,10 @@ left keypoints are on the right of the picture: that is what makes *facing* meas
 
 ![The 17 COCO keypoints, and the areas used for clothing colours](docs/images/pose-keypoints.svg)
 
-| Model | Licence | Training data | Use |
-| --- | --- | --- | --- |
-| **ViTPose-B "simple"** (`pose_vitpose_b.onnx`, 344 MB, `export_pose.py`) | Apache-2.0 | COCO keypoints only | **Default, shippable** |
-| RTMPose-t (`pose_rtmpose_t.onnx`, 13 MB, `download_model pose_rtmpose_t`) | Apache-2.0 | 7 datasets, some research-only | Trials only |
+| Model                                                                              | Licence    | Training data                  | Use                          |
+| ---------------------------------------------------------------------------------- | ---------- | ------------------------------ | ---------------------------- |
+| **ViTPose-B "simple"** (`pose_vitpose_b.onnx`, 344 MB, `export_pose.py`) | Apache-2.0 | COCO keypoints only            | **Default, shippable** |
+| RTMPose-t (`pose_rtmpose_t.onnx`, 13 MB, `download_model pose_rtmpose_t`)      | Apache-2.0 | 7 datasets, some research-only | Trials only                  |
 
 Both are *top-down*: they take the person boxes the tracker already has, so the pose step costs one
 model run per person, not per frame. Both formats load through the same code (heatmaps or SimCC,
@@ -978,15 +976,15 @@ high confidence; a wrist against a dark coat is fainter.*
 No second model: the facts are rules on the keypoints, measured against the person's own **torso
 length** (shoulders to hips), so they work at any distance from the camera.
 
-| Fact | Values | Rule |
-| --- | --- | --- |
-| `posture` | standing, sitting, crouching, bending, lying, unknown | Torso tilted more than 55° from upright: **bending** if the legs go straight down from the hips (feet more than 0.8 torso below them), otherwise **lying**. Less tilted: **crouching** if the feet are less than 0.6 torso below the hips, **sitting** if the knees are less than 0.45 torso below the hips, **bending** if the torso leans more than 35°, else **standing**. **Unknown** when shoulders or hips are not visible |
-| `arms` | down, one_up, both_up, unknown | A wrist counts as up when it is clearly (0.1 torso) above the top of the head. Not measured on someone lying |
-| `facing` | camera, side, away, unknown | Shoulder order first (the person's left shoulder on the image's left means **away**); then the face: nose and both eyes in order means **camera**, part of the face means **side** |
-| `head` | up, down, unknown | **Down** when the nose is more than 0.15 torso below the ears: looking at a phone, a desk, the floor |
-| `upper_colour`, `lower_colour` | black, white, grey, red, orange, yellow, green, blue, purple, pink, brown | The most common colour name in the torso area (shrunk to 70 %) and along the legs; none if no colour covers 35 % |
-| `motion` (from the tracks) | still, walking, running, unknown | How far the box moved since the last sample, in **body heights per second** (centre shift plus change of size): under 0.15 **still**, from 1.5 **running** (walking is about 0.8) |
-| `carrying` (from the tracks) | backpack, handbag, suitcase, umbrella | One of these detector classes whose centre is inside the person's box (widened 15 % each side) and which is smaller than the person |
+| Fact                               | Values                                                                    | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `posture`                        | standing, sitting, crouching, bending, lying, unknown                     | Torso tilted more than 55° from upright:**bending** if the legs go straight down from the hips (feet more than 0.8 torso below them), otherwise **lying**. Less tilted: **crouching** if the feet are less than 0.6 torso below the hips, **sitting** if the knees are less than 0.45 torso below the hips, **bending** if the torso leans more than 35°, else **standing**. **Unknown** when shoulders or hips are not visible |
+| `arms`                           | down, one_up, both_up, unknown                                            | A wrist counts as up when it is clearly (0.1 torso) above the top of the head. Not measured on someone lying                                                                                                                                                                                                                                                                                                                                                                |
+| `facing`                         | camera, side, away, unknown                                               | Shoulder order first (the person's left shoulder on the image's left means**away**); then the face: nose and both eyes in order means **camera**, part of the face means **side**                                                                                                                                                                                                                                                                         |
+| `head`                           | up, down, unknown                                                         | **Down** when the nose is more than 0.15 torso below the ears: looking at a phone, a desk, the floor                                                                                                                                                                                                                                                                                                                                                                  |
+| `upper_colour`, `lower_colour` | black, white, grey, red, orange, yellow, green, blue, purple, pink, brown | The most common colour name in the torso area (shrunk to 70 %) and along the legs; none if no colour covers 35 %                                                                                                                                                                                                                                                                                                                                                            |
+| `motion` (from the tracks)       | still, walking, running, unknown                                          | How far the box moved since the last sample, in**body heights per second** (centre shift plus change of size): under 0.15 **still**, from 1.5 **running** (walking is about 0.8)                                                                                                                                                                                                                                                                          |
+| `carrying` (from the tracks)     | backpack, handbag, suitcase, umbrella                                     | One of these detector classes whose centre is inside the person's box (widened 15 % each side) and which is smaller than the person                                                                                                                                                                                                                                                                                                                                         |
 
 ![Six poses and the facts the rules give them](docs/images/pose-rules.svg)
 
@@ -1090,15 +1088,15 @@ carries it; ffmpeg) or a video file's (a `.wav` is read directly). **YAMNet** (G
 AudioSet's 521 classes) scores it: one row per 0.96 s frame, every 0.48 s, about 3 ms per 3 s of
 audio on one CPU thread. Groups map Histor names to AudioSet classes:
 
-| Group (rule) | AudioSet classes |
-| --- | --- |
-| `smoke_alarm` | Smoke detector, smoke alarm · Fire alarm |
-| `glass_break` | Shatter · Glass |
-| `gunshot` | Gunshot, gunfire · Machine gun · Fusillade · Cap gun |
-| `explosion` | Explosion |
-| `scream` | Screaming |
-| `car_alarm` | Car alarm |
-| `siren` | Siren · Civil defense siren · Police car, Ambulance, Fire engine (siren) |
+| Group (rule)    | AudioSet classes                                                           |
+| --------------- | -------------------------------------------------------------------------- |
+| `smoke_alarm` | Smoke detector, smoke alarm · Fire alarm                                  |
+| `glass_break` | Shatter · Glass                                                           |
+| `gunshot`     | Gunshot, gunfire · Machine gun · Fusillade · Cap gun                    |
+| `explosion`   | Explosion                                                                  |
+| `scream`      | Screaming                                                                  |
+| `car_alarm`   | Car alarm                                                                  |
+| `siren`       | Siren · Civil defense siren · Police car, Ambulance, Fire engine (siren) |
 
 A group fires when one of its classes scores `min_score` (0.3; glass and gunshot 0.4) in
 `min_frames` (2) frames in a row, then rests `cooldown_seconds` (30). The event is `sound` (rule =
@@ -1119,20 +1117,20 @@ groups stay near zero. Not yet checked on real camera audio (no ffmpeg on the bu
 The chat model gets the store as tools and may run up to six rounds of lookups per question. Each
 tool takes a time range in words or exact ISO `since` / `until`, and a camera:
 
-| Question | Tool call | Kind |
-| --- | --- | --- |
-| What happened yesterday 6pm to 9pm? | `objects(when="yesterday 6pm to 9pm")`: everything tracked, in order, with counts | exact |
-| How many cars came in today? | `objects(labels=["car"], when="today")`: one tracked object = one visit | exact |
-| Anyone with a dog this morning? | `objects(labels=["person"], with_labels=["dog"], when="this morning")` | exact |
-| A man in a red jacket near a car? | `search(query="man in a red jacket", with_labels=["car"])` | ranked |
-| Did any alert go off last night? | `alerts(when="last night")`, with each alert's check verdict | exact |
-| Did anyone fall in the warehouse? | `people(postures=["lying"], ...)`; also `alerts(types=["down"])` | exact |
-| A red top and blue jeans this morning? | `people(upper_colour="red", lower_colour="blue", ...)` | exact |
-| Was anyone running in the car park? | `people(motion=["running"], camera="car park")` | exact |
-| When did AB 123 CD come in? | `plates(plate="AB 123 CD")`: look-alikes and one wrong character forgiven | exact / close |
-| How many people were at the counter at 3pm? | `objects` or `search` to find the moment, then `look(images=[...], question="How many people?")` | described |
-| Did a smoke alarm go off last night? | `alerts(types=["sound"], rules=["smoke_alarm"], when="last night")` | exact |
-| *(photo attached)* Did this person come in between 1 and 4? | `face(photo="photo1", ...)`: likely / possible visits | scored |
+| Question                                                      | Tool call                                                                                              | Kind          |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------- |
+| What happened yesterday 6pm to 9pm?                           | `objects(when="yesterday 6pm to 9pm")`: everything tracked, in order, with counts                    | exact         |
+| How many cars came in today?                                  | `objects(labels=["car"], when="today")`: one tracked object = one visit                              | exact         |
+| Anyone with a dog this morning?                               | `objects(labels=["person"], with_labels=["dog"], when="this morning")`                               | exact         |
+| A man in a red jacket near a car?                             | `search(query="man in a red jacket", with_labels=["car"])`                                           | ranked        |
+| Did any alert go off last night?                              | `alerts(when="last night")`, with each alert's check verdict                                         | exact         |
+| Did anyone fall in the warehouse?                             | `people(postures=["lying"], ...)`; also `alerts(types=["down"])`                                   | exact         |
+| A red top and blue jeans this morning?                        | `people(upper_colour="red", lower_colour="blue", ...)`                                               | exact         |
+| Was anyone running in the car park?                           | `people(motion=["running"], camera="car park")`                                                      | exact         |
+| When did AB 123 CD come in?                                   | `plates(plate="AB 123 CD")`: look-alikes and one wrong character forgiven                            | exact / close |
+| How many people were at the counter at 3pm?                   | `objects` or `search` to find the moment, then `look(images=[...], question="How many people?")` | described     |
+| Did a smoke alarm go off last night?                          | `alerts(types=["sound"], rules=["smoke_alarm"], when="last night")`                                  | exact         |
+| *(photo attached)* Did this person come in between 1 and 4? | `face(photo="photo1", ...)`: likely / possible visits                                                | scored        |
 
 "Together" means the same camera and overlapping in time (`within_seconds`, default 15).
 `people`, `plates`, `face` and `look` are only offered where they are enabled or have data.
@@ -1148,16 +1146,16 @@ The model is a switch in `configs/default.yaml` (`chat.model`, entries under `ch
 OpenAI-compatible server works as `api: openai` (Ollama, llama.cpp's `llama-server`, LM Studio,
 vLLM, or a hosted one with `api_key: ${KEY}`): add an entry, no code change.
 
-| Entry | Runs on | Setup |
-| --- | --- | --- |
-| `local` (default) | Ollama, CPU (Qwen3 4B, Apache-2.0) | `ollama pull qwen3:4b` |
-| `qwen3.5-4b` | Ollama, CPU (Qwen3.5 4B, Apache-2.0, also reads images) | `ollama pull qwen3.5:4b` |
-| `granite-3b` | Ollama, CPU (IBM Granite 4.1 3B, Apache-2.0, smallest) | `ollama pull granite4.1:3b` |
-| `gemma4-e4b` | Ollama, CPU (Gemma 4 E4B, Apache-2.0, also reads images) | `ollama pull gemma4:e4b` |
-| `local-large` | Ollama, ~20 GB RAM or GPU (Qwen3 30B-A3B) | `ollama pull qwen3:30b-a3b` |
-| `qwen3.6-large` | Ollama, ~32 GB RAM or GPU (Qwen3.6 35B-A3B, Apache-2.0) | `ollama pull qwen3.6:35b` |
-| `nemotron-large` | Ollama, ~32 GB RAM or GPU (Nemotron 3.5 Lightning 30B-A3B, OpenMDW 1.1: read before shipping) | `ollama pull nemotron-3.5-lightning` |
-| `claude` | Anthropic API (Claude Opus 5.5) | `uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env` |
+| Entry               | Runs on                                                                                       | Setup                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `local` (default) | Ollama, CPU (Qwen3 4B, Apache-2.0)                                                            | `ollama pull qwen3:4b`                                      |
+| `qwen3.5-4b`      | Ollama, CPU (Qwen3.5 4B, Apache-2.0, also reads images)                                       | `ollama pull qwen3.5:4b`                                    |
+| `granite-3b`      | Ollama, CPU (IBM Granite 4.1 3B, Apache-2.0, smallest)                                        | `ollama pull granite4.1:3b`                                 |
+| `gemma4-e4b`      | Ollama, CPU (Gemma 4 E4B, Apache-2.0, also reads images)                                      | `ollama pull gemma4:e4b`                                    |
+| `local-large`     | Ollama, ~20 GB RAM or GPU (Qwen3 30B-A3B)                                                     | `ollama pull qwen3:30b-a3b`                                 |
+| `qwen3.6-large`   | Ollama, ~32 GB RAM or GPU (Qwen3.6 35B-A3B, Apache-2.0)                                       | `ollama pull qwen3.6:35b`                                   |
+| `nemotron-large`  | Ollama, ~32 GB RAM or GPU (Nemotron 3.5 Lightning 30B-A3B, OpenMDW 1.1: read before shipping) | `ollama pull nemotron-3.5-lightning`                        |
+| `claude`          | Anthropic API (Claude Opus 5.5)                                                               | `uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env` |
 
 The open models after `local` were added on 2026-10-08 to compare on the same questions; the
 default stays `qwen3:4b` until the planned evaluation picks a winner. Small local models follow
@@ -1177,30 +1175,30 @@ its answers. It goes into the model's instructions as one short line per camera 
 characters for small local models). Use roles ("manager's office"), not people's names: with a
 cloud model, this text is sent too.
 
-| Field | What it does |
-| --- | --- |
-| `description`, `location` | "did they reach the office" means the office camera, not the corridor on the way |
-| `aliases` | other names in questions ("reception" → `lobby`), for the chat and `ask.py` |
-| `covers` | entrance / exit / passage / room / outdoor / parking: "arrived" vs "passed by" |
-| `faces` | good / poor / none: face search explains a "no" ("the lobby camera can't see faces well") |
-| `hours` | normal activity, so "after hours" needs no extra input |
-| `notes`, `zones` | what is normal ("cleaners at 19:00"), and what each alert area or line means |
+| Field                         | What it does                                                                              |
+| ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `description`, `location` | "did they reach the office" means the office camera, not the corridor on the way          |
+| `aliases`                   | other names in questions ("reception" →`lobby`), for the chat and `ask.py`           |
+| `covers`                    | entrance / exit / passage / room / outdoor / parking: "arrived" vs "passed by"            |
+| `faces`                     | good / poor / none: face search explains a "no" ("the lobby camera can't see faces well") |
+| `hours`                     | normal activity, so "after hours" needs no extra input                                    |
+| `notes`, `zones`          | what is normal ("cleaners at 19:00"), and what each alert area or line means              |
 
 ### 25.3 MCP server: the same tools for other agents
 
 `histor.mcp_server` serves the chat's tools over the **Model Context Protocol**, so any MCP client
-(Claude Desktop, Claude Code, a client's own agent) can ask a site's Histor what happened, with the
+(Claude, ChatGPT, a client's own agent) can ask a site's Histor what happened, with the
 same descriptions, arguments and JSON results as the chat. It runs over stdin/stdout: the client
 starts it as a command, and nothing new listens on the network.
 
-| | |
-| --- | --- |
-| **Tools** | `objects`, `search`, `alerts`, `people`, `plates`, `look`, where enabled; all marked read-only |
-| **Face search** | opt-in (`mcp.face_search`): a `face` tool that takes a photo **file** on the server (below). Off, the instructions tell the model that face search exists in the chat, UI and Telegram bot, so it never says "Histor can't match faces" |
-| **Instructions** | the chat's own (cameras with their `about:`, alert rules, how to use each tool) |
-| **Time** | every result carries `site_time`, the site's clock, so "last night" is resolved right even when the client's model runs elsewhere |
-| **Images** | never sent: results list thumbnail paths; `look` has the site's vision model read them and returns text |
-| **Privacy** | a cloud model behind the client receives the same text as the chat's `claude` model: times, cameras, labels, file names, answers |
+|                        |                                                                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tools**        | `objects`, `search`, `alerts`, `people`, `plates`, `look`, where enabled; all marked read-only                                                                                                                                        |
+| **Face search**  | opt-in (`mcp.face_search`): a `face` tool that takes a photo **file** on the server (below). Off, the instructions tell the model that face search exists in the chat, UI and Telegram bot, so it never says "Histor can't match faces" |
+| **Instructions** | the chat's own (cameras with their`about:`, alert rules, how to use each tool)                                                                                                                                                                  |
+| **Time**         | every result carries`site_time`, the site's clock, so "last night" is resolved right even when the client's model runs elsewhere                                                                                                                |
+| **Images**       | never sent: results list thumbnail paths;`look` has the site's vision model read them and returns text                                                                                                                                          |
+| **Privacy**      | a cloud model behind the client receives the same text as the chat's`claude` model: times, cameras, labels, file names, answers                                                                                                                 |
 
 ```bash
 uv sync --group mcp
@@ -1282,13 +1280,13 @@ starts again (the latest one only). With a cloud model, only counts and interest
 
 ## 27. Storage, retention and API
 
-| What | Table | Used for |
-| --- | --- | --- |
-| Events + snapshot (+ check verdict) | `events` | alerts, history, `alerts` tool |
-| CLIP vectors of objects, frames and tiles (+ model name) | `sightings` | text search |
-| Face prints (only where enabled) | `faces` | search by photo |
-| Body pose facts per person (+ keypoints) | `poses` | people search, person-down |
-| Plate reads with a crop | `plates` | plate search, watchlist |
+| What                                                     | Table         | Used for                        |
+| -------------------------------------------------------- | ------------- | ------------------------------- |
+| Events + snapshot (+ check verdict)                      | `events`    | alerts, history,`alerts` tool |
+| CLIP vectors of objects, frames and tiles (+ model name) | `sightings` | text search                     |
+| Face prints (only where enabled)                         | `faces`     | search by photo                 |
+| Body pose facts per person (+ keypoints)                 | `poses`     | people search, person-down      |
+| Plate reads with a crop                                  | `plates`    | plate search, watchlist         |
 
 One SQLite file per site (WAL mode), shared by every recorder and the API; media (snapshots,
 thumbnails) next to it. A store made by an older version gets new columns when it is opened.
@@ -1301,16 +1299,16 @@ uv sync --group server
 uv run --group server -m histor.engine.server --config configs/default.yaml   # http://127.0.0.1:8000/docs
 ```
 
-| Endpoint | Example |
-| --- | --- |
-| `GET /search?q=` | `/search?q=person in a red top last friday` · `/search?q=white van on gate yesterday 6pm to 9pm` |
-| `POST /search/face` | form fields `photo`, `when`, `camera`, `face` (1 = leftmost) → *"Yes, likely: 2 visit(s), first on shop at Fri 25 Sep 10:30 (match 0.58)."* |
-| `GET /people` | `?posture=lying&when=last night` · `?upper=red&lower=blue&camera=shop` · `?arms=up` |
-| `GET /plates` | `?plate=AB 123 CD&when=yesterday` · `?when=today&camera=gate` |
-| `GET /events` | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` (rows include `verified`, `verification`) |
-| `GET /media/{path}` | snapshots and thumbnails |
-| `GET /recordings/{path}` | main-stream MP4s; results carry a `video_url` that opens the moment, 3 s early |
-| `GET /health`, `GET /cameras`, `POST /maintenance/purge` | status, camera list, apply retention now |
+| Endpoint                                                       | Example                                                                                                                                               |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /search?q=`                                             | `/search?q=person in a red top last friday` · `/search?q=white van on gate yesterday 6pm to 9pm`                                                 |
+| `POST /search/face`                                          | form fields`photo`, `when`, `camera`, `face` (1 = leftmost) → *"Yes, likely: 2 visit(s), first on shop at Fri 25 Sep 10:30 (match 0.58)."* |
+| `GET /people`                                                | `?posture=lying&when=last night` · `?upper=red&lower=blue&camera=shop` · `?arms=up`                                                           |
+| `GET /plates`                                                | `?plate=AB 123 CD&when=yesterday` · `?when=today&camera=gate`                                                                                    |
+| `GET /events`                                                | `?camera=gate&type=cross&since=2026-09-25T00:00&limit=50` (rows include `verified`, `verification`)                                             |
+| `GET /media/{path}`                                          | snapshots and thumbnails                                                                                                                              |
+| `GET /recordings/{path}`                                     | main-stream MP4s; results carry a`video_url` that opens the moment, 3 s early                                                                       |
+| `GET /health`, `GET /cameras`, `POST /maintenance/purge` | status, camera list, apply retention now                                                                                                              |
 
 ### 27.1 Dashboard and login
 
@@ -1415,17 +1413,17 @@ the cameras is exposed to the internet.
 
 ## 30. Bill of materials
 
-| Item | What to buy | Notes |
-| --- | --- | --- |
-| IP cameras | ONVIF + RTSP, H.264 (or H.265), PoE (802.3af) | Hikvision, Dahua, Reolink, Uniview and Axis have presets. Avoid cloud-only / Wi-Fi consumer cameras: often no RTSP. A microphone only if sound events are wanted and allowed. |
-| PoE switch | Ports ≥ cameras + 1 (uplink) + 1 spare. **Gigabit uplink.** 802.3af/at | Check the **total PoE budget** (31.2), not just the port count. |
-| Server | x86-64, 8+ cores, 16–32 GB RAM, SSD for the system, **a large HDD for recordings**, **2 Ethernet ports** | Ubuntu Server 24.04 LTS. CPU-only is fine (section 41). More RAM if the chat and vision models run here. |
-| Cable | Cat6 (Cat5e acceptable), **solid pure copper**, outdoor/UV-rated outside | Never CCA (copper-clad aluminium): it overheats and drops voltage under PoE. |
-| Connectors | RJ45 plugs (shielded if the cable is), boots | Plus outdoor junction boxes / waterproof caps. |
-| Recording disk | Surveillance-grade HDD (WD Purple, Seagate SkyHawk) | 1080p at 4 Mbit/s = **~43 GB per camera per day**. 8 cameras × 7 days ≈ 2.4 TB. |
-| Tools | Crimper, cable tester (wire map), ladder, drill | A PoE tester is a cheap, big time saver. |
-| Power | UPS sized for server + switch | If the switch loses power, every camera goes dark. |
-| Commissioning laptop | Any laptop with an Ethernet port | To activate cameras with the vendor's tool (Hikvision SADP, Dahua ConfigTool). |
+| Item                 | What to buy                                                                                                          | Notes                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IP cameras           | ONVIF + RTSP, H.264 (or H.265), PoE (802.3af)                                                                        | Hikvision, Dahua, Reolink, Uniview and Axis have presets. Avoid cloud-only / Wi-Fi consumer cameras: often no RTSP. A microphone only if sound events are wanted and allowed. |
+| PoE switch           | Ports ≥ cameras + 1 (uplink) + 1 spare.**Gigabit uplink.** 802.3af/at                                         | Check the**total PoE budget** (31.2), not just the port count.                                                                                                          |
+| Server               | x86-64, 8+ cores, 16–32 GB RAM, SSD for the system,**a large HDD for recordings**, **2 Ethernet ports** | Ubuntu Server 24.04 LTS. CPU-only is fine (section 41). More RAM if the chat and vision models run here.                                                                      |
+| Cable                | Cat6 (Cat5e acceptable),**solid pure copper**, outdoor/UV-rated outside                                        | Never CCA (copper-clad aluminium): it overheats and drops voltage under PoE.                                                                                                  |
+| Connectors           | RJ45 plugs (shielded if the cable is), boots                                                                         | Plus outdoor junction boxes / waterproof caps.                                                                                                                                |
+| Recording disk       | Surveillance-grade HDD (WD Purple, Seagate SkyHawk)                                                                  | 1080p at 4 Mbit/s =**~43 GB per camera per day**. 8 cameras × 7 days ≈ 2.4 TB.                                                                                        |
+| Tools                | Crimper, cable tester (wire map), ladder, drill                                                                      | A PoE tester is a cheap, big time saver.                                                                                                                                      |
+| Power                | UPS sized for server + switch                                                                                        | If the switch loses power, every camera goes dark.                                                                                                                            |
+| Commissioning laptop | Any laptop with an Ethernet port                                                                                     | To activate cameras with the vendor's tool (Hikvision SADP, Dahua ConfigTool).                                                                                                |
 
 ## 31. Plan before you drill
 
@@ -1433,14 +1431,14 @@ the cameras is exposed to the internet.
 
 Write this down before you touch a camera, and leave a copy at the site.
 
-| Device | IP address | Notes |
-| --- | --- | --- |
-| Server, camera port (NIC 2) | `10.50.0.1/24` | No gateway |
-| Camera 1 (e.g. `gate`) | `10.50.0.11` | Gateway `10.50.0.1` or empty |
-| Camera 2 (e.g. `yard`) | `10.50.0.12` | |
-| Camera 3 (e.g. `shop_entrance`) | `10.50.0.13` | |
-| Managed switch (if any) | `10.50.0.2` | |
-| Server, LAN port (NIC 1) | From the client's DHCP | Ask IT to reserve it |
+| Device                           | IP address             | Notes                         |
+| -------------------------------- | ---------------------- | ----------------------------- |
+| Server, camera port (NIC 2)      | `10.50.0.1/24`       | No gateway                    |
+| Camera 1 (e.g.`gate`)          | `10.50.0.11`         | Gateway`10.50.0.1` or empty |
+| Camera 2 (e.g.`yard`)          | `10.50.0.12`         |                               |
+| Camera 3 (e.g.`shop_entrance`) | `10.50.0.13`         |                               |
+| Managed switch (if any)          | `10.50.0.2`          |                               |
+| Server, LAN port (NIC 1)         | From the client's DHCP | Ask IT to reserve it          |
 
 Why not the factory default `192.168.1.x`: many offices already use `192.168.1.0/24`, and if the
 camera network uses the same range as the office LAN, the server can't tell which port to use.
@@ -1450,11 +1448,11 @@ If `10.50.0.0/24` is in use at the client, pick any other private range that isn
 
 Add up the **maximum** power of every camera (datasheet, "max power consumption", IR on).
 
-| Standard | Per port at the switch | Typical device |
-| --- | --- | --- |
-| 802.3af (PoE) | 15.4 W | Fixed bullet / dome camera |
-| 802.3at (PoE+) | 30 W | Cameras with heater, motorised zoom, strong IR |
-| 802.3bt (PoE++) | 60–90 W | PTZ cameras with heater |
+| Standard        | Per port at the switch | Typical device                                 |
+| --------------- | ---------------------- | ---------------------------------------------- |
+| 802.3af (PoE)   | 15.4 W                 | Fixed bullet / dome camera                     |
+| 802.3at (PoE+)  | 30 W                   | Cameras with heater, motorised zoom, strong IR |
+| 802.3bt (PoE++) | 60–90 W               | PTZ cameras with heater                        |
 
 Example: 6 cameras × 7 W = 42 W. A 65 W switch is fine; a 30 W one looks fine during the day and
 starts rebooting cameras at night when the IR LEDs switch on. Keep **at least 20 % headroom**.
@@ -1469,11 +1467,11 @@ starts rebooting cameras at night when the IR LEDs switch on. Keep **at least 20
 
 ### 31.4 Bandwidth
 
-| Stream | Typical bitrate (H.264) |
-| --- | --- |
-| Sub stream (640×360 – 704×576) | 0.5 – 1 Mbit/s |
-| Main stream 1080p | 4 – 6 Mbit/s |
-| Main stream 4 MP / 4K | 6 – 16 Mbit/s |
+| Stream                            | Typical bitrate (H.264) |
+| --------------------------------- | ----------------------- |
+| Sub stream (640×360 – 704×576) | 0.5 – 1 Mbit/s         |
+| Main stream 1080p                 | 4 – 6 Mbit/s           |
+| Main stream 4 MP / 4K             | 6 – 16 Mbit/s          |
 
 The detector reads the **sub stream**; the server also opens every camera's **main stream**
 (recording + hi-res crops), so use a **gigabit** uplink: 20 cameras × (6 + 1) Mbit/s is ~140 Mbit/s.
@@ -1528,18 +1526,18 @@ New-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 10.50.0.250 -PrefixLength
 3. Change its IP to the plan's (e.g. `10.50.0.11`, mask `255.255.255.0`, gateway `10.50.0.1`).
 4. On the camera's web page at its new address, set:
 
-| Setting | Value | Why |
-| --- | --- | --- |
-| ONVIF | **Enabled**, with an ONVIF user | Lets `cameras discover` find it |
-| RTSP | Enabled, port **554**, **digest** authentication | How the server reads video |
-| Sub stream | H.264, 640×360 to 704×576, **10–15 FPS**, I-frame interval = 2× FPS | What the detector reads: cheap to decode |
-| Main stream | H.264 (H.265 only if the server decodes it fine), 10–15 FPS, **I-frame interval = FPS**, constant or capped bitrate | Recorded as-is; one keyframe a second gives the hi-res crops |
-| Audio | On, AAC or G.711, only if sound events are used and allowed | Carried in the main stream |
-| Smart codec (H.264+ / H.265+) | **Off** | Long I-frame gaps cause grey/smeared frames after reconnects |
-| Time | NTP server `10.50.0.1`, correct time zone | "yesterday 6pm" depends on it |
-| UPnP, P2P / cloud (Hik-Connect, DMSS…) | **Off** | The camera must not try to reach the internet |
-| Firmware | Latest from the vendor | Older firmware has known vulnerabilities |
-| On-screen camera name | Same as in the config (`gate`, `yard`…) | Self-explanatory snapshots |
+| Setting                                 | Value                                                                                                                     | Why                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| ONVIF                                   | **Enabled**, with an ONVIF user                                                                                     | Lets`cameras discover` find it                             |
+| RTSP                                    | Enabled, port**554**, **digest** authentication                                                               | How the server reads video                                   |
+| Sub stream                              | H.264, 640×360 to 704×576,**10–15 FPS**, I-frame interval = 2× FPS                                              | What the detector reads: cheap to decode                     |
+| Main stream                             | H.264 (H.265 only if the server decodes it fine), 10–15 FPS,**I-frame interval = FPS**, constant or capped bitrate | Recorded as-is; one keyframe a second gives the hi-res crops |
+| Audio                                   | On, AAC or G.711, only if sound events are used and allowed                                                               | Carried in the main stream                                   |
+| Smart codec (H.264+ / H.265+)           | **Off**                                                                                                             | Long I-frame gaps cause grey/smeared frames after reconnects |
+| Time                                    | NTP server`10.50.0.1`, correct time zone                                                                                | "yesterday 6pm" depends on it                                |
+| UPnP, P2P / cloud (Hik-Connect, DMSS…) | **Off**                                                                                                             | The camera must not try to reach the internet                |
+| Firmware                                | Latest from the vendor                                                                                                    | Older firmware has known vulnerabilities                     |
+| On-screen camera name                   | Same as in the config (`gate`, `yard`…)                                                                              | Self-explanatory snapshots                                   |
 
 *Check:* all cameras plugged in again, each opens in the browser at its planned `10.50.0.x` address.
 
@@ -1709,7 +1707,7 @@ simplest safe route is an SSH tunnel, using it as if local:
 ssh -L 8000:127.0.0.1:8000 histor@<server-LAN-IP>
 ```
 
-Then <http://127.0.0.1:8000/> (dashboard) or `/docs` (API). For permanent access from the office
+Then [http://127.0.0.1:8000/](http://127.0.0.1:8000/) (dashboard) or `/docs` (API). For permanent access from the office
 or a phone: a VPN (WireGuard / Tailscale), or a reverse proxy with HTTPS (Caddy, nginx) in front of
 `127.0.0.1:8000`, with the token set; never a raw port forward.
 *Check:* the dashboard asks for the token, then shows every camera online and alerts arriving
@@ -1726,7 +1724,7 @@ during the walk test.
 - [ ] `server.token` set (in `.env`); API on `127.0.0.1`, reached through SSH tunnel / VPN / HTTPS proxy.
 - [ ] `.env` is `chmod 600` and not committed anywhere.
 - [ ] Faces only with the client's **written approval**, local law checked, notices posted,
-      `face_retention_days` set. Plates and sounds likewise only where agreed.
+  `face_retention_days` set. Plates and sounds likewise only where agreed.
 - [ ] `retention_days` and `recording.retention_days` agreed with the client and set.
 
 **Commissioning (hand-over)**
@@ -1737,40 +1735,40 @@ during the walk test.
 - [ ] `cameras test` passes for every camera; snapshots reviewed; `about:` filled in.
 - [ ] Services survive a reboot and a camera unplug/replug.
 - [ ] Walk test: someone walks each zone / crosses each line; events appear in `/events` with a
-      correct snapshot; alerts (webhook / email) arrive; with alert checking, each has a verdict.
+  correct snapshot; alerts (webhook / email) arrive; with alert checking, each has a verdict.
 - [ ] Server and switch on UPS; UPS tested by pulling the mains plug.
 - [ ] Passwords in the company password manager under the site name.
 
 ## 39. Troubleshooting
 
-| Symptom | Likely cause | Fix |
-| --- | --- | --- |
-| Switch port: link LED but no PoE LED | Budget exceeded, or camera needs PoE+ | Check total budget; PoE+ port |
-| Camera reboots at night | IR LEDs push power over the budget | Bigger switch or fewer cameras per switch |
-| No link at all | Bad crimp, cable > 100 m, CCA cable | Re-test; re-crimp; pure copper |
-| Server's camera port shows `169.254.x.x` | Netplan not applied to the right port | Fix the port name in `60-histor.yaml`, `sudo netplan apply` |
-| `ping` works, `cameras test` fails | Wrong RTSP path, password, or RTSP off | Try the URL in VLC; check `vendor:` / `path:`; re-type the password in `.env` |
-| `401 Unauthorized` | Wrong password, or camera locked after failed logins | Wait 30 min or unlock from the camera page; fix `.env` |
-| `discover` finds nothing, `scan` does | ONVIF off | Enable ONVIF (optional) |
-| Two cameras flicker in and out | Duplicate IP (two still on factory default) | Redo Step 5 one camera at a time |
-| Grey / smeared frames | Smart codec on, or packet loss | Turn off H.264+/H.265+; check the cable |
-| Events show the wrong time | Camera or server clock wrong | `timedatectl`, chrony, camera NTP |
-| `ffmpeg not found` in the log | ffmpeg missing | `sudo apt install ffmpeg`, restart the services |
-| No recordings, `Could not find tag for codec` | Main stream is MJPEG or an unusual codec | Set it to H.264 |
-| `video_url: null` in results | No recording at that time | `recording.enabled`, free space, the camera's log |
-| Alerts all `verified: error` | Ollama not running, model not pulled, or too slow | `ollama serve`, `ollama pull qwen3.5:4b`; raise `timeout` or check fewer event types |
-| CPU at 100 %, detection lags | Too many cameras or the main stream used for detection | `stream: sub`, lower camera FPS, smaller model; section 41 |
-| Office internet breaks when the server is plugged in | A gateway on the camera port, or the PoE switch also cabled to the LAN | Remove the gateway; disconnect the switch from the LAN |
+| Symptom                                              | Likely cause                                                           | Fix                                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Switch port: link LED but no PoE LED                 | Budget exceeded, or camera needs PoE+                                  | Check total budget; PoE+ port                                                              |
+| Camera reboots at night                              | IR LEDs push power over the budget                                     | Bigger switch or fewer cameras per switch                                                  |
+| No link at all                                       | Bad crimp, cable > 100 m, CCA cable                                    | Re-test; re-crimp; pure copper                                                             |
+| Server's camera port shows`169.254.x.x`            | Netplan not applied to the right port                                  | Fix the port name in`60-histor.yaml`, `sudo netplan apply`                             |
+| `ping` works, `cameras test` fails               | Wrong RTSP path, password, or RTSP off                                 | Try the URL in VLC; check`vendor:` / `path:`; re-type the password in `.env`         |
+| `401 Unauthorized`                                 | Wrong password, or camera locked after failed logins                   | Wait 30 min or unlock from the camera page; fix`.env`                                    |
+| `discover` finds nothing, `scan` does            | ONVIF off                                                              | Enable ONVIF (optional)                                                                    |
+| Two cameras flicker in and out                       | Duplicate IP (two still on factory default)                            | Redo Step 5 one camera at a time                                                           |
+| Grey / smeared frames                                | Smart codec on, or packet loss                                         | Turn off H.264+/H.265+; check the cable                                                    |
+| Events show the wrong time                           | Camera or server clock wrong                                           | `timedatectl`, chrony, camera NTP                                                        |
+| `ffmpeg not found` in the log                      | ffmpeg missing                                                         | `sudo apt install ffmpeg`, restart the services                                          |
+| No recordings,`Could not find tag for codec`       | Main stream is MJPEG or an unusual codec                               | Set it to H.264                                                                            |
+| `video_url: null` in results                       | No recording at that time                                              | `recording.enabled`, free space, the camera's log                                        |
+| Alerts all`verified: error`                        | Ollama not running, model not pulled, or too slow                      | `ollama serve`, `ollama pull qwen3.5:4b`; raise `timeout` or check fewer event types |
+| CPU at 100 %, detection lags                         | Too many cameras or the main stream used for detection                 | `stream: sub`, lower camera FPS, smaller model; section 41                               |
+| Office internet breaks when the server is plugged in | A gateway on the camera port, or the PoE switch also cabled to the LAN | Remove the gateway; disconnect the switch from the LAN                                     |
 
 **RTSP paths by vendor** (what `vendor:` expands to; `channel` = 1 for a camera, N on an NVR):
 
-| Vendor | Main stream | Sub stream |
-| --- | --- | --- |
-| Hikvision | `/Streaming/Channels/101` | `/Streaming/Channels/102` |
-| Dahua | `/cam/realmonitor?channel=1&subtype=0` | `/cam/realmonitor?channel=1&subtype=1` |
-| Reolink | `/h264Preview_01_main` | `/h264Preview_01_sub` |
-| Uniview | `/unicast/c1/s0/live` | `/unicast/c1/s1/live` |
-| Axis | `/axis-media/media.amp?camera=1` | (same, set resolution in the camera) |
+| Vendor    | Main stream                              | Sub stream                               |
+| --------- | ---------------------------------------- | ---------------------------------------- |
+| Hikvision | `/Streaming/Channels/101`              | `/Streaming/Channels/102`              |
+| Dahua     | `/cam/realmonitor?channel=1&subtype=0` | `/cam/realmonitor?channel=1&subtype=1` |
+| Reolink   | `/h264Preview_01_main`                 | `/h264Preview_01_sub`                  |
+| Uniview   | `/unicast/c1/s0/live`                  | `/unicast/c1/s1/live`                  |
+| Axis      | `/axis-media/media.amp?camera=1`       | (same, set resolution in the camera)     |
 
 Full form: `rtsp://user:password@10.50.0.11:554/<path>`. Test from a laptop with VLC or from the
 server with `ffprobe -rtsp_transport tcp "rtsp://..."`.
@@ -1794,11 +1792,11 @@ in all logs and alerts.
 
 ## 41. Sizing rule of thumb
 
-| Cameras | Server | Model | Recording disk (1080p, 7 days) |
-| --- | --- | --- | --- |
-| 1 – 4 | 8-core CPU, 16 GB RAM (32 GB with the chat and vision models) | `yolox_s`, sub stream: ~3 detections a second per camera on a 20-thread laptop CPU | 2 TB |
-| 5 – 12 | 16-core CPU, 32 GB RAM | `yolox_s` if the benchmark gives 3+ a second per camera, else `yolox_tiny` | 4 – 6 TB |
-| 12+ / heavy use | Benchmark first; a GPU server with `yolox_m` (and the vision model on the GPU) if the CPU can't keep up | `yolox_m` | ~0.3 TB per camera |
+| Cameras         | Server                                                                                                   | Model                                                                                | Recording disk (1080p, 7 days) |
+| --------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------ |
+| 1 – 4          | 8-core CPU, 16 GB RAM (32 GB with the chat and vision models)                                            | `yolox_s`, sub stream: ~3 detections a second per camera on a 20-thread laptop CPU | 2 TB                           |
+| 5 – 12         | 16-core CPU, 32 GB RAM                                                                                   | `yolox_s` if the benchmark gives 3+ a second per camera, else `yolox_tiny`       | 4 – 6 TB                      |
+| 12+ / heavy use | Benchmark first; a GPU server with`yolox_m` (and the vision model on the GPU) if the CPU can't keep up | `yolox_m`                                                                          | ~0.3 TB per camera             |
 
 Starting points, not guarantees: run the site's cameras for an hour and watch the CPU (`htop`)
 before signing off. Alert checking adds seconds of CPU per checked alert, not per frame.
@@ -1814,13 +1812,13 @@ target server. Sources are at the bottom.
 
 ## 42. Short answer
 
-| Need                        | Recommendation                                                                                                                                                                                                                                                             | Why                                                                                                                                                                                                                                             |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Need                        | Recommendation                                                                                                                                                                                                                                                              | Why                                                                                                                                                                                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Fire & smoke**      | Train our own YOLOX on open data (D-Fire, CC0; FASDD, CC BY 4.0). Run it about once a second next to the everyday detector, alert only when the detection persists, and send the alert to a person. Add a free smoke/fire score on the scene vectors Histor already stores. | Every ready-made fire model we found is AGPL (trained with Ultralytics) or research-only. The open datasets are fine. Single-frame detectors raise too many false alarms; a 2026 study cut them from 52 % to 4 % with multi-frame confirmation. |
-| **Weapons**           | Keep "not offered". For a client pilot only: person crop from the main stream → weapon detector → persistence check → local vision model as a veto →**a guard decides**. Data from Open Images (CC BY 4.0) plus staged footage on the client's own cameras.      | 0.1 % false positives at 25 fps is 90 false alarms an hour. Commercial systems still fail in public (a bag of chips led to a student being handcuffed, October 2025). Most CCTV gun datasets are non-commercial.                                |
-| **Cheapest win**      | **Done 2026-10-09:** replaced the CLIP weights (B/32, LAION-400M) with OpenCLIP B/32 LAION-2B (MIT).                                                                                                                                                                                             | Same architecture and speed, better on every benchmark we checked: COCO retrieval +3.9, Flickr +5.2, ImageNet +3.6 points.                                                                                                                      |
-| **Next most useful**  | A`look` tool: a small local vision-language model (Qwen3.5 2B/4B or Gemma 4 E2B/E4B, both Apache-2.0, vision supported in Ollama) reads the evidence frames when a question needs it.                                                                                    | Covers what CLIP can't (counting, "what was he doing"), double-checks alerts, and costs nothing until asked.                                                                                                                                    |
-| **Also worth adding** | Plate reading (fast-plate-ocr, MIT), person-down from pose (RTMPose, Apache-2.0, 3–5 ms per person on CPU), open-vocabulary auto-labelling for objects a customer names (OWLv2 / OmDet-Turbo, Apache-2.0), sound events from camera microphones (YAMNet, Apache-2.0).     | All run on CPU through ONNX and have permissive licences.                                                                                                                                                                                       |
+| **Weapons**           | Keep "not offered". For a client pilot only: person crop from the main stream → weapon detector → persistence check → local vision model as a veto →**a guard decides**. Data from Open Images (CC BY 4.0) plus staged footage on the client's own cameras.       | 0.1 % false positives at 25 fps is 90 false alarms an hour. Commercial systems still fail in public (a bag of chips led to a student being handcuffed, October 2025). Most CCTV gun datasets are non-commercial.                                |
+| **Cheapest win**      | **Done 2026-10-09:** replaced the CLIP weights (B/32, LAION-400M) with OpenCLIP B/32 LAION-2B (MIT).                                                                                                                                                                  | Same architecture and speed, better on every benchmark we checked: COCO retrieval +3.9, Flickr +5.2, ImageNet +3.6 points.                                                                                                                      |
+| **Next most useful**  | A`look` tool: a small local vision-language model (Qwen3.5 2B/4B or Gemma 4 E2B/E4B, both Apache-2.0, vision supported in Ollama) reads the evidence frames when a question needs it.                                                                                     | Covers what CLIP can't (counting, "what was he doing"), double-checks alerts, and costs nothing until asked.                                                                                                                                    |
+| **Also worth adding** | Plate reading (fast-plate-ocr, MIT), person-down from pose (RTMPose, Apache-2.0, 3–5 ms per person on CPU), open-vocabulary auto-labelling for objects a customer names (OWLv2 / OmDet-Turbo, Apache-2.0), sound events from camera microphones (YAMNet, Apache-2.0).      | All run on CPU through ONNX and have permissive licences.                                                                                                                                                                                       |
 
 ## 43. What a model must pass to enter Histor
 
@@ -1856,12 +1854,12 @@ licence, so a client's lawyer can check.
 
 ## 44. Where new models plug in
 
-| Slot                                                                                                                      | Today                                                                                                 | What a new model needs                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Detector** ([detector.py](src/histor/engine/detector.py))                                      | One YOLOX ONNX per pipeline; a custom-trained YOLOX only needs`class_names` in the config           | `Pipeline` holds a single detector ([pipeline.py](src/histor/engine/pipeline.py)). A second model (fire/smoke, weapons, plates) needs a small composite `Detector` that runs each model at its own interval and merges the boxes. One combined COCO + fire model is not worth it: COCO would have to be re-labelled for the new classes. |
-| **CLIP vectors**                                                                                                    | Every scene (frame + 2×2 tiles) every 5 s and every tracked object every 2 s are embedded and stored | A linear classifier on stored vectors costs one dot product.                                                                                                                                                                                                                                                                                                    |
-| **Hi-res crops**                                                                                                    | Main-stream keyframes (~1/s) give full-resolution crops of tracked objects                            | The right input for small things: guns, plates, faces.                                                                                                                                                                                                                                                                                                          |
-| **Chat tools** ([tools.py](src/histor/tools.py), [llm.py](src/histor/llm.py)) | Text only: the model sees JSON results, never pixels                                                  | A`look` tool that runs a *local* vision model and returns text. The cloud model (Claude) then still never receives images.                                                                                                                                                                                                                                  |
+| Slot                                                                              | Today                                                                                                 | What a new model needs                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Detector** ([detector.py](src/histor/engine/detector.py))                  | One YOLOX ONNX per pipeline; a custom-trained YOLOX only needs`class_names` in the config           | `Pipeline` holds a single detector ([pipeline.py](src/histor/engine/pipeline.py)). A second model (fire/smoke, weapons, plates) needs a small composite `Detector` that runs each model at its own interval and merges the boxes. One combined COCO + fire model is not worth it: COCO would have to be re-labelled for the new classes. |
+| **CLIP vectors**                                                            | Every scene (frame + 2×2 tiles) every 5 s and every tracked object every 2 s are embedded and stored | A linear classifier on stored vectors costs one dot product.                                                                                                                                                                                                                                                                                |
+| **Hi-res crops**                                                            | Main-stream keyframes (~1/s) give full-resolution crops of tracked objects                            | The right input for small things: guns, plates, faces.                                                                                                                                                                                                                                                                                      |
+| **Chat tools** ([tools.py](src/histor/tools.py), [llm.py](src/histor/llm.py)) | Text only: the model sees JSON results, never pixels                                                  | A`look` tool that runs a *local* vision model and returns text. The cloud model (Claude) then still never receives images.                                                                                                                                                                                                              |
 
 Rare, costly events (fire, weapons) should all go through the same chain: cheap signals first,
 persistence second, a second opinion third, and a person last.
@@ -2037,14 +2035,13 @@ old rows are skipped (and logged) until they expire. Checked on the real export:
 playing basketball" and "a footballer kicking a ball" each rank the right sample image first;
 ~30 ms per crop on this laptop. Tests: `tests/engine/test_clip.py`.
 
-
-| Model (OpenCLIP name)                                 | Licence    | GFLOPs | ImageNet zero-shot | COCO retrieval\* | Flickr retrieval\* | Work to switch                                                                                                         |
-| ----------------------------------------------------- | ---------- | ------ | ------------------ | ---------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| ViT-B-32-quickgelu`laion400m_e32` (before 2026-10-09) | MIT        | 14.8   | 62.9               | 44.0             | 70.3               | —                                                                                                                     |
-| **ViT-B-32 `laion2b_s34b_b79k`** (**today**)              | MIT        | 14.8   | 66.6               | 47.8             | 75.4               | `ARCH = "ViT-B-32"` + weights URL in [export_clip.py](src/histor/engine/export_clip.py); re-embed |
-| ViT-B-32`datacomp_xl_s13b_b90k`                     | MIT        | 14.8   | 69.2               | 45.3             | 70.0               | Same                                                                                                                   |
-| ViT-B-32-256`datacomp_s34b_b86k`                    | MIT        | 17.5   | 72.8               | 48.9             | 74.9               | Also 256 px input in`clip_onnx.preprocess` (fixed at 224 today)                                                      |
-| ViT-B-16-SigLIP`webli`                              | Apache-2.0 | 46.4   | 76.0               | 56.8             | 81.9               | ~3× CPU per crop; different tokenizer and normalisation                                                               |
+| Model (OpenCLIP name)                                      | Licence    | GFLOPs | ImageNet zero-shot | COCO retrieval\* | Flickr retrieval\* | Work to switch                                                                                     |
+| ---------------------------------------------------------- | ---------- | ------ | ------------------ | ---------------- | ------------------ | -------------------------------------------------------------------------------------------------- |
+| ViT-B-32-quickgelu`laion400m_e32` (before 2026-10-09)    | MIT        | 14.8   | 62.9               | 44.0             | 70.3               | —                                                                                                 |
+| **ViT-B-32 `laion2b_s34b_b79k`** (**today**) | MIT        | 14.8   | 66.6               | 47.8             | 75.4               | `ARCH = "ViT-B-32"` + weights URL in [export_clip.py](src/histor/engine/export_clip.py); re-embed |
+| ViT-B-32`datacomp_xl_s13b_b90k`                          | MIT        | 14.8   | 69.2               | 45.3             | 70.0               | Same                                                                                               |
+| ViT-B-32-256`datacomp_s34b_b86k`                         | MIT        | 17.5   | 72.8               | 48.9             | 74.9               | Also 256 px input in`clip_onnx.preprocess` (fixed at 224 today)                                  |
+| ViT-B-16-SigLIP`webli`                                   | Apache-2.0 | 46.4   | 76.0               | 56.8             | 81.9               | ~3× CPU per crop; different tokenizer and normalisation                                           |
 
 \* Retrieval scores from the OpenCLIP benchmark table, comparable within the table.
 
@@ -2065,7 +2062,6 @@ are shrunk to `max_side` (640 px) and sent to the local server; only the answer 
 vision server is down, the tool says so and the chat carries on. Tests: `tests/test_look.py`,
 against a stand-in OpenAI-compatible server. Not yet run against a real Ollama: no Ollama on the
 build machine.
-
 
 **Design**: a new chat tool, `look(evidence, question)`. The chat model passes thumbnails or hi-res
 crops it already found; a local vision model answers in text. It runs locally even when the chat model
@@ -2106,7 +2102,6 @@ of our own plugs in with `plates.detector.type: yolox` (**urgent to-do**: train 
 at the top). Checked with the real models on synthetic
 plates (finder box within 8 px, reader exact, watchlist event, search). Not yet checked on a real
 camera. Tests: `tests/engine/test_plates.py`.
-
 
 | Part                        | Option                                                                            | Licence                                                                              | Note                                                                                          |
 | --------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
@@ -2184,7 +2179,6 @@ snapshot shows that moment. The audio is never stored. Checked with the real mod
 Not yet checked on real camera audio (no ffmpeg on the build machine). Tests:
 `tests/engine/test_sound.py`.
 
-
 **YAMNet** (Apache-2.0, MobileNet, 521 AudioSet classes) recognises "Smoke detector, smoke alarm",
 "Fire alarm", "Gunshot, gunfire", "Explosion", "Glass" / "Shatter", "Screaming", "Shout", "Car alarm"
 and sirens, at negligible CPU cost. Only for cameras with microphones, and only where local law allows
@@ -2218,7 +2212,6 @@ everywhere, so a turned camera still looked 60–70 % the same. It now compares 
 strength by correlation. The same street 35 s later scores 0.78, darker light 0.79, a 40 px turn
 0.40, a different view 0.18; the threshold is 0.5. Tests: `tests/engine/test_rules.py`.
 
-
 - **Camera tampering**: picture blurred (Laplacian variance), blocked (flat histogram), too dark, or
   moved (compare with a reference frame). Operationally very valuable.
 - **Abandoned object**: a bag or suitcase track that stays still for N minutes with no person near it.
@@ -2232,21 +2225,20 @@ them: NanoDet-Plus (Apache-2.0, also in OpenCV Zoo, very fast on CPU), PP-PicoDe
 (Apache-2.0), DAMO-YOLO (Apache-2.0), and MultimediaTechLab/YOLO (MIT training code for the YOLOv9 and
 YOLOv7 architectures).
 
-
 ## 48. Threat detection: update, October 2026
 
 What is new since section 46–47, and whether it fits Histor. Histor already covers most of a
 vendor's "threat" list with rules: intrusion and line crossing, loitering (`dwell` on a person),
 crowding, abandoned objects, tampering, person down, hands up, and gunshot / glass / scream sounds.
 
-| Candidate | New? | Fits Histor? | Verdict |
-| --- | --- | --- | --- |
-| **Threat scores on the CLIP vectors already stored** ("a fight", "a person pointing a gun"; the VadCLIP idea of prompting CLIP for anomalies) | The approach is known; using our stored vectors is free | Yes: one dot product per stored vector, no new model | **First.** Generalise the planned smoke score (roadmap #2) into a threat score: searchable ("any fights last night?") and one vote towards an alert, never an alert alone. S |
-| **Fights from poses**: our keypoints → a small skeleton model (ST-GCN / PoseC3D in MMAction2, Apache-2.0) or joint-angle rules. 2025–26 papers report ~93–95 % on RWF-2000 | Yes, several 2025–26 papers | Yes: pose already runs on person tracks; skeleton models are tiny on CPU | **Prototype.** The blocker is data: RWF-2000 is non-commercial. Plan: label short clips with the local vision model, a person checks, train; scream / shout sound as a second signal; alert checking as the third. M |
-| **Cosmos-Reason2-2B** (NVIDIA) as the vision model for alert checking | Yes: NVIDIA's Public Safety blueprint uses the 8B to verify alerts | Partly: NVIDIA Open Model License (commercial use allowed, but revocable, and ends if its guardrails are bypassed); heavy on CPU | Benchmark against `qwen3.5:4b` (Apache-2.0) in `tag` mode; keep Qwen the default |
-| Open-world anomaly models (LaGoVAD, ICLR 2026; Holmes-VAU; LAVAD) | Yes | No: research code, GPU, licences unclear | Skip for now |
-| Ready-made fight detectors (YOLOv8 fight models on GitHub, 2026 lightweight CNN papers) | Yes | No: AGPL, or no code / unclear licence | Excluded |
-| Weapons | Only a synthetic dataset (Simuletic, CC BY 4.0, 141 images; its "rifles vs umbrellas" set lists two conflicting licences) | Unchanged | Keep "not offered" and the pilot-only plan (46.3) |
+| Candidate                                                                                                                                                                           | New?                                                                                                                      | Fits Histor?                                                                                                                     | Verdict                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Threat scores on the CLIP vectors already stored** ("a fight", "a person pointing a gun"; the VadCLIP idea of prompting CLIP for anomalies)                                 | The approach is known; using our stored vectors is free                                                                   | Yes: one dot product per stored vector, no new model                                                                             | **First.** Generalise the planned smoke score (roadmap #2) into a threat score: searchable ("any fights last night?") and one vote towards an alert, never an alert alone. S                                         |
+| **Fights from poses**: our keypoints → a small skeleton model (ST-GCN / PoseC3D in MMAction2, Apache-2.0) or joint-angle rules. 2025–26 papers report ~93–95 % on RWF-2000 | Yes, several 2025–26 papers                                                                                              | Yes: pose already runs on person tracks; skeleton models are tiny on CPU                                                         | **Prototype.** The blocker is data: RWF-2000 is non-commercial. Plan: label short clips with the local vision model, a person checks, train; scream / shout sound as a second signal; alert checking as the third. M |
+| **Cosmos-Reason2-2B** (NVIDIA) as the vision model for alert checking                                                                                                         | Yes: NVIDIA's Public Safety blueprint uses the 8B to verify alerts                                                        | Partly: NVIDIA Open Model License (commercial use allowed, but revocable, and ends if its guardrails are bypassed); heavy on CPU | Benchmark against`qwen3.5:4b` (Apache-2.0) in `tag` mode; keep Qwen the default                                                                                                                                        |
+| Open-world anomaly models (LaGoVAD, ICLR 2026; Holmes-VAU; LAVAD)                                                                                                                   | Yes                                                                                                                       | No: research code, GPU, licences unclear                                                                                         | Skip for now                                                                                                                                                                                                               |
+| Ready-made fight detectors (YOLOv8 fight models on GitHub, 2026 lightweight CNN papers)                                                                                             | Yes                                                                                                                       | No: AGPL, or no code / unclear licence                                                                                           | Excluded                                                                                                                                                                                                                   |
+| Weapons                                                                                                                                                                             | Only a synthetic dataset (Simuletic, CC BY 4.0, 141 images; its "rifles vs umbrellas" set lists two conflicting licences) | Unchanged                                                                                                                        | Keep "not offered" and the pilot-only plan (46.3)                                                                                                                                                                          |
 
 Two rules that vendors sell and Histor lacks, both small: **running / sudden motion** (an alert on
 the `motion` fact, which is already computed) and **tailgating** (two people through a door line
@@ -2260,16 +2252,16 @@ NVIDIA's Public Safety AI Blueprint (VSS 3.0, July 2026) is a reference design w
 as Histor: perception → rules → a vision model that verifies alerts → storage → an agent with tools.
 Section 12.1 draws Histor in the blueprint's layout.
 
-| NVIDIA blueprint | Histor |
-| --- | --- |
-| Cameras → VST / VMS (video storage) | `mainstream.py` records the main stream itself |
-| RT-CV: RT-DETR detector + tracking | YOLOX-S + IoU tracker, on CPU |
-| Behaviour analytics: **tailgating** only, for now | Areas, lines, crowding, loitering, abandoned bags, tampering, poses, plates, sounds |
-| **Alert verification**: Cosmos Reason2 8B | **Alert checking** (section 18): Qwen3.5 4B by default, any local vision model |
-| Message bus + Logstash + Elastic ("video analytics storage") | One SQLite file per site |
-| Agent: Nemotron Nano 9B v2, tools over **MCP** (video IO, analytics, report generation) | `chat.py` + `tools.py`; the same tools over **MCP** (`mcp_server.py`, section 25.3); `report.py` |
-| Embeddings: Cosmos-Embed1 | CLIP B/32 LAION-2B |
-| Validated on **H100, L40S or RTX PRO 6000**, 128 GB RAM, 18–32 cores; NGC access by request; Metropolis licences | **CPU only**, ~16–32 GB RAM; permissive licences, no account needed |
+| NVIDIA blueprint                                                                                                       | Histor                                                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Cameras → VST / VMS (video storage)                                                                                   | `mainstream.py` records the main stream itself                                                               |
+| RT-CV: RT-DETR detector + tracking                                                                                     | YOLOX-S + IoU tracker, on CPU                                                                                  |
+| Behaviour analytics:**tailgating** only, for now                                                                 | Areas, lines, crowding, loitering, abandoned bags, tampering, poses, plates, sounds                            |
+| **Alert verification**: Cosmos Reason2 8B                                                                        | **Alert checking** (section 18): Qwen3.5 4B by default, any local vision model                           |
+| Message bus + Logstash + Elastic ("video analytics storage")                                                           | One SQLite file per site                                                                                       |
+| Agent: Nemotron Nano 9B v2, tools over**MCP** (video IO, analytics, report generation)                           | `chat.py` + `tools.py`; the same tools over **MCP** (`mcp_server.py`, section 25.3); `report.py` |
+| Embeddings: Cosmos-Embed1                                                                                              | CLIP B/32 LAION-2B                                                                                             |
+| Validated on**H100, L40S or RTX PRO 6000**, 128 GB RAM, 18–32 cores; NGC access by request; Metropolis licences | **CPU only**, ~16–32 GB RAM; permissive licences, no account needed                                     |
 
 Positioning: NVIDIA's is a GPU data-centre reference design for one scenario; Histor covers many
 scenarios on a CPU server already on site. Taken from it: alert verification (built, section 18),
@@ -2279,21 +2271,21 @@ tailgating (section 48), and the tools over MCP (built, section 25.3).
 
 # Roadmap
 
-| # | Step | Size | Gives |
-| - | --- | --- | --- |
-| 1 | **Urgent: train our own YOLOX plate finder** on Open Images "Vehicle registration plate" (CC BY 4.0), then `plates.detector.type: yolox` | M | A fully permissive plate pipeline |
-| 2 | Alert checking on a real Ollama, then a week in `tag` mode at a pilot site: false alarms held back vs real alerts wrongly held back, per event type | S | The number to quote |
-| 3 | Smoke/fire and threat CLIP scores on the scene vectors: zero-shot, then a probe trained on D-Fire/FASDD (45.4, 48) | S | "Any smoke last night?" + a cheap vote for alerts |
-| 4 | Composite detector + YOLOX fire/smoke + persistence check + alert checking (45) | M–L | Fire/smoke alerts, ready for a pilot |
-| 5 | Person-down on staged falls at a pilot site; a COCO-only small pose model (47.4) | M | Person-down alerts we can promise |
-| 6 | Running and tailgating rules; fight candidates from pose + sound (48) | S–M | More of the vendors' threat list |
-| 7 | WhatsApp, SMS, siren channels; the chat in the dashboard; logins per person | M | Delivery and access |
-| 8 | Evaluation questions on recorded footage to pick the chat model (`qwen3:4b` vs `qwen3.5:4b`…) | S | A measured default |
-| 9 | Open-vocabulary auto-labelling → per-customer YOLOX (47.5) | L | "Any object the customer names" |
-| 10 | Multi-camera timeline: one visit across cameras (47.7) | M | "Where did they go next?" |
-| 11 | Sound events and plates checked on a site's real cameras | S | Real read and false-alarm rates |
-| 12 | Weapons pilot with one client: staged data, a guard in the loop (46.3) | L | Only if the false-alarm test passes |
-| later | MCP over streamable HTTP with authentication, for MCP clients that can't start a command (stdio over SSH works today, section 25.3) | S | Remote agents without SSH |
+| #     | Step                                                                                                                                                 | Size | Gives                                             |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------- |
+| 1     | **Urgent: train our own YOLOX plate finder** on Open Images "Vehicle registration plate" (CC BY 4.0), then `plates.detector.type: yolox`     | M    | A fully permissive plate pipeline                 |
+| 2     | Alert checking on a real Ollama, then a week in`tag` mode at a pilot site: false alarms held back vs real alerts wrongly held back, per event type | S    | The number to quote                               |
+| 3     | Smoke/fire and threat CLIP scores on the scene vectors: zero-shot, then a probe trained on D-Fire/FASDD (45.4, 48)                                   | S    | "Any smoke last night?" + a cheap vote for alerts |
+| 4     | Composite detector + YOLOX fire/smoke + persistence check + alert checking (45)                                                                      | M–L | Fire/smoke alerts, ready for a pilot              |
+| 5     | Person-down on staged falls at a pilot site; a COCO-only small pose model (47.4)                                                                     | M    | Person-down alerts we can promise                 |
+| 6     | Running and tailgating rules; fight candidates from pose + sound (48)                                                                                | S–M | More of the vendors' threat list                  |
+| 7     | WhatsApp, SMS, siren channels; the chat in the dashboard; logins per person                                                                          | M    | Delivery and access                               |
+| 8     | Evaluation questions on recorded footage to pick the chat model (`qwen3:4b` vs `qwen3.5:4b`…)                                                   | S    | A measured default                                |
+| 9     | Open-vocabulary auto-labelling → per-customer YOLOX (47.5)                                                                                          | L    | "Any object the customer names"                   |
+| 10    | Multi-camera timeline: one visit across cameras (47.7)                                                                                               | M    | "Where did they go next?"                         |
+| 11    | Sound events and plates checked on a site's real cameras                                                                                             | S    | Real read and false-alarm rates                   |
+| 12    | Weapons pilot with one client: staged data, a guard in the loop (46.3)                                                                               | L    | Only if the false-alarm test passes               |
+| later | MCP over streamable HTTP with authentication, for MCP clients that can't start a command (stdio over SSH works today, section 25.3)                  | S    | Remote agents without SSH                         |
 
 S = days, M = 1–3 weeks, L = longer (rough).
 
@@ -2332,14 +2324,14 @@ environment, one test UI).
 **2026-09-29 — Search, face search, alerts and API** (then in the separate object-detection
 project):
 
-| Feature | What it does | Files |
-| --- | --- | --- |
-| Event store | Every zone/line event with a JPEG snapshot in one SQLite file per site; old data deleted automatically | `store.py` |
-| Webhook and email alerts | JSON to a URL and/or email with the snapshot; background thread with retries | `alerts.py` |
-| Text search | "person in a red top last friday": people, vehicles or scenes, grouped per visit | `clip_onnx.py`, `indexer.py`, `query.py`, `search.py` |
-| Face search by photo | "Yes: seen 1 time, first on shop at Fri 25 Sep 10:30", or "No match"; off by default | `faces.py`, `search.py` |
-| API server | `/events`, `/media`, `/search`, `/search/face`, `/health`; docs at `/docs` | `server.py` |
-| CLIP export | OpenCLIP → ONNX once, so servers need no PyTorch | `export_clip.py` |
+| Feature                  | What it does                                                                                           | Files                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Event store              | Every zone/line event with a JPEG snapshot in one SQLite file per site; old data deleted automatically | `store.py`                                                  |
+| Webhook and email alerts | JSON to a URL and/or email with the snapshot; background thread with retries                           | `alerts.py`                                                 |
+| Text search              | "person in a red top last friday": people, vehicles or scenes, grouped per visit                       | `clip_onnx.py`, `indexer.py`, `query.py`, `search.py` |
+| Face search by photo     | "Yes: seen 1 time, first on shop at Fri 25 Sep 10:30", or "No match"; off by default                   | `faces.py`, `search.py`                                   |
+| API server               | `/events`, `/media`, `/search`, `/search/face`, `/health`; docs at `/docs`                 | `server.py`                                                 |
+| CLIP export              | OpenCLIP → ONNX once, so servers need no PyTorch                                                      | `export_clip.py`                                            |
 
 How it was checked: text search on the 80 s street video (413 index rows) put the right sightings
 first for "person with a red top", "person carrying a bag", "white van" and "person in a black
@@ -2364,7 +2356,6 @@ by default.
 - VAD survey, DNN to MLLM: https://arxiv.org/abs/2507.21649
 - Simuletic synthetic weapon dataset: https://huggingface.co/datasets/Simuletic/cctv-weapon-dataset
 - Milestone AI security plugin bundle: https://www.milestonesys.com/globalassets/marketplace/uploaded-assets/0012000000gnzijaae/aisecurity_en_compressed.pdf
-
 
 **Fire and smoke**
 

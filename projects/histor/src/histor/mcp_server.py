@@ -1,4 +1,4 @@
-"""The chat's tools as an MCP server, so any MCP client (Claude Desktop, Claude Code, a client's
+"""The chat's tools as an MCP server, so any MCP client (Claude, ChatGPT, a client's
 own agent) can ask a site's Histor what happened.
 
     uv run --group mcp -m histor.mcp_server --config configs/default.yaml

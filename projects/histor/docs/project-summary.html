@@ -27,6 +27,7 @@ pre { background: var(--soft); border: 1px solid var(--line); padding: 8px; font
 pre code { background: none; padding: 0; font-size: inherit; }
 .mt { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 4px; color: var(--muted); font-size: 7.5pt; }
 .mt img { height: 22px; }
+img.arch { display: block; width: 100%; height: auto; }
 </style></head><body>
 <header><img src="../../../Images/histor/logo/histor-horizontal-transparent-for-light.png" alt="Histor"><div class="t"><b>Project Summary</b><span>A Mobius Tensors product · Overview and technical · October 2026</span></div></header>
 <p><em>October 2026. Overview and technical summary of the Histor code in this repository
@@ -140,23 +141,7 @@ own questions, then decide). A partner programme (Silver / Gold / Platinum, 10�
 for introducers and CCTV installers.</p>
 <h2>2. Technical summary</h2>
 <h3>Architecture</h3>
-<pre><code class="language-text"> IP cameras (RTSP)
-   ├─ sub stream ──► detect (YOLOX) ─► track (IoU tracker) ─► zone / line rules ─► alerts ─► webhook, email
-   │                                         │
-   │                                         ├─► CLIP index: objects (every 2 s), scenes + 2x2 tiles (every 5 s)
-   │                                         ├─► pose index: 17 keypoints → posture, arms, facing, colours (~1/s)
-   │                                         ├─► face index: YuNet + SFace, best 5 faces per visit (opt-in)
-   │                                         ├─► plate index: plate finder + reader on vehicles (~1/s, opt-in)
-   │                                         └─► abandoned bags, crowding; tamper check on the picture
-   ├─ audio ───────► YAMNet: smoke alarm, glass, gunshot, scream, siren → events (opt-in, audio not kept)
-   └─ main stream ─► ffmpeg: 1-minute MP4s (copy, no re-encode) + keyframes for full-resolution crops
-                                             │
-                       one SQLite store per site (events, sightings, faces, poses, plates + media)
-                                             │
-                                             ├─► ask.py     plain-language search, rules only (no LLM)
-                                             ├─► chat.py    LLM + tools (+ a local vision model), answers with evidence
-                                             └─► server.py  FastAPI: search, people, plates, events, media, recordings
-</code></pre>
+<p><img class="arch" src="images/architecture.svg" alt="Histor architecture: the perception pipeline (left) and the agent pipeline (right)"></p>
 <p>One recorder process per camera; each heavy step (CLIP, pose, faces) runs on its own thread and
 <strong>skips samples rather than slowing detection</strong>, so a busy scene is sampled more sparsely instead
 of lagging behind.</p>

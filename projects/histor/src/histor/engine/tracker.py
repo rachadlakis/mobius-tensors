@@ -15,11 +15,11 @@ from histor.engine.detector import Detection
 
 @dataclass
 class Track:
-    id: int  # 0 until confirmed
-    box: np.ndarray  # x1, y1, x2, y2 in image pixels
-    score: float
-    hits: int = 1
-    missed: int = 0  # consecutive frames without a matching detection
+    id: int             # 0 until confirmed
+    box: np.ndarray     # x1, y1, x2, y2 in image pixels
+    score: float        # detection confidence score
+    hits: int = 1       # consecutive frames with a matching detection
+    missed: int = 0     # consecutive frames without a matching detection
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(4))
     label_votes: dict[str, float] = field(default_factory=dict)
 

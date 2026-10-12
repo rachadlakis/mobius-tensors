@@ -16,6 +16,8 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
 
 ## How it works
 
+![Histor: the perception pipeline (left) and the agent pipeline (right)](docs/images/architecture.svg)
+
 1. **Record** (one process per camera): detect and track every object (all 80 COCO classes),
    embed each tracked object with CLIP, and every few seconds embed the whole frame plus a 2x2
    grid of tiles, so things the detector has no class for are still searchable. About once a

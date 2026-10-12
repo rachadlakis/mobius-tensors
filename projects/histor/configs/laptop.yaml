@@ -162,7 +162,7 @@ telegram:
   images: true                 # evidence thumbnails with answers
   face_search: true            # send the bot a photo of yourself after recording your face
 
-# MCP (Claude Desktop / Code): face search from a photo file on this laptop, e.g. "is the person
+# MCP (Claude, ChatGPT, ...): face search from a photo file on this laptop, e.g. "is the person
 # in C:/Users/user/Pictures/me.jpg on the webcam today?"
 mcp:
   face_search: true

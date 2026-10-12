@@ -181,7 +181,7 @@ telegram:
                                # (biometric: client's written approval; needs faces.enabled)
   # model: local               # chat.models entry (default: chat.model)
 
-# MCP server (src/histor/mcp_server.py): the chat's tools for Claude Desktop / Code or any agent.
+# MCP server (src/histor/mcp_server.py): the chat's tools for Claude, ChatGPT or any agent.
 mcp:
   face_search: false           # true: a `face` tool that takes a photo FILE on this server
                                # (biometric: client's written approval; needs faces.enabled)
