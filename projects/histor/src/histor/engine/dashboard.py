@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
-import secrets
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -70,6 +69,12 @@ def session_value(token: str) -> str:
     return hmac.new(token.encode(), b"histor-dashboard-session", hashlib.sha256).hexdigest()
 
 
+def same(a: str, b: str) -> bool:
+    """Constant-time comparison; as bytes, since compare_digest refuses non-ASCII strings (a
+    typo like "é" in the login form would be a server error)."""
+    return hmac.compare_digest(a.encode(), b.encode())
+
+
 def server_token(config: dict[str, Any] | None) -> str | None:
     """`server.token`, with ${VAR} from the environment or .env (an unset VAR is an error, so a
     missing secret never silently means no login)."""
@@ -96,11 +101,11 @@ def add_dashboard(app: FastAPI, store: EventStore, cameras: list[str],
         if session is None:
             return True
         cookie = request.cookies.get(COOKIE, "")
-        if cookie and hmac.compare_digest(cookie, session):
+        if cookie and same(cookie, session):
             return True
         auth = request.headers.get("authorization", "")
         return auth.lower().startswith("bearer ") and token is not None and \
-            hmac.compare_digest(auth[7:].strip(), token)
+            same(auth[7:].strip(), token)
 
     @app.middleware("http")
     async def require_login(request: Request, call_next: Any) -> Response:
@@ -126,7 +131,7 @@ def add_dashboard(app: FastAPI, store: EventStore, cameras: list[str],
     async def login(token_field: str = Form("", alias="token")) -> Response:
         if session is None:
             return RedirectResponse("/", status_code=303)
-        if not (token and secrets.compare_digest(token_field.strip(), token)):
+        if not (token and same(token_field.strip(), token)):
             await asyncio.sleep(1.0)  # slows down guessing
             return HTMLResponse(LOGIN.replace("{error}", '<div class="err">Wrong token.</div>'),
                                 status_code=401)

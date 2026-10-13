@@ -1,6 +1,8 @@
 import pytest
 
-from histor.engine.cameras import camera_url, mask_url, parse_probe_match, resolve_source
+from histor.engine.cameras import (_host_order, camera_url, load_cameras, mask_url,
+                                   parse_probe_match, resolve_source)
+from histor.engine.main import default_camera_name
 
 
 def test_vendor_presets_build_rtsp_urls():
@@ -74,3 +76,24 @@ def test_parse_probe_match():
 def test_parse_probe_match_ignores_other_packets():
     assert parse_probe_match(b"not xml", "1.2.3.4") is None
     assert parse_probe_match(b"<a><b/></a>", "1.2.3.4") is None
+
+
+def test_a_bare_url_never_becomes_the_camera_name():
+    url = "rtsp://admin:secret@10.0.0.5:554/Streaming/Channels/102"
+    assert default_camera_name(url, None) == "10.0.0.5"  # no password in events or alerts
+    assert default_camera_name(url, "gate") == "gate"
+    assert default_camera_name("gate", None) == "gate"  # a configured camera
+    assert default_camera_name("data/vtest.avi", None) == "data/vtest.avi"
+
+
+def test_discovered_hosts_sort_with_ipv6_and_names():
+    hosts = ["cam.local", "fe80::1", "192.168.1.10", "192.168.1.9"]
+    assert sorted(hosts, key=_host_order) == ["192.168.1.9", "192.168.1.10", "fe80::1",
+                                              "cam.local"]
+
+
+def test_load_cameras_reads_utf8_on_any_platform(tmp_path):
+    config = tmp_path / "site.yaml"
+    config.write_text("cameras:\n  gate:\n    url: rtsp://10.0.0.5/live\n    about:\n"
+                      "      description: البوابة الرئيسية · entrée\n", encoding="utf-8")
+    assert load_cameras(config)["gate"]["about"]["description"] == "البوابة الرئيسية · entrée"

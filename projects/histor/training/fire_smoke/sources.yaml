@@ -1,0 +1,21 @@
+# Datasets merged by prepare_data.py. Add one entry per dataset in data/raw/<name>/.
+# `classes` maps each source class id to our class name; ids not listed are dropped.
+# Only commercial-use licences (CC0, CC BY, Apache-2.0, MIT): see DOCUMENTATION.md section 43.
+
+names: [fire, smoke]           # our class ids: fire = 0, smoke = 1
+
+sources:
+  dfire:
+    licence: CC0-1.0
+    url: https://github.com/gaiasd/DFireDataset
+    classes: {0: smoke, 1: fire}   # TODO check with preview.py once downloaded
+
+  cqu:
+    licence: CC-BY-4.0
+    url: https://doi.org/10.25946/28747046   # Roboflow export; some web photos carry stock watermarks
+    classes: {0: fire, 1: smoke}   # checked with preview.py 2026-10-13
+
+  indoor:
+    licence: CC-BY-4.0
+    url: https://zenodo.org/records/15826133   # Roboflow export, includes flipped copies
+    classes: {0: fire, 1: smoke}   # checked with preview.py 2026-10-13

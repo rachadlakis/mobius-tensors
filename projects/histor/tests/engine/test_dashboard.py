@@ -110,6 +110,17 @@ def test_host_check_and_token_from_env(monkeypatch):
         server_token({"token": "${HISTOR_TEST_TOKEN}"})
 
 
+def test_non_ascii_tokens_are_refused_not_server_errors(tmp_path):
+    client = TestClient(app_with(tmp_path, TOKEN), raise_server_exceptions=False)
+    assert client.post("/login", data={"token": "café"}, follow_redirects=False).status_code == 401
+    for header in ({"Authorization": "Bearer caf\xe9".encode("latin-1")},
+                   {"Cookie": f"{COOKIE}=caf\xe9".encode("latin-1")}):
+        assert client.get("/status", headers=header).status_code == 401
+    unicode_token = TestClient(app_with(tmp_path, "clé-secrète"))
+    assert unicode_token.post("/login", data={"token": "clé-secrète"},
+                              follow_redirects=False).status_code == 303
+
+
 def test_wrong_logins_are_slowed_down(tmp_path):
     client = TestClient(app_with(tmp_path, TOKEN))
     start = time.monotonic()

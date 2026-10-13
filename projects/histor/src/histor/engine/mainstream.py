@@ -108,7 +108,8 @@ class MainStream:
         return self
 
     def command(self) -> list[str]:
-        cmd = [self.ffmpeg, "-nostdin", "-hide_banner", "-loglevel", "error"]
+        # stdin stays open: a "q" on it is how _kill() stops ffmpeg cleanly
+        cmd = [self.ffmpeg, "-hide_banner", "-loglevel", "error"]
         if self.url.lower().startswith("rtsp"):
             # tcp: no smeared frames on lossy links; timeout (µs): give up on a dead camera
             cmd += ["-rtsp_transport", "tcp", "-timeout", str(int(self.stall_seconds * 1e6))]
@@ -160,7 +161,7 @@ class MainStream:
             started = time.monotonic()
             try:
                 proc = subprocess.Popen(
-                    self.command(), stdin=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                    self.command(), stdin=subprocess.PIPE, stderr=subprocess.PIPE,
                     stdout=subprocess.PIPE if self.keyframes else subprocess.DEVNULL,
                 )
             except FileNotFoundError:
@@ -191,10 +192,9 @@ class MainStream:
             delay = min(delay * 2, self.max_reconnect_delay)
 
     def _read_keyframes(self, pipe: IO[bytes]) -> None:
-        while not self._stop.is_set():
-            image = read_bmp(pipe)
-            if image is None:
-                return
+        # to the end, also when stopping: a blocked pipe would keep ffmpeg from finishing the
+        # recording it is writing (_kill)
+        while (image := read_bmp(pipe)) is not None:
             self._progress = time.monotonic()
             with self._lock:
                 self._latest = Keyframe(time.time(), image)
@@ -220,12 +220,22 @@ class MainStream:
 
     def _kill(self) -> None:
         proc = self._proc
-        if proc is not None and proc.poll() is None:
-            proc.terminate()  # lets ffmpeg close the current file cleanly
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+        if proc is None or proc.poll() is not None:
+            return
+        try:  # "q" makes ffmpeg finish the file it is writing, on every OS: terminate() is a
+            # hard kill on Windows, and the file would lose its last part (or all its video)
+            assert proc.stdin is not None
+            proc.stdin.write(b"q")
+            proc.stdin.flush()
+            proc.wait(timeout=5)
+            return
+        except (AssertionError, OSError, ValueError, subprocess.TimeoutExpired):
+            pass  # stuck on a dead camera, or already gone
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
     def _log_errors(self, pipe: IO[bytes] | None) -> None:
         if pipe is None:
@@ -325,6 +335,15 @@ class Recordings:
             return None
         start, path = segments[i]
         return f"{camera}/{path.name}", t - start
+
+    def find_lead(self, camera: str, t: float, lead: float) -> tuple[str, float] | None:
+        """Where to start watching `lead` seconds before t (to see it happen); when the
+        recording holding t began less than `lead` before it (the recorder or the stream had
+        just started), that recording's start."""
+        found = self.find(camera, t - lead)
+        if found is None and (found := self.find(camera, t)) is not None:
+            found = (found[0], 0.0)
+        return found
 
     def path(self, rel: str) -> Path | None:
         """Resolve a relative path; None if it escapes the root or does not exist."""

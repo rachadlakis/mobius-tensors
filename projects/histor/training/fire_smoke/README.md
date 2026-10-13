@@ -1,0 +1,70 @@
+# Fire and smoke detector: training
+
+Trains Histor's fire/smoke specialist detector (DOCUMENTATION.md section 45). Everything for it
+lives here: datasets, runs, exported models and the `.venv`. Only the scripts and this README are
+in git.
+
+## Model
+
+[LibreYOLO](https://github.com/LibreYOLO/libreyolo) (MIT code) training **YOLOv9**, starting from
+COCO weights `LibreYOLO9t` / `LibreYOLO9s`. Those weights are the YOLOv9 authors' own MIT release
+([MultimediaTechLab/YOLO](https://github.com/MultimediaTechLab/YOLO), v1.0-alpha), only
+re-keyed. Not Ultralytics (AGPL) and not the original YOLOv9 repo (GPL).
+
+Detection, not segmentation: the open fire/smoke datasets only have boxes, smoke has no clean
+edge to draw a mask around, and Histor's rules work on boxes.
+
+## Layout
+
+```
+fire_smoke/
+  sources.yaml        datasets to merge and their class ids
+  prepare_data.py     data/raw/* -> data/merged/ (dedupe, clean, split 80/10/10)
+  .venv/              PyTorch (CUDA 12.8) + LibreYOLO
+  data/downloads/     archives as downloaded
+  data/raw/<name>/    each dataset unpacked, untouched
+  data/merged/        the training set + dataset.yaml + report.json
+  runs/               training runs
+  models/             exported ONNX for Histor
+```
+
+## Datasets
+
+| Name     | Images | Licence   | Source                                                                                                            |
+| -------- | ------ | --------- | ----------------------------------------------------------------------------------------------------------------- |
+| `dfire`  | 21,527 | CC0 1.0   | [gaiasd/DFireDataset](https://github.com/gaiasd/DFireDataset)                                                     |
+| `cqu`    | 11,027 | CC BY 4.0 | [CQU, Figshare 10.25946/28747046](https://acquire.cqu.edu.au/articles/dataset/Annotated_Fire_-Smoke_Image_Dataset_for_fire_detection_Using_YOLO_/28747046) |
+| `indoor` | 5,000  | CC BY 4.0 | [Zenodo 15826133](https://zenodo.org/records/15826133)                                                            |
+
+CC BY means the model card must credit the dataset authors. Add a dataset only if its licence
+allows commercial use (DOCUMENTATION.md section 43) and record it here and in `sources.yaml`.
+
+## Steps
+
+```bash
+# 1. environment (done once)
+uv venv --python 3.12 .venv
+uv pip install --python .venv/Scripts/python.exe torch torchvision --index-url https://download.pytorch.org/whl/cu128
+uv pip install --python .venv/Scripts/python.exe "libreyolo[onnx]" onnxruntime
+
+# 2. unpack each dataset into data/raw/<name>/, then build the merged set
+.venv/Scripts/python.exe -I prepare_data.py --check
+.venv/Scripts/python.exe -I prepare_data.py
+
+# 3. train (best checkpoint is exported to models/fire_smoke_<run>.onnx)
+.venv/Scripts/python.exe -I train.py
+```
+
+Scripts must run from a file (not `python -c`): on Windows the data-loader workers re-import the
+main module.
+
+Speed on the laptop (RTX 4050 6 GB, YOLOv9-T, 640 px, batch 16, 2 workers): about 35 images/s,
+so ~12 minutes an epoch for ~22k training images. Measured with LibreYOLO's `profile=True`.
+- The YOLOv9 PGI auxiliary branch is off (`aux_weight=0`): with it on, training ran at 11 img/s.
+- "CUDA out of memory" or "paging file is too small" with free VRAM means Windows ran out of
+  *virtual* memory: each worker process holds ~2 GB, and GPU memory needs backing too. Close big
+  programs (an Ollama model, a crashed earlier run still in Task Manager) or use fewer workers.
+
+The exported ONNX is not the YOLOX layout Histor decodes today (one `output` tensor, top-left
+letterbox, class names in the ONNX metadata), so `engine/detector.py` needs a YOLOv9 decoder
+before the model plugs in.

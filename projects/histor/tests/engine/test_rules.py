@@ -406,10 +406,11 @@ def test_pipeline_abandoned_and_crowd_reach_the_store(store):
 def test_alert_messages_for_crowd_and_tamper():
     _, crowd = alert_message({"type": "crowd", "rule": "queue", "label": "person", "count": 7,
                               "camera": "shop", "iso_time": "x"})
-    assert "Event:  crowd (queue) 7 inside" in crowd
+    assert "Event:  crowd (queue) 7 inside" in crowd and "Object: person" in crowd
     title, tamper = alert_message({"type": "tamper", "rule": "blocked", "label": "camera",
                                    "camera": "gate", "iso_time": "x"})
     assert title == "tamper blocked - camera on gate" and "#None" not in tamper
+    assert "Heard" not in crowd + tamper  # only sounds are heard
 
 
 def test_pipeline_from_config_builds_the_rules(tmp_path):

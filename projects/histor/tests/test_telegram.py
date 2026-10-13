@@ -211,7 +211,7 @@ class FakeBackend:
         self.questions.append(text)
         self._called = False
 
-    def step(self):
+    def step(self, tools=True):
         if not self._called:
             self._called = True
             return Step("", [ToolCall("1", "alerts", {"when": "today"})])
@@ -333,11 +333,11 @@ def test_a_photo_runs_face_search_without_the_chat_model(tg, bot_setup):
     bot = make(face_search=True)
     bot.toolbox.engine.faces = FakeFaces()
     store = bot.toolbox.engine.store
-    seen = datetime.now().replace(hour=0, minute=30).timestamp()
+    seen = datetime(2026, 10, 7, 0, 30).timestamp()  # a fixed day: "today 00:30" fails at 00:10
     store.add_faces([{"camera": "warehouse", "time": seen + k, "track_id": 8,
                       "embedding": face_print()} for k in range(3)])
     tg.file = jpeg(200)
-    bot.handle(photo_msg("Did this man come to the warehouse today?"))
+    bot.handle(photo_msg("Did this man come to the warehouse on 2026-10-07?"))
     get_file = next(c for c in tg.calls if c["method"] == "getFile")
     assert get_file["fields"]["file_id"] == "large"  # the biggest size Telegram has
     assert any(c["method"] == "download" and c["path"].endswith("/photos/file_1.jpg")
@@ -360,6 +360,17 @@ def test_no_match_says_what_was_checked(tg, bot_setup):
     reply = [c for c in tg.calls if c["method"] == "sendMessage"][0]["fields"]["text"]
     assert reply.startswith("No faces were recorded")
     assert "sendPhoto" not in [c["method"] for c in tg.calls]  # nothing to show
+
+
+def test_a_photo_after_a_question_sends_no_leftover_evidence(tg, bot_setup):
+    make, _ = bot_setup
+    bot = make(face_search=True, images=True)
+    bot.toolbox.engine.faces = FakeFaces()
+    bot.handle(msg(42, "did anyone fall?"))  # its evidence: the alert snapshot
+    tg.calls.clear()
+    tg.file = jpeg(200)
+    bot.handle(photo_msg("today"))  # no face recorded: nothing to show
+    assert "sendPhoto" not in [c["method"] for c in tg.calls]
 
 
 def test_an_unusable_photo_is_refused_with_the_reason(tg, bot_setup):
@@ -390,7 +401,7 @@ def test_model_errors_are_told_and_the_conversation_reset(tg, bot_setup):
     make, backends = bot_setup
 
     class Down(FakeBackend):
-        def step(self):
+        def step(self, tools=True):
             raise RuntimeError("Can't reach the model server")
 
     bot = make()

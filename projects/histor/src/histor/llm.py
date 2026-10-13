@@ -1,7 +1,11 @@
 """Chat model backends behind one interface, so the model is a config switch.
 
-    api: openai     Any OpenAI-compatible server. Local: Ollama, llama.cpp server, LM Studio,
-                    vLLM. Hosted ones work too (base_url + api_key). Plain HTTP, no SDK.
+    api: ollama     Ollama's own API, with the context size set per request (`num_ctx`). Its
+                    OpenAI-compatible endpoint keeps Ollama's default (4096 tokens) and silently
+                    cuts longer prompts: the chat's instructions and tool results get lost.
+                    `think: false` turns a thinking model's reasoning off (faster replies).
+    api: openai     Any OpenAI-compatible server. Local: llama.cpp server, LM Studio, vLLM.
+                    Hosted ones work too (base_url + api_key). Plain HTTP, no SDK.
     api: anthropic  Claude through the Anthropic SDK (`uv sync --group claude`).
 
 Each backend keeps the conversation in its own wire format; the agent loop in chat.py only sees
@@ -49,7 +53,7 @@ class Backend(Protocol):
     name: str
 
     def add_user(self, text: str) -> None: ...
-    def step(self) -> Step: ...
+    def step(self, tools: bool = True) -> Step: ...  # tools=False: an answer, no tool calls
     def add_results(self, results: list[ToolResult]) -> None: ...
 
 
@@ -58,11 +62,13 @@ def create_backend(config: dict[str, Any], system: str, tools: list[Tool]) -> Ba
     options = dict(config)
     api = options.pop("api", "openai")
     options.pop("note", None)  # shown in the UI only
+    if api == "ollama":
+        return Ollama(system, tools, **options)
     if api == "openai":
         return OpenAICompatible(system, tools, **options)
     if api == "anthropic":
         return Claude(system, tools, **options)
-    raise ValueError(f"Unknown chat api {api!r} (use openai or anthropic)")
+    raise ValueError(f"Unknown chat api {api!r} (use ollama, openai or anthropic)")
 
 
 # ------------------------------------------------------------------ OpenAI-compatible (local)
@@ -106,20 +112,15 @@ class OpenAICompatible:
     def add_user(self, text: str) -> None:
         self.messages.append({"role": "user", "content": text})
 
-    def step(self) -> Step:
+    def step(self, tools: bool = True) -> Step:
         body = {"model": self.model, "messages": self.messages, "tools": self.tools,
                 "temperature": self.temperature, "stream": False}
+        if not tools:  # the tools stay listed: some servers want them while calls are in history
+            body["tool_choice"] = "none"
         message = self._post(body)["choices"][0]["message"]
-        calls = []
-        for i, c in enumerate(message.get("tool_calls") or []):
-            args = c["function"].get("arguments") or {}
-            if isinstance(args, str):  # the spec says a JSON string; some servers send an object
-                try:
-                    args = json.loads(args) if args.strip() else {}
-                except json.JSONDecodeError:
-                    args = {"_invalid_json": args}
-            calls.append(ToolCall(c.get("id") or f"call_{len(self.messages)}_{i}",
-                                  c["function"]["name"], args))
+        calls = [ToolCall(c.get("id") or f"call_{len(self.messages)}_{i}",
+                          c["function"]["name"], _arguments(c["function"].get("arguments")))
+                 for i, c in enumerate(message.get("tool_calls") or [])]
         self.messages.append({k: v for k, v in message.items()
                               if k in {"role", "content", "tool_calls"}})
         return Step(THINK.sub("", message.get("content") or "").strip(), calls)
@@ -130,6 +131,62 @@ class OpenAICompatible:
 
     def _post(self, body: dict[str, Any]) -> dict[str, Any]:
         return post_json(self.url, body, self.api_key, self.timeout, self.model)
+
+
+# ------------------------------------------------------------------ Ollama (local)
+
+OLLAMA_CONTEXT = 16384  # tokens: instructions + tool schemas + a few results; Ollama's default is 4096
+
+
+def ollama_root(base_url: str) -> str:
+    """http://host:11434 from a base URL given with or without the OpenAI-style /v1."""
+    return base_url.rstrip("/").removesuffix("/v1")
+
+
+class Ollama(OpenAICompatible):
+    """Ollama's /api/chat: the OpenAI-compatible conversation, plus `num_ctx` per request."""
+
+    def __init__(self, system: str, tools: list[Tool], model: str,
+                 base_url: str = "http://127.0.0.1:11434", api_key: str | None = None,
+                 temperature: float = 0.2, timeout: float = 300,
+                 num_ctx: int = OLLAMA_CONTEXT, think: bool | None = None) -> None:
+        """think: None = the model's default; false skips a thinking model's reasoning."""
+        super().__init__(system, tools, model, base_url, api_key, temperature, timeout)
+        self.url = ollama_root(base_url) + "/api/chat"
+        self.num_ctx = int(num_ctx)
+        self.think = think
+
+    def step(self, tools: bool = True) -> Step:
+        body = {"model": self.model, "messages": self.messages, "stream": False,
+                "options": {"temperature": self.temperature, "num_ctx": self.num_ctx}}
+        if tools:  # Ollama has no tool_choice: no tools listed, no calls
+            body["tools"] = self.tools
+        if self.think is not None:
+            body["think"] = bool(self.think)
+        message = self._post(body)["message"]
+        calls = [ToolCall(c.get("id") or f"call_{len(self.messages)}_{i}",
+                          c["function"]["name"], _arguments(c["function"].get("arguments")))
+                 for i, c in enumerate(message.get("tool_calls") or [])]
+        self.messages.append({k: v for k, v in message.items()
+                              if k in {"role", "content", "tool_calls"}})
+        return Step(THINK.sub("", message.get("content") or "").strip(), calls)
+
+    def add_results(self, results: list[ToolResult]) -> None:
+        for r in results:
+            self.messages.append({"role": "tool", "content": r.output, "tool_name": r.call.name,
+                                  "tool_call_id": r.call.id})
+
+
+def _arguments(args: Any) -> dict[str, Any]:
+    """Tool call arguments: the JSON string the OpenAI spec uses, or an object (Ollama, some
+    other servers)."""
+    if isinstance(args, dict):
+        return args
+    try:
+        parsed = json.loads(args) if isinstance(args, str) and args.strip() else {}
+    except json.JSONDecodeError:
+        return {"_invalid_json": args}
+    return parsed if isinstance(parsed, dict) else {"_invalid_json": args}
 
 
 # ------------------------------------------------------------------ Claude
@@ -160,9 +217,10 @@ class Claude:
     def add_user(self, text: str) -> None:
         self.messages.append({"role": "user", "content": text})
 
-    def step(self) -> Step:
+    def step(self, tools: bool = True) -> Step:
         response = self.client.beta.messages.create(
             model=self.model, max_tokens=self.max_tokens, system=self.system, tools=self.tools,
+            tool_choice={"type": "auto" if tools else "none"},
             messages=self.messages, output_config={"effort": self.effort},
             cache_control={"type": "ephemeral"}, betas=[FALLBACK_BETA], fallbacks="default",
         )

@@ -211,7 +211,7 @@ Weapons are not offered: no model, and both false alarms and misses are costly (
 | Main-stream recording with full-resolution crops                                                                             | A multi-camera timeline: one visit across cameras                                   |
 | Alerts by area, line, crowding, abandoned bags, tampering, to webhook, email and**Telegram (2026-10-10)** with filters | WhatsApp, SMS and on-site siren channels                                            |
 | **Telegram bot (2026-10-10)**: ask Histor from a phone; images and clips optional                                      | Try it with a real bot at a pilot site                                              |
-| **Alert checking by a local vision model (2026-10-10)**, tested against a stand-in server                              | Run on a real Ollama, then false alarms per day at a pilot site with and without it |
+| **Alert checking by a local vision model (2026-10-10)**, run on a real Ollama (2026-10-13)                             | False alarms per day at a pilot site with and without it                            |
 | Body poses: facts,`people` search, person-down and hands-up alerts                                                         | Staged-fall test at a pilot site; a smaller COCO-only pose model                    |
 | Face search by photo (opt-in)                                                                                                | Calibrate the thresholds on a pilot site's footage                                  |
 | Number plates,`plates` search, watchlist alerts (trial finder)                                                             | **Our own YOLOX plate finder**; read rates on real cameras                    |
@@ -352,7 +352,7 @@ src/histor/
   tools.py             what the LLM may call: objects, search, alerts, people, plates, face, look
   mcp_server.py        the same tools over MCP (stdio), for Claude, ChatGPT or any agent
   telegram_bot.py      the chat as a Telegram bot, for allowed chats
-  llm.py               model backends: OpenAI-compatible (local) and Claude
+  llm.py               model backends: Ollama, OpenAI-compatible (local) and Claude
   vision.py            the local vision model behind `look` and alert checking
   report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
   ui.py                test UI (Gradio): record, find a person by photo, chat, reports, test bench
@@ -683,7 +683,10 @@ token never in an error, reports, the bot answering only allowed chats and givin
 their id, conversations and `/new`, evidence images, `/status`, a model error, and face search
 (off by default, the largest photo size, a match without the chat model, no match, unusable
 photos, the follow-up). Tried with a real bot from a phone (2026-10-10): `/id`, the allowed chat,
-`/status`, `/help`, and a photo before face search existed.
+`/status`, `/help`, and a photo before face search existed. With the real chat model
+(`qwen3.5:4b`, 2026-10-13, `tests/smoke/test_ollama.py`, stand-in Bot API): it looks things up
+before answering, keeps the conversation for follow-ups, describes a person through `look`,
+sends the evidence, and runs face search on a photo it was told about.
 
 ## 18. Alert checking: a second look before sending
 
@@ -728,7 +731,7 @@ alerts:
     timeout: 60                # seconds; later answers count as errors (alert sent unverified)
     questions:                 # override or add, per event type
       enter: "Is there a real person (not a shadow or reflection) in the red box?"
-    # model, base_url, max_side: default to chat.vision
+    # model, base_url, max_side, think: default to chat.vision
 ```
 
 **Cost and choice of events.** On a CPU each check takes seconds, so a checked alert arrives that
@@ -739,7 +742,11 @@ line crossing at a busy gate.
 **Status (2026-10-10).** Tested end to end (`tests/engine/test_verify.py`, 17 tests): verdicts,
 veto and tag modes, errors and a full queue still sending, the questions, and the real HTTP
 request to a stand-in OpenAI-compatible server (two JPEGs and the question, as Ollama gets them).
-Not yet run against a real vision model: no Ollama models on the build machine. Before promising
+Run against a real vision model on 2026-10-12 (`qwen3.5:4b` on Ollama, `tests/smoke/test_ollama.py`):
+it returns a parsed verdict, sometimes without the reason line (allowed). Thinking is off for the
+vision model (`think: false`, the default): with it on, qwen3.5 reasoned for over 10,000 tokens on
+one yes/no question (minutes on a CPU, past the timeout, so the alert went out as `error`); off,
+the verdict comes in about a second (2026-10-13). Before promising
 it: run it in `tag` mode for a week at a pilot site and count, per event type, the false alarms
 it would have held back and the real alerts it would have wrongly held back. NVIDIA's Public Safety
 blueprint uses the same pattern with an 8B model on a data-centre GPU (section 49).
@@ -1142,9 +1149,16 @@ model is Claude. If the vision server is down, the tool says so and the chat car
 
 ### 25.1 Models
 
-The model is a switch in `configs/default.yaml` (`chat.model`, entries under `chat.models`). Any
-OpenAI-compatible server works as `api: openai` (Ollama, llama.cpp's `llama-server`, LM Studio,
+The model is a switch in `configs/default.yaml` (`chat.model`, entries under `chat.models`).
+Ollama entries use `api: ollama`, Ollama's own API: it takes the context size per request
+(`num_ctx`, 16384 by default). Ollama's OpenAI-compatible endpoint keeps its default of 4096
+tokens and silently cuts longer prompts (Ollama's log: `truncating input prompt`); the chat's
+instructions, tool schemas and a result are ~5,000 tokens, so through that endpoint the model
+answered without its instructions (found on 2026-10-12, the first run against a real Ollama). Any
+other OpenAI-compatible server works as `api: openai` (llama.cpp's `llama-server`, LM Studio,
 vLLM, or a hosted one with `api_key: ${KEY}`): add an entry, no code change.
+`think: false` on an Ollama entry turns a thinking model's reasoning off (faster, less careful
+answers); left out, the model's default. The vision model (`chat.vision`) has it off by default.
 
 | Entry               | Runs on                                                                                       | Setup                                                         |
 | ------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -2060,8 +2074,8 @@ default). The chat model passes 1–4 images that earlier results listed (thumbs
 snapshots, plate crops). Any other path is refused, so it can't open arbitrary files. The images
 are shrunk to `max_side` (640 px) and sent to the local server; only the answer goes back. If the
 vision server is down, the tool says so and the chat carries on. Tests: `tests/test_look.py`,
-against a stand-in OpenAI-compatible server. Not yet run against a real Ollama: no Ollama on the
-build machine.
+against a stand-in server, and `tests/smoke/test_ollama.py` with a real Ollama and `qwen3.5:4b`
+(2026-10-12: it reads evidence images and answers; run `uv run pytest -m smoke`).
 
 **Design**: a new chat tool, `look(evidence, question)`. The chat model passes thumbnails or hi-res
 crops it already found; a local vision model answers in text. It runs locally even when the chat model
@@ -2274,7 +2288,7 @@ tailgating (section 48), and the tools over MCP (built, section 25.3).
 | #     | Step                                                                                                                                                 | Size | Gives                                             |
 | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------- |
 | 1     | **Urgent: train our own YOLOX plate finder** on Open Images "Vehicle registration plate" (CC BY 4.0), then `plates.detector.type: yolox`     | M    | A fully permissive plate pipeline                 |
-| 2     | Alert checking on a real Ollama, then a week in`tag` mode at a pilot site: false alarms held back vs real alerts wrongly held back, per event type | S    | The number to quote                               |
+| 2     | Alert checking: a week in `tag` mode at a pilot site (runs on a real Ollama): false alarms held back vs real alerts wrongly held back, per event type | S    | The number to quote                               |
 | 3     | Smoke/fire and threat CLIP scores on the scene vectors: zero-shot, then a probe trained on D-Fire/FASDD (45.4, 48)                                   | S    | "Any smoke last night?" + a cheap vote for alerts |
 | 4     | Composite detector + YOLOX fire/smoke + persistence check + alert checking (45)                                                                      | M–L | Fire/smoke alerts, ready for a pilot              |
 | 5     | Person-down on staged falls at a pilot site; a COCO-only small pose model (47.4)                                                                     | M    | Person-down alerts we can promise                 |

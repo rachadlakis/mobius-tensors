@@ -347,7 +347,17 @@ def discover_onvif(
     finally:
         for sock in socks:
             sock.close()
-    return sorted(found.values(), key=lambda m: ipaddress.ip_address(m["host"]))
+    return sorted(found.values(), key=lambda m: _host_order(m["host"]))
+
+
+def _host_order(host: str) -> tuple[int, int, str]:
+    """Sort key: IPv4 addresses in numeric order, then IPv6 ones, then host names (an XAddr
+    may give either)."""
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return 7, 0, host
+    return ip.version, int(ip), host
 
 
 def scan_subnet(
@@ -374,7 +384,7 @@ def scan_subnet(
 def load_cameras(config_path: Path) -> dict[str, Any]:
     import yaml
 
-    config = yaml.safe_load(config_path.read_text()) or {}
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     return config.get("cameras") or {}
 
 

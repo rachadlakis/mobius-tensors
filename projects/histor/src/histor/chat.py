@@ -17,6 +17,7 @@ names ("photo1"), never the image, also with a cloud model.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import shlex
 from datetime import datetime
@@ -29,10 +30,15 @@ import yaml
 from dotenv import load_dotenv
 from histor.ask import build_engine
 from histor.engine.cameras import expand_env
-from histor.llm import Backend, Step, create_backend
+from histor.llm import Backend, ToolResult, create_backend
 from histor.tools import Toolbox
 
 MAX_TOOL_ROUNDS = 6
+REPEATED = ("Error: you already made this lookup; its result is above. Answer from it, or make a "
+            "different lookup.")
+ANSWER_NOW = ("Answer my question now, from what the lookups above found (if they found nothing, "
+              "say so and say what was checked). No more lookups.")
+STOPPED = "(Stopped: too many tool calls without an answer. Try a narrower question.)"
 
 SYSTEM = """You answer questions about what security cameras recorded.
 Everything you know about the footage comes from your tools: never invent sightings, times or counts.
@@ -62,6 +68,9 @@ How to work:
   without am/pm ("between 1 and 4") mean daytime (13:00 to 16:00) unless the question or the
   camera's usual hours say otherwise; say what you assumed.
 - Run several lookups when a question has several parts; rephrase once if nothing matches.
+- Look before asking: no camera named -> all cameras; no time given -> leave `when` out (all
+  recordings). Say what you checked. Ask back only when a lookup can't help at all.
+- The times above are examples: take times only from the question.
 
 How to answer:
 - Short and concrete: camera, date and time, what was seen.
@@ -122,18 +131,32 @@ def system_prompt(toolbox: Toolbox, now: datetime | None = None) -> str:
 
 def answer(backend: Backend, toolbox: Toolbox, question: str,
            log: logging.Logger | None = None, max_rounds: int = MAX_TOOL_ROUNDS) -> str:
-    """One question: let the model call tools until it answers (at most max_rounds)."""
+    """One question: let the model call tools until it answers (at most max_rounds). Out of
+    rounds, or an empty reply: one more turn without tools, so it answers from what it found
+    (small models otherwise loop on the same lookups, or reply with nothing)."""
     backend.add_user(question)
-    step = Step("")
+    seen: set[str] = set()
     for _ in range(max_rounds):
         step = backend.step()
         if not step.calls:
-            return step.text
+            if step.text:
+                return step.text
+            break
         if log:
             for c in step.calls:
                 log.info("  -> %s %s", c.name, c.args)
-        backend.add_results([toolbox.run(c) for c in step.calls])
-    return step.text or "(Stopped: too many tool calls without an answer. Try a narrower question.)"
+        results = []
+        for c in step.calls:
+            key = json.dumps([c.name, c.args], sort_keys=True, default=str)
+            results.append(ToolResult(c, REPEATED, is_error=True) if key in seen
+                           else toolbox.run(c))
+            seen.add(key)
+        backend.add_results(results)
+    backend.add_user(ANSWER_NOW)
+    step = backend.step(tools=False)
+    if step.calls:  # a server that called tools anyway: answer them, keep the history valid
+        backend.add_results([ToolResult(c, "No more lookups.", is_error=True) for c in step.calls])
+    return step.text or STOPPED
 
 
 def read_image(path: str | Path) -> np.ndarray:

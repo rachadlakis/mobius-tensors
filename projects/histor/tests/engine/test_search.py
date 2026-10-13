@@ -46,6 +46,16 @@ def store(tmp_path):
     ("person in the last 2 hours", "person", datetime(2026, 9, 29, 13, 30), NOW),
     ("truck after 10pm yesterday", "truck", datetime(2026, 9, 28, 22), datetime(2026, 9, 29)),
     ("dog 2026-09-20", "dog", datetime(2026, 9, 20), datetime(2026, 9, 21)),
+    ("dog 25/09", "dog", datetime(2026, 9, 25), datetime(2026, 9, 26)),
+    # not dates ("30/2", a US-style "9/25"): kept as words instead of raising
+    ("person 30/2", "person 30/2", None, None),
+    ("car 9/25 24/9", "car 9/25", datetime(2026, 9, 24), datetime(2026, 9, 25)),
+    # exact ISO times, as chat models pass them in `when` (a date in a range is not hours)
+    ("2026-09-20 22:10 to 2026-09-20 22:10:12", "a person", datetime(2026, 9, 20, 22, 10),
+     datetime(2026, 9, 20, 22, 10, 12)),
+    ("van from 2026-09-20 to 2026-09-22", "van", datetime(2026, 9, 20), datetime(2026, 9, 23)),
+    ("car 2026-09-20T9:30", "car", datetime(2026, 9, 20, 9), datetime(2026, 9, 20, 10)),
+    ("person 2026-02-30 10:00", "person 2026-02-30 10:00", None, None),  # no such day
     ("woman in black dress this morning", "woman in black dress", datetime(2026, 9, 29, 6),
      datetime(2026, 9, 29, 12)),
     # a part of the day that has not started yet today means the last one

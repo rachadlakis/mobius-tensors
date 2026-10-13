@@ -294,6 +294,9 @@ def test_api_people(tmp_path):
     assert client.get("/people", params={"posture": "flying"}).status_code == 400
     assert client.get("/people", params={"carrying": "pram"}).status_code == 400
     assert client.get("/people", params={"motion": "running"}).json()["total"] == 0
+    assert client.get("/people", params={"arms": "up"}).json()["total"] == 0
+    for arms in ("down", "unknown"):  # not filters: an error, never "hands up" by mistake
+        assert client.get("/people", params={"arms": arms}).status_code == 400
     engine: SearchEngine = app.state.engine
     assert engine.people(postures=["standing"]) == []
 

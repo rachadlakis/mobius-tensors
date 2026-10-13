@@ -37,7 +37,7 @@ class ScriptedBackend:
     def add_user(self, text):
         self.users.append(text)
 
-    def step(self):
+    def step(self, tools=True):
         return self.steps.pop(0)
 
     def add_results(self, results):

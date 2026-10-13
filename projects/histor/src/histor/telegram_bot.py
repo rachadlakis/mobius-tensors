@@ -174,6 +174,7 @@ class TelegramBot:
             return
         log.info("Chat %s attached a photo for face search as %s", chat, name)
         question = (message.get("caption") or "").strip() or PHOTO_QUESTION
+        self.toolbox.evidence.clear()  # else the last question's thumbnails go out as faces
         try:
             found = self.toolbox.face(name, when=question)
         except ValueError as e:

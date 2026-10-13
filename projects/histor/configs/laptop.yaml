@@ -70,27 +70,33 @@ reports:
 chat:
   model: local
   models:
-    local:
-      api: openai
-      base_url: http://127.0.0.1:11434/v1   # Ollama: `ollama pull qwen3:4b`
+    local:                                  # small for now: `ollama pull qwen3.5:2b-q4_K_M`
+      api: ollama
+      base_url: http://127.0.0.1:11434
+      model: qwen3.5:2b-q4_K_M
+      temperature: 0.2
+      note: Qwen3.5 2B · Apache-2.0 · 1.9 GB · CPU · tools + vision
+    qwen3-4b:                               # `ollama pull qwen3:4b`
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: qwen3:4b
       temperature: 0.2
       note: Qwen3 4B · Apache-2.0 · 2.5 GB · CPU
     qwen3.5-4b:                             # `ollama pull qwen3.5:4b`
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: qwen3.5:4b
       temperature: 0.2
       note: Qwen3.5 4B · Apache-2.0 · 3.4 GB · CPU · tools + vision
     granite-3b:                             # `ollama pull granite4.1:3b`
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: granite4.1:3b
       temperature: 0.2
       note: IBM Granite 4.1 3B · Apache-2.0 · 2.1 GB · CPU · tuned for tool use
     gemma4-e4b:                             # `ollama pull gemma4:e4b`
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: gemma4:e4b
       temperature: 0.2
       note: Gemma 4 E4B · Apache-2.0 · 6.6 GB · CPU · tools + vision
@@ -99,10 +105,11 @@ chat:
       model: claude-opus-5-5
       effort: low
       note: Claude Opus 5.5 · Anthropic API (cloud)
-  vision:                                   # `look` tool: `ollama pull qwen3.5:4b`
+  vision:                                   # `look` tool and alert checking: the chat's model
     enabled: true
-    model: qwen3.5:4b
-    base_url: http://127.0.0.1:11434/v1
+    api: ollama
+    model: qwen3.5:2b-q4_K_M
+    base_url: http://127.0.0.1:11434
     max_images: 4
     max_side: 640
 

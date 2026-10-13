@@ -40,12 +40,13 @@ from fastapi import FastAPI
 from histor.engine import app as bench  # the engine's test bench
 from histor.ask import build_engine
 from histor.chat import answer, model_config, system_prompt
-from histor.llm import Backend, create_backend
+from histor.llm import Backend, create_backend, ollama_root
 from histor.engine.cameras import is_stream_url
 from histor.engine.pipeline import Pipeline
 from histor.report import Reporter, report_text
 from histor.engine.search import SearchEngine
 from histor.engine.stream import iter_frames
+from histor.engine.theme import CSS, THEME
 from histor.tools import Toolbox
 
 log = logging.getLogger("histor.ui")
@@ -54,58 +55,6 @@ WHEN_CHOICES = ["last 10 minutes", "last hour", "today", "this morning", "yester
 EXAMPLES = ["What happened in the last hour?", "How many people came in today?",
             "Was anyone carrying a bag this morning?", "Did any alert go off last night?"]
 BRAND = Path(__file__).resolve().parents[4] / "Images" / "histor" / "web"  # repo's Histor kit
-
-# Histor blue (#2864ff) as the accent. System fonts: the page loads nothing from the internet.
-BLUE = gr.themes.Color(c50="#eef3ff", c100="#dbe5ff", c200="#bfd0ff", c300="#93b1ff",
-                       c400="#6089ff", c500="#2864ff", c600="#1a4fe6", c700="#163fba",
-                       c800="#173896", c900="#182f73", c950="#0b1230", name="histor")
-THEME = gr.themes.Soft(primary_hue=BLUE, secondary_hue=BLUE, neutral_hue="slate",
-                       font=["ui-sans-serif", "system-ui", "Segoe UI", "sans-serif"],
-                       font_mono=["ui-monospace", "Consolas", "monospace"])
-
-CSS = """
-.ag-header {display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 4px 0 6px}
-.ag-header svg {width: 46px; height: 46px; flex: none}
-.ag-title {font-size: 1.6rem; font-weight: 700; line-height: 1.1}
-.ag-sub {color: var(--body-text-color-subdued); font-size: .9rem}
-.ag-chips {display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto}
-.ag-chip {border: 1px solid var(--border-color-primary); border-radius: 999px; padding: 3px 10px;
-          font-size: .8rem; background: var(--block-background-fill); white-space: nowrap}
-.ag-chip::before {content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px;
-                  border-radius: 50%; background: #94a3b8; vertical-align: 1px}
-.ag-chip.on::before {background: #22c55e}
-.ag-chip.plain::before {display: none}
-.ag-status {display: flex; align-items: center; gap: 10px; font-size: .95rem; padding: 2px 0}
-.ag-dot {width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; flex: none}
-.ag-status.rec .ag-dot {background: #ef4444; animation: ag-pulse 1.4s infinite}
-.ag-status.rec b {color: #ef4444}
-.ag-status.busy .ag-dot {background: #3b82f6; animation: ag-pulse 1.4s infinite}
-.ag-status.error .ag-dot {background: #f59e0b}
-@keyframes ag-pulse {50% {opacity: .3}}
-.ag-cards {display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px}
-.ag-card {border: 1px solid var(--border-color-primary); border-radius: 10px; padding: 10px 12px;
-          background: var(--block-background-fill)}
-.ag-card b {display: block; font-size: 1.5rem; line-height: 1.2; font-variant-numeric: tabular-nums}
-.ag-card span {color: var(--body-text-color-subdued); font-size: .8rem}
-.ag-notes {margin: 8px 0 0; padding-left: 18px; font-size: .85rem;
-           color: var(--body-text-color-subdued)}
-.ag-box {border: 1px solid var(--border-color-primary); border-left-width: 4px; border-radius: 8px;
-         padding: 10px 12px; background: var(--block-background-fill); font-size: .9rem}
-.ag-box.ok {border-left-color: #22c55e}
-.ag-box.warn {border-left-color: #f59e0b}
-.ag-box.err {border-left-color: #ef4444}
-.ag-box.info {border-left-color: var(--color-accent)}
-.ag-box p {margin: 4px 0 0}
-.ag-box code {font-size: .85em}
-.ag-answer {font-size: 1.05rem; font-weight: 600}
-.ag-muted {color: var(--body-text-color-subdued)}
-.ag-controls {align-items: flex-end}
-.ag-controls button {flex-grow: 0; height: 44px; margin-bottom: 2px}
-/* hand cursor on anything picked from a list */
-input[role="combobox"], .wrap:has(> .wrap-inner input[role="combobox"]), .dropdown-arrow,
-[role="option"], label:has(> input[type="radio"]), label:has(> input[type="checkbox"]),
-input[type="radio"], input[type="checkbox"] {cursor: pointer}
-"""
 
 
 class Recorder:
@@ -157,7 +106,7 @@ class Recorder:
                 fps = frames / max(1e-6, time.monotonic() - started)
                 self.raw, self.frame = raw, cv2.cvtColor(drawn, cv2.COLOR_BGR2RGB)
                 self.frame_no += 1
-                self.status = f"Recording {self.camera} · {fps:.1f} FPS · {people} person(s) in view"
+                self.status = f"Recording {self.camera} · {fps:.1f} fps · {people} in view"
             else:
                 self.status = "The camera stopped sending frames."
         except Exception as e:  # shown on the page instead of a silent dead thread
@@ -219,8 +168,9 @@ def model_card(config: dict[str, Any], name: str | None) -> str:
     host = urlparse(base_url).hostname or ""
     where = "runs on this machine" if host in ("127.0.0.1", "localhost", "::1") else \
         f"runs on {html.escape(host)}"
-    try:
-        available = server_models(base_url, cfg.get("api_key"))
+    try:  # Ollama lists its models on the OpenAI-style endpoint too
+        available = server_models(ollama_root(base_url) + "/v1" if cfg.get("api") == "ollama"
+                                  else base_url, cfg.get("api_key"))
     except Exception:
         return box("err", f"{name}: model server not reachable",
                    f"{note} · {where}<br>Nothing answers at <code>{html.escape(base_url)}</code>. "
@@ -251,8 +201,10 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
             "busy" if recorder.running else "error" if text.startswith(("Error", "The camera")) \
             else ""
         label = {"rec": "<b>REC</b> ", "busy": "", "error": "", "": ""}[kind]
-        return (f'<div class="ag-status {kind}"><span class="ag-dot"></span>'
-                f'<span>{label}{html.escape(text)}</span></div>')
+        # REC and the header say what and where: the pill keeps the figures
+        shown = text.split(" · ", 1)[-1] if kind == "rec" else text
+        return (f'<div class="ag-status {kind}" title="{html.escape(text)}">'
+                f'<span class="ag-dot"></span><span>{label}{html.escape(shown)}</span></div>')
 
     def buttons() -> tuple[Any, Any]:
         return (gr.Button(interactive=not recorder.running),
@@ -279,21 +231,23 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
 
     def stats() -> tuple[str, list[tuple[np.ndarray, str]]]:
         counts = engine.store.counts()
-        cards = [("Face prints", counts["faces"]), ("Object sightings", counts["sightings"]),
+        cards = [("Sightings", counts["sightings"]), ("Faces", counts["faces"]),
                  ("Poses", counts["poses"]), ("Alerts", counts["events"])]
         notes = []
         indexer = recorder.pipeline.indexer if recorder.pipeline is not None else None
         if indexer is not None and recorder.running:
-            cards.append(("Faces skipped", indexer.faces_skipped))
+            cards.append(("Skipped", indexer.faces_skipped))
             notes.append("Skipped faces were blurred, too small or turned away.")
             if indexer.faces is None:
                 notes.append("Face recording is <b>off</b> for this camera (faces.cameras).")
             if indexer.embedder is None:
                 notes.append("No CLIP model: search by description is off.")
-        page = '<div class="ag-cards">' + "".join(
-            f'<div class="ag-card"><b>{n:,}</b><span>{label}</span></div>' for label, n in cards)
-        page += "</div>" + (f'<ul class="ag-notes">{"".join(f"<li>{n}</li>" for n in notes)}</ul>'
-                            if notes else "")
+        tiles = "".join(f'<div class="ag-card"><b>{n:,}</b><span>{label}</span></div>'
+                        for label, n in cards)
+        page = (f'<div class="ag-cards" style="grid-template-columns: repeat({len(cards)}, 1fr)">'
+                f"{tiles}</div>")
+        page += (f'<ul class="ag-notes">{"".join(f"<li>{n}</li>" for n in notes)}</ul>'
+                 if notes else "")
         gallery = []
         for f in engine.store.latest_faces(12):
             image = read_thumb(engine, f["thumb"])
@@ -334,9 +288,9 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                    "faces recorded (checked)": result.get("checked"),
                    "visits": result["results"]}
         kind = "ok" if result["results"] else "warn"
-        checked = result.get("checked")
+        checked = sum((result.get("checked") or {}).values())  # per camera
         body = f'<span class="ag-muted">Checked {checked} recorded face(s).</span>' \
-            if isinstance(checked, int) else ""
+            if result.get("face_found") else ""
         return (f'<div class="ag-box {kind}"><span class="ag-answer">'
                 f'{html.escape(result["answer"])}</span>{f"<p>{body}</p>" if body else ""}</div>',
                 gallery, details)
@@ -368,7 +322,7 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
         if not reporter or not name:
             return gr.update(), ""
         r = reporter.make(name, send=send)
-        note = box("error", "No written summary", html.escape(r["error"])) if r["error"] else ""
+        note = box("err", "No written summary", html.escape(r["error"])) if r["error"] else ""
         return report_periods(name), note
 
     # ------------------------------------------------------------------ ask
@@ -440,37 +394,46 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
 
     logo = (BRAND / "favicon.svg").read_text(encoding="utf-8") if (BRAND / "favicon.svg").is_file() \
         else ""
-    chips = [(f"camera {camera}", "plain"), (f"store {engine.store.path.name}", "plain"),
-             ("face search", "on" if engine.faces is not None else "off"),
-             ("search by description", "on" if clip_on else "off")]
+    chips = "".join(
+        f'<span class="ag-chip plain">{label} <b>{html.escape(value)}</b></span>'
+        for label, value in (("Camera", camera), ("Store", engine.store.path.name)))
+    chips += "".join(f'<span class="ag-chip {"on" if on else ""}">{label}</span>' for label, on in (
+        ("Face search", engine.faces is not None), ("Search by description", clip_on)))
     header = (f'<div class="ag-header">{logo}<div><div class="ag-title">Histor</div>'
-              f'<div class="ag-sub">Test console · records, finds people, answers questions'
-              f'</div></div><div class="ag-chips">'
-              + "".join(f'<span class="ag-chip {k}">{html.escape(t)}</span>' for t, k in chips)
-              + "</div></div>")
+              '<div class="ag-sub">Test console · record, find people, ask</div></div>'
+              f'<div class="ag-chips">{chips}</div></div>')
     avatar = BRAND / "app-icon-192.png"
     default_model = (config.get("chat") or {}).get("model", models[0] if models else None)
 
+    def field(label: str) -> None:
+        """A small caps label in front of a control on the same line."""
+        gr.HTML(f'<span class="ag-field">{label}</span>', scale=0, min_width=0,
+                container=False, padding=False, elem_classes="ag-fieldcell")
+
     # analytics off: Gradio would otherwise report usage to its servers
     with gr.Blocks(title="Histor", analytics_enabled=False) as demo:
-        gr.HTML(header)
+        gr.HTML(header, padding=False)
         with gr.Tab("Camera"):
-            with gr.Row(elem_classes="ag-controls"):
-                source_box = gr.Textbox(source, label="Source", scale=4,
-                                        placeholder="0 = built-in webcam, or a video file or "
+            with gr.Row(elem_classes="ag-controls", equal_height=True):
+                field("Source")
+                source_box = gr.Textbox(source, show_label=False, container=False, scale=3,
+                                        max_lines=1,
+                                        placeholder="0 = this webcam, or a video file or "
                                                     "camera URL")
-                start_btn = gr.Button("● Start recording", variant="primary", scale=1,
-                                      min_width=160)
-                stop_btn = gr.Button("■ Stop", variant="stop", scale=1, interactive=False,
-                                     min_width=100)
-            status = gr.HTML(status_html())
+                start_btn = gr.Button("● Record", variant="primary", scale=0,
+                                      min_width=150)
+                stop_btn = gr.Button("■ Stop", variant="stop", scale=0, interactive=False,
+                                     min_width=84)
+                status = gr.HTML(status_html(), scale=4, min_width=220, container=False,
+                                 padding=False)
             with gr.Row():
-                view = gr.Image(label="Live", interactive=False, height=480, scale=3,
-                                buttons=["fullscreen"])
-                with gr.Column(scale=2):
-                    stats_html = gr.HTML()
-                    faces_gallery = gr.Gallery(label="Faces stored (newest first)", columns=3,
-                                               height=330, object_fit="contain", preview=False)
+                view = gr.Image(label="Live", interactive=False, height=470, scale=7,
+                                buttons=["fullscreen"], elem_classes="ag-screen")
+                with gr.Column(scale=4, min_width=300, elem_classes="ag-side"):
+                    stats_html = gr.HTML(padding=False)
+                    faces_gallery = gr.Gallery(label="Faces stored · newest first", columns=4,
+                                               height=360, object_fit="cover", preview=False,
+                                               fit_columns=False)
             live_timer = gr.Timer(0.2, active=False)
             stats_timer = gr.Timer(2.0)
             start_btn.click(start, source_box, [status, live_timer, start_btn, stop_btn])
@@ -482,25 +445,29 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
 
         with gr.Tab("Find a person"):
             with gr.Row():
-                with gr.Column(scale=2):
+                with gr.Column(scale=4, min_width=300, elem_classes="ag-side"):
                     photo = gr.Image(label="Photo of the person", type="numpy",
-                                     sources=["upload", "clipboard"], height=300)
-                    snap_btn = gr.Button("📷 Take photo from the live camera", size="sm")
-                    with gr.Row():
+                                     sources=["upload", "clipboard"], height=250)
+                    snap_btn = gr.Button("Use a frame from the live camera", size="sm",
+                                         variant="secondary")
+                    with gr.Row(elem_classes="ag-row-tight"):
                         when = gr.Dropdown(WHEN_CHOICES, value="today", label="When",
-                                           allow_custom_value=True,
-                                           info="Pick or type: today 1pm to 4pm")
+                                           allow_custom_value=True, scale=3, min_width=120)
                         cam = gr.Dropdown([ALL_CAMERAS, *cameras], value=ALL_CAMERAS,
-                                          label="Camera")
-                    face_no = gr.Number(0, label="Face in the photo", precision=0, minimum=0,
-                                        info="0 = automatic, 1 = leftmost (group photos)")
+                                          label="Camera", scale=3, min_width=110)
+                        face_no = gr.Number(0, label="Face", precision=0, minimum=0, scale=1,
+                                            min_width=70)
                     find_btn = gr.Button("Search", variant="primary")
-                with gr.Column(scale=3):
-                    answer_html = gr.HTML(box("info", "Who are you looking for?",
-                                              "Add a clear photo of their face, pick a time "
-                                              "range and search. No language model needed."))
-                    results = gr.Gallery(label="Matching visits (best face of each)",
-                                         columns=4, height=300, object_fit="contain", preview=False)
+                with gr.Column(scale=7, elem_classes="ag-side"):
+                    answer_html = gr.HTML(box(
+                        "info", "Who are you looking for?",
+                        "A clear photo of their face and a time range (pick one or type "
+                        "<i>today 1pm to 4pm</i>). Face <i>0</i> finds the face by itself; in a "
+                        "group photo, 1 is the leftmost. No language model needed."),
+                        padding=False)
+                    results = gr.Gallery(label="Matching visits · best face of each", columns=5,
+                                         height=330, object_fit="cover", preview=False,
+                                         fit_columns=False)
                     with gr.Accordion("Details", open=False):
                         details = gr.JSON(show_label=False)
             snap_btn.click(snapshot, None, photo)
@@ -508,60 +475,71 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
 
         with gr.Tab("Ask"):
             with gr.Row():
-                with gr.Column(scale=1, min_width=280):
+                with gr.Column(scale=3, min_width=260, elem_classes="ag-side"):
                     model = gr.Dropdown(models, value=default_model, label="Model")
-                    model_html = gr.HTML()
-                    check_btn = gr.Button("Check again", size="sm")
-                    clear_btn = gr.Button("New conversation", size="sm")
+                    model_html = gr.HTML(padding=False)
+                    with gr.Row(elem_classes="ag-row-tight"):
+                        check_btn = gr.Button("Check again", size="sm", variant="secondary",
+                                              min_width=0)
+                        clear_btn = gr.Button("New conversation", size="sm",
+                                              variant="secondary", min_width=0)
                     with gr.Accordion("Look for a person (photo)", open=False):
                         chat_photo = gr.Image(label="Photo", type="numpy",
-                                              sources=["upload", "clipboard"], height=200)
-                        chat_snap_btn = gr.Button("📷 From the live camera", size="sm")
-                        chat_face_no = gr.Number(0, label="Face in the photo (0 = automatic)",
-                                                 precision=0, minimum=0)
+                                              sources=["upload", "clipboard"], height=180)
+                        with gr.Row(elem_classes="ag-row-tight", equal_height=True):
+                            chat_face_no = gr.Number(0, label="Face (0 = auto)", precision=0,
+                                                     minimum=0, min_width=90)
+                            chat_snap_btn = gr.Button("Live frame", size="sm",
+                                                      variant="secondary", min_width=0)
                         attach_btn = gr.Button("Attach photo", variant="primary", size="sm")
-                        attach_html = gr.HTML()
-                with gr.Column(scale=3):
+                        attach_html = gr.HTML(padding=False)
+                with gr.Column(scale=9, elem_classes="ag-side"):
                     chatbot = gr.Chatbot(
-                        label="Histor", height=440, show_label=False,
+                        label="Histor", height=460, show_label=False,
                         avatar_images=(None, str(avatar) if avatar.is_file() else None),
                         placeholder="### Ask about what the cameras saw\nAnswers come from the "
                                     "recordings: the lookups made are shown above each answer, "
                                     "the thumbnails it looked at below.")
                     question = gr.Textbox(placeholder="How many people came in today?",
                                           show_label=False, submit_btn=True, autofocus=True)
-                    gr.Examples(EXAMPLES, question, label="Try")
-                    evidence = gr.Gallery(label="Evidence", columns=6, height=160,
-                                          object_fit="contain", preview=False)
+                    with gr.Column(elem_classes="ag-examples"):
+                        gr.Examples(EXAMPLES, question, label="Try")
+                    evidence = gr.Gallery(label="Evidence", columns=8, height=130,
+                                          object_fit="cover", preview=False,
+                                          fit_columns=False)
             chat_snap_btn.click(snapshot, None, chat_photo)
             attach_btn.click(attach, [chat_photo, chat_face_no], attach_html)
             question.submit(send, [question, chatbot, model], [question, chatbot, evidence])
             clear_btn.click(reset, model, [chatbot, evidence])
             model.change(reset, model, [chatbot, evidence])
+            demo.load(reset, model, [chatbot, evidence])  # a fresh page: the model forgets too
             for trigger in (model.change, check_btn.click, demo.load):
                 trigger(lambda m: model_card(config, m), model, model_html)
 
         with gr.Tab("Reports"):
             if not report_names:
-                gr.HTML(box("error" if reporter_error else "info",
+                gr.HTML(box("err" if reporter_error else "info",
                             reporter_error or "No reports configured",
                             "" if reporter_error else
                             "Add hourly, daily or weekly reports under <code>reports:</code> in "
                             "the config (cameras, what to watch for, where to send them), then "
-                            "run <code>uv run -m histor.report</code> next to the recorders."))
+                            "run <code>uv run -m histor.report</code> next to the recorders."),
+                        padding=False)
             else:
                 with gr.Row():
-                    with gr.Column(scale=1, min_width=260):
+                    with gr.Column(scale=3, min_width=260, elem_classes="ag-side"):
                         report_name = gr.Dropdown(report_names, value=report_names[0],
                                                   label="Report")
                         report_period = gr.Dropdown([], label="Period")
                         send_box = gr.Checkbox(False, label="Send to its channels too")
-                        make_btn = gr.Button("Make it now (last period)", variant="primary")
-                        make_html = gr.HTML()
-                    with gr.Column(scale=3):
-                        report_md = gr.Markdown()
-                        report_gallery = gr.Gallery(label="Evidence", columns=6, height=160,
-                                                    object_fit="contain", preview=False)
+                        make_btn = gr.Button("Make it now · last period", variant="primary")
+                        make_html = gr.HTML(padding=False)
+                    with gr.Column(scale=9, elem_classes="ag-side"):
+                        report_md = gr.Markdown(container=True, padding=True,
+                                                elem_classes="ag-report")
+                        report_gallery = gr.Gallery(label="Evidence", columns=8, height=130,
+                                                    object_fit="cover", preview=False,
+                                                    fit_columns=False)
                 report_name.change(report_periods, report_name, report_period)
                 report_period.change(show_report, report_period, [report_md, report_gallery])
                 make_btn.click(make_report, [report_name, send_box], [report_period, make_html])
@@ -569,9 +547,9 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
 
         with gr.Tab("Test bench"):
             gr.HTML(box("info", "The detection engine on its own",
-                        "Try models and thresholds on photos, videos and cameras, draw zones and "
-                        "lines, compare faces. Nothing here is recorded. Stop recording before "
-                        "using the Webcam tab: one webcam can't feed both."))
+                        "Models and thresholds on photos, videos and cameras, zones and lines, "
+                        "faces side by side. Nothing here is recorded; stop recording before "
+                        "using the Webcam tab (one webcam can't feed both)."), padding=False)
             bench.build_bench()
 
     demo.recorder = recorder  # type: ignore[attr-defined]  # stopped on exit by main()
@@ -605,6 +583,7 @@ def main() -> None:
     server = FastAPI()
     bench.add_live_route(server)
     server = gr.mount_gradio_app(server, demo, path="/", theme=THEME, css=CSS,
+                                 footer_links=[],
                                  favicon_path=str(favicon) if favicon.is_file() else None)
     url = f"http://127.0.0.1:{args.port}"
     print(f"* Running on local URL:  {url}")

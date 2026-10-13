@@ -75,6 +75,39 @@ def test_recordings_find_offset_and_reject_traversal(tmp_path):
     assert rec.path(rel) is not None and rec.path("../../etc/passwd") is None
 
 
+def test_stopping_asks_ffmpeg_to_finish_its_file():
+    class Proc:  # terminate() is a hard kill on Windows: the last file would be cut
+        def __init__(self) -> None:
+            self.stdin, self.code, self.terminated = io.BytesIO(), None, False
+
+        def poll(self):
+            return self.code
+
+        def wait(self, timeout=None):
+            self.code = 0
+
+        def terminate(self):
+            self.terminated = True
+
+    stream = MainStream("rtsp://cam/main", "cam", keyframes=True)
+    stream._proc = proc = Proc()  # type: ignore[assignment]
+    stream._kill()
+    assert proc.stdin.getvalue() == b"q" and not proc.terminated
+    assert "-nostdin" not in stream.command()
+
+
+def test_recordings_lead_before_an_alert(tmp_path):
+    _segment(tmp_path / "gate", datetime(2026, 10, 5, 14, 0, 0))
+    rec = Recordings(tmp_path, segment_seconds=60)
+    at = datetime(2026, 10, 5, 14, 0, 10).timestamp()
+    assert rec.find_lead("gate", at, 3) == ("gate/20261005-140000.mp4", pytest.approx(7))
+    # an alert 1 s into the recording (it had just started): its clip starts with the file
+    soon = datetime(2026, 10, 5, 14, 0, 1).timestamp()
+    assert rec.find("gate", soon - 3) is None
+    assert rec.find_lead("gate", soon, 3) == ("gate/20261005-140000.mp4", 0.0)
+    assert rec.find_lead("gate", datetime(2026, 10, 5, 13, 0).timestamp(), 3) is None
+
+
 def test_prune_by_age_and_free_space_keeps_the_file_being_written(tmp_path):
     folder = tmp_path / "gate"
     now = datetime(2026, 10, 5, 12).timestamp()

@@ -95,12 +95,45 @@ def test_search_with_time_and_objects(toolbox):
     assert [r["thumb"] for r in out["results"]] == ["c.jpg"]
 
 
+def test_objects_track_id_reused_after_a_restart_is_a_new_visit(toolbox):
+    # the recorder restarted today: its car #1 is not yesterday's car #1
+    today = NOW.timestamp() - 300
+    toolbox.engine.store.add_sightings([row("gate", today, 1, "car", "a2.jpg", unit(1)),
+                                        row("gate", today + 4, 1, "car", "a2.jpg", unit(1))])
+    out = toolbox.objects(labels=["car"])
+    assert out["total"] == 4 and [v["track_id"] for v in out["visits"]] == [1, 2, 9, 1]
+    first, last = out["visits"][0], out["visits"][-1]
+    assert (first["first_seen"], first["last_seen"]) == ("2026-10-02 18:00:00", "2026-10-02 18:00:05")
+    assert (last["first_seen"], last["thumb"]) == ("2026-10-03 11:55:00", "a2.jpg")
+    assert toolbox.objects(labels=["car"], when="yesterday")["total"] == 2
+
+
 def test_tool_errors_go_back_to_the_model(toolbox):
     r = toolbox.run(ToolCall("1", "objects", {"labels": ["van"]}))
     assert r.is_error and "search tool" in r.output
     assert toolbox.run(ToolCall("2", "objects", {"with_labels": ["unicorn"]})).is_error
     assert toolbox.run(ToolCall("3", "nope", {})).is_error
     assert toolbox.run(ToolCall("4", "search", {"wrong": 1})).is_error
+    # wrong types from a small model: an error result, not an exception that breaks the chat
+    assert toolbox.run(ToolCall("5", "objects", {"camera": ["gate"]})).is_error
+    assert toolbox.run(ToolCall("6", "alerts", {"since": 1759500000})).is_error
+
+
+def test_an_empty_lookup_says_why(toolbox):
+    # a small model copies an example time: tonight hasn't happened yet at 12:00
+    out = json.loads(toolbox.run(ToolCall("1", "objects", {
+        "labels": ["car"], "camera": "gate", "when": "today 6pm to 9pm"})).output)
+    assert out["total"] == 0
+    assert out["note"].startswith("That time range is in the future (now: 2026-10-03 12:00")
+    assert "Recorded: gate 2026-10-02 18:00:00 to 2026-10-03 11:50:00." in out["note"]
+    assert "yard" not in out["note"] and "leave when, since and until out" in out["note"]
+    out = json.loads(toolbox.run(ToolCall("2", "objects", {"labels": ["car"],
+                                                           "when": "2026-09-01"})).output)
+    assert out["note"].startswith("Nothing matches in that time range.") and "yard" in out["note"]
+    out = json.loads(toolbox.run(ToolCall("3", "objects", {"labels": ["bus"]})).output)
+    assert out["note"].startswith("Nothing matches at any time.")
+    assert "note" not in json.loads(toolbox.run(ToolCall("4", "objects", {
+        "labels": ["car"]})).output)
 
 
 def test_coverage(toolbox):
@@ -111,12 +144,13 @@ class ScriptedBackend:
     name = "fake"
 
     def __init__(self, steps):
-        self.steps, self.results, self.users = list(steps), [], []
+        self.steps, self.results, self.users, self.tools = list(steps), [], [], []
 
     def add_user(self, text):
         self.users.append(text)
 
-    def step(self):
+    def step(self, tools=True):
+        self.tools.append(tools)
         return self.steps.pop(0)
 
     def add_results(self, results):
@@ -134,7 +168,63 @@ def test_answer_runs_tools_until_text(toolbox):
 
 def test_answer_stops_after_max_rounds(toolbox):
     loop = Step("", [ToolCall("1", "objects", {"labels": ["car"]})])
-    assert "too many tool calls" in answer(ScriptedBackend([loop] * 10), toolbox, "?")
+    backend = ScriptedBackend([loop] * 10)
+    assert "too many tool calls" in answer(backend, toolbox, "?")
+    assert backend.tools == [True] * 6 + [False]  # a last turn without tools
+    assert backend.results[-1][0].output == "No more lookups."  # its calls answered too
+
+
+def test_out_of_rounds_the_model_answers_from_what_it_found(toolbox):
+    calls = [Step("", [ToolCall(str(i), "objects", {"labels": ["car"], "limit": i})])
+             for i in range(1, 7)]
+    backend = ScriptedBackend([*calls, Step("Two cars.")])
+    assert answer(backend, toolbox, "how many cars?") == "Two cars."
+    assert backend.tools[-1] is False and "No more lookups" in backend.users[-1]
+
+
+def test_an_empty_reply_gets_one_more_turn(toolbox):
+    backend = ScriptedBackend([Step(""), Step("Nothing was recorded.")])
+    assert answer(backend, toolbox, "anyone?") == "Nothing was recorded."
+    assert backend.tools == [True, False]
+
+
+def test_a_repeated_lookup_is_not_run_again(toolbox):
+    same = ToolCall("1", "objects", {"labels": ["car"], "when": "yesterday"})
+    backend = ScriptedBackend([Step("", [same]), Step("", [ToolCall("2", same.name, same.args)]),
+                               Step("Two cars.")])
+    assert answer(backend, toolbox, "cars?") == "Two cars."
+    first, again = backend.results[0][0], backend.results[1][0]
+    assert json.loads(first.output)["total"] == 2
+    assert again.is_error and "already made this lookup" in again.output
+
+
+def test_ollama_sets_the_context_and_reads_native_tool_calls(monkeypatch):
+    backend = create_backend({"api": "ollama", "model": "qwen3.5:4b",
+                              "base_url": "http://h:11434/v1"}, "sys", TOOLS)
+    assert backend.url == "http://h:11434/api/chat"  # /v1 or not
+    replies = iter([
+        {"message": {"role": "assistant", "content": "", "tool_calls": [
+            {"function": {"name": "objects", "arguments": {"labels": ["car"]}}}]}},
+        {"message": {"role": "assistant", "content": "<think>x</think>Two cars."}},
+    ])
+    sent = []
+    monkeypatch.setattr(backend, "_post", lambda body: sent.append(body) or next(replies))
+    backend.add_user("how many cars?")
+    step = backend.step()
+    assert step.calls[0].name == "objects" and step.calls[0].args == {"labels": ["car"]}
+    assert sent[0]["options"]["num_ctx"] == 16384  # Ollama's default 4096 cuts the prompt
+    assert "think" not in sent[0]  # the model's own default unless set
+    backend.add_results([ToolResult(step.calls[0], '{"total": 2}')])
+    assert backend.messages[-1]["tool_name"] == "objects"
+    assert backend.step().text == "Two cars."
+    quick = create_backend({"api": "ollama", "model": "m", "think": False}, "sys", TOOLS)
+    monkeypatch.setattr(quick, "_post", lambda body: sent.append(body) or {"message": {
+        "role": "assistant", "content": "ok"}})
+    quick.add_user("hi")
+    quick.step()
+    assert sent[-1]["think"] is False and sent[-1]["tools"] == quick.tools
+    quick.step(tools=False)  # the last turn: no tools listed (Ollama has no tool_choice)
+    assert "tools" not in sent[-1]
 
 
 def test_openai_compatible_parses_tool_calls_and_strips_thinking(monkeypatch):
@@ -155,6 +245,11 @@ def test_openai_compatible_parses_tool_calls_and_strips_thinking(monkeypatch):
     assert [t["function"]["name"] for t in sent[0]["tools"]] == ["objects", "search", "alerts"]
     assert [m["role"] for m in backend.messages] == ["system", "user", "assistant", "tool",
                                                      "assistant"]
+    assert "tool_choice" not in sent[0]
+    monkeypatch.setattr(backend, "_post", lambda body: sent.append(body) or {"choices": [
+        {"message": {"role": "assistant", "content": "ok"}}]})
+    backend.step(tools=False)  # the tools stay listed, calls switched off
+    assert sent[-1]["tool_choice"] == "none" and sent[-1]["tools"] == sent[0]["tools"]
 
 
 def test_claude_backend_message_shapes():
@@ -176,6 +271,9 @@ def test_claude_backend_message_shapes():
     backend.add_results([ToolResult(step.calls[0], "err", is_error=True)])
     assert backend.messages[2]["content"][0] == {"type": "tool_result", "tool_use_id": "t1",
                                                  "content": "err", "is_error": True}
+    assert calls[0]["tool_choice"] == {"type": "auto"}
+    backend.step(tools=False)
+    assert calls[1]["tool_choice"] == {"type": "none"} and calls[1]["tools"] == backend.tools
 
 
 def test_model_switch_config(monkeypatch):

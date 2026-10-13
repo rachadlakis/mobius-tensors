@@ -61,6 +61,7 @@ _FILTERS: dict[str, Any] = {
 
 ALERT_TYPES = ("enter", "exit", "dwell", "cross", "crowd", "down", "hands_up", "plate", "sound",
                "abandoned", "tamper")
+VISIT_GAP_SECONDS = 600  # objects: a track id seen again after this long is a new visit
 _ISO_KEYS = {"first_seen", "last_seen", "face_seen"}  # same time format as the other tools
 _WHEN = {k: _FILTERS[k] for k in ("when", "since", "until", "camera")}
 
@@ -293,6 +294,7 @@ class Toolbox:
         self.evidence: list[str] = []  # thumbnails (relative to media_dir) shown to the model
         self.photos: dict[str, list[np.ndarray]] = {}  # name -> face prints (one per photo)
         self.only_cameras: list[str] = []  # set by a report: every lookup stays on these
+        self._last_range: Range | None = None  # the time range of the last lookup
         # the people tool: poses recorded now (config) or before (rows in the store)
         has_rows = self._db.execute("SELECT 1 FROM sqlite_master WHERE name = 'poses'").fetchone() \
             and self._db.execute("SELECT 1 FROM poses LIMIT 1").fetchone()
@@ -385,6 +387,7 @@ class Toolbox:
         return [{"camera": c, "rule": r, "events": n} for c, r, n in rows]
 
     def run(self, call: ToolCall) -> ToolResult:
+        self._last_range = None
         try:
             if call.name == "objects":
                 out = self.objects(**call.args)
@@ -403,9 +406,13 @@ class Toolbox:
             else:
                 names = ", ".join(t.name for t in self.tools)
                 raise ValueError(f"Unknown tool {call.name!r}; use one of: {names}")
+            if out.get("total") == 0 and self._last_range is not None:
+                out["note"] = self._nothing_found(self._last_range)
             self.shown.update(_media(out))
             return ToolResult(call, json.dumps(out, ensure_ascii=False))
-        except (TypeError, ValueError) as e:  # bad arguments: tell the model so it can retry
+        # bad arguments (a list for a camera, a number for `since`...): tell the model so it
+        # can retry, instead of leaving its tool call unanswered
+        except (TypeError, ValueError, AttributeError) as e:
             return ToolResult(call, f"Error: {e}", is_error=True)
 
     # ------------------------------------------------------------------ tools
@@ -616,7 +623,22 @@ class Toolbox:
             if cameras and not set(cameras) & set(self.only_cameras):
                 raise ValueError(f"Only these cameras can be checked: {', '.join(self.only_cameras)}")
             cameras = [c for c in cameras if c in self.only_cameras] or list(self.only_cameras)
-        return Range(parsed.text, start, end, cameras)
+        self._last_range = Range(parsed.text, start, end, cameras)
+        return self._last_range
+
+    def _nothing_found(self, rng: Range) -> str:
+        """Why a lookup came back empty, so the model fixes the range instead of retrying the
+        same one (small models copy example times from the instructions)."""
+        spans = [c for c in self.coverage() if not rng.cameras or c["camera"] in rng.cameras]
+        recorded = "; ".join(f"{c['camera']} {c['from']} to {c['to']}" for c in spans)
+        recorded = f"Recorded: {recorded}." if recorded else "Nothing recorded yet."
+        if rng.since is None and rng.until is None:
+            return f"Nothing matches at any time. {recorded}"
+        now = (self.now or datetime.now()).timestamp()
+        why = (f"That time range is in the future (now: {_iso(now)})." if (rng.since or 0) > now
+               else "Nothing matches in that time range.")
+        return (f"{why} {recorded} If the question gives no time, leave when, since and until "
+                "out to check all recordings.")
 
     def _camera(self, camera: str) -> str:
         """A camera name, or an alias of one ("front desk" -> lobby)."""
@@ -628,21 +650,28 @@ class Toolbox:
 
     def _visits(self, labels: list[str], since: float | None, until: float | None,
                 cameras: list[str]) -> list[Visit]:
-        """Tracked objects (one row per track and label), in time order."""
-        sql = ("SELECT camera, track_id, label, MIN(time), MAX(time), MAX(thumb) FROM sightings "
-               "WHERE kind = 'object'")
-        args: list[Any] = []
+        """Tracked objects (one row per track and label), in time order. A track id seen again
+        after VISIT_GAP_SECONDS is a new visit: ids start again from 1 when a recorder
+        restarts, so yesterday's car #3 is not today's."""
+        where = "kind = 'object'"
+        args: list[Any] = [VISIT_GAP_SECONDS]
         for column, values in (("label", labels), ("camera", cameras)):
             if values:
-                sql += f" AND {column} IN ({','.join('?' * len(values))})"
+                where += f" AND {column} IN ({','.join('?' * len(values))})"
                 args += values
         if since is not None:
-            sql += " AND time >= ?"
+            where += " AND time >= ?"
             args.append(since)
         if until is not None:
-            sql += " AND time < ?"
+            where += " AND time < ?"
             args.append(until)
-        sql += " GROUP BY camera, track_id, label ORDER BY MIN(time)"
+        track = "PARTITION BY camera, track_id, label ORDER BY time"
+        sql = ("SELECT camera, track_id, label, MIN(time), MAX(time), MAX(thumb) FROM ("
+               f"SELECT *, SUM(gap) OVER ({track}) AS visit FROM ("
+               "SELECT camera, track_id, label, time, thumb, "
+               f"COALESCE(time - LAG(time) OVER ({track}) > ?, 0) AS gap "
+               f"FROM sightings WHERE {where})) "
+               "GROUP BY camera, track_id, label, visit ORDER BY MIN(time)")
         return [Visit(*row) for row in self._db.execute(sql, args).fetchall()]
 
     def _together(self, visits: list[Visit], with_labels: list[str] | str | None,

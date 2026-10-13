@@ -27,6 +27,7 @@ from histor.engine.faces import LIKELY_SAME_PERSON, MIN_PHOTO_FACE, SAME_PERSON_
 from histor.engine.live import BOUNDARY as MJPEG_BOUNDARY
 from histor.engine.live import LiveView
 from histor.engine.pipeline import Pipeline
+from histor.engine.theme import CSS, THEME
 from histor.engine.tracker import Tracker
 from histor.engine.zones import Line, Rule, Zone, ZoneMonitor, draw_rules
 
@@ -36,24 +37,18 @@ CONFIG_PATH = PROJECT / "configs" / "default.yaml"  # where IP cameras are decla
 DEFAULT_MODEL = "yolox_nano"
 BRAND = PROJECT.parents[1] / "Images" / "histor" / "web"  # repo's Histor kit
 
-CSS = """
-.ag-header {display: flex; align-items: center; gap: 14px; padding: 4px 0 6px}
-.ag-header svg {width: 46px; height: 46px; flex: none}
-.ag-title {font-size: 1.6rem; font-weight: 700; line-height: 1.1}
-.ag-sub {color: var(--body-text-color-subdued); font-size: .9rem}
-/* hand cursor on anything picked from a list */
-input[role="combobox"], .wrap:has(> .wrap-inner input[role="combobox"]), .dropdown-arrow,
-[role="option"], label:has(> input[type="radio"]), label:has(> input[type="checkbox"]),
-input[type="radio"], input[type="checkbox"] {cursor: pointer}
-"""
-
 _detectors: dict[str, YoloxOnnxDetector] = {}
 _face_engine: FaceEngine | None = None
 
 
+NOT_DETECTORS = ("clip_", "face_", "pose_", "plate_", "sound_")  # the other engines' models
+
+
 def available_models() -> list[str]:
-    """Official YOLOX models (downloaded on first use) plus any other .onnx in models/."""
-    local = sorted(p.stem for p in MODELS_DIR.glob("*.onnx"))
+    """Official YOLOX models (downloaded on first use) plus any other detector .onnx in models/
+    (a custom-trained YOLOX)."""
+    local = sorted(p.stem for p in MODELS_DIR.glob("*.onnx")
+                   if not p.stem.startswith(NOT_DETECTORS))
     return list(MODELS) + [name for name in local if name not in MODELS]
 
 
@@ -510,11 +505,12 @@ def zones_run(
 
 
 def build_ui() -> gr.Blocks:
-    with gr.Blocks(title="Histor Test Bench") as ui:
+    with gr.Blocks(title="Histor Test Bench", analytics_enabled=False) as ui:
         logo = BRAND / "favicon.svg"
         gr.HTML(f'<div class="ag-header">{logo.read_text(encoding="utf-8") if logo.is_file() else ""}'
                 '<div><div class="ag-title">Histor Test Bench</div>'
-                '<div class="ag-sub">YOLOX (Apache-2.0) · ONNX Runtime · CPU</div></div></div>')
+                '<div class="ag-sub">YOLOX (Apache-2.0) · ONNX Runtime · CPU</div></div></div>',
+                padding=False)
         build_bench()
     return ui
 
@@ -671,7 +667,7 @@ def build_bench() -> None:
             f_files = gr.File(file_count="multiple", file_types=["image"], type="filepath",
                               label="Photos", scale=1)
             f_gallery = gr.Gallery(label="Detections", columns=3, height=420, scale=2,
-                                   object_fit="contain")
+                                   object_fit="contain", fit_columns=False)
         f_btn = gr.Button("Detect faces", variant="primary")
         f_info = gr.Markdown()
         f_crops = gr.HTML()
@@ -748,7 +744,8 @@ def main() -> None:
     add_live_route(server)
 
     favicon = BRAND / "favicon-32.png"
-    app = gr.mount_gradio_app(server, build_ui(), path="/", css=CSS,
+    app = gr.mount_gradio_app(server, build_ui(), path="/", theme=THEME, css=CSS,
+                              footer_links=[],
                               favicon_path=str(favicon) if favicon.is_file() else None)
     print("* Running on local URL:  http://127.0.0.1:7860")
     try:

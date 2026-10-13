@@ -33,7 +33,8 @@ class FakeClip:
 
 
 class VisionServer:
-    """Minimal /v1/chat/completions that records requests and replies with canned text."""
+    """Minimal /v1/chat/completions (and Ollama /api/chat) that records requests and replies
+    with canned text."""
 
     def __init__(self, reply: str = "Two people, one holding a red umbrella.",
                  status: int = 200) -> None:
@@ -45,8 +46,9 @@ class VisionServer:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 outer.requests.append({"path": self.path, "body": body,
                                        "auth": self.headers.get("Authorization")})
-                payload = json.dumps({"choices": [{"message": {
-                    "role": "assistant", "content": reply}}]}).encode()
+                message = {"role": "assistant", "content": reply}
+                payload = json.dumps({"choices": [{"message": message}],  # OpenAI
+                                      "message": message}).encode()       # Ollama
                 self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -140,6 +142,25 @@ def test_ask_sends_question_and_images(server):
     assert body["messages"][1]["content"][0] == {"type": "text", "text": "How many people?"}
     (image,) = decode_parts(req)
     assert image.shape == (240, 320, 3) and image.mean() > 240
+
+
+def test_ollama_api_sends_images_natively_without_thinking(server):
+    v = VisionModel.from_config({"model": "qwen3.5:4b", "api": "ollama", "base_url": server.url,
+                                 "max_side": 320, "num_ctx": 8192})
+    assert v.ask([np.full((480, 640, 3), 255, np.uint8)], "How many people?") == (
+        "Two people, one holding a red umbrella.")
+    req = server.requests[0]
+    assert req["path"] == "/api/chat"  # /v1 dropped from the base URL
+    body = req["body"]
+    # thinking off: a yes/no check must not turn into minutes of reasoning on a CPU
+    assert body["think"] is False and body["options"]["num_ctx"] == 8192
+    user = body["messages"][1]
+    assert user["content"] == "How many people?" and len(user["images"]) == 1
+    raw = base64.b64decode(user["images"][0])  # plain base64, no data: prefix
+    assert cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR).shape == (240, 320, 3)
+    VisionModel("m", base_url=server.url, api="ollama", think=True).ask(
+        [np.zeros((8, 8, 3), np.uint8)], "q")
+    assert server.requests[1]["body"]["think"] is True
 
 
 def test_ask_strips_thinking():
@@ -305,7 +326,7 @@ class ScriptedBackend:
     def add_user(self, text: str) -> None:
         self.question = text
 
-    def step(self) -> Step:
+    def step(self, tools: bool = True) -> Step:
         s = next(self.steps)
         if s is None:
             thumb = json.loads(self.results[-1][0].output)["results"][0]["thumb"]

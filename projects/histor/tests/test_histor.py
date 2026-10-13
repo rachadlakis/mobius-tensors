@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import yaml
-from histor.ask import format_answer
+from histor.ask import build_engine, format_answer
 from histor.engine.detector import COCO_CLASSES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,3 +26,10 @@ def test_format_answer():
     assert "'red car' on all, yesterday" in text
     assert "gate" in text and "2026-10-02 18:05:00 -> 18:05:40" in text and "car" in text
     assert "nothing found" in format_answer({**answer, "results": []}, Path("media"))
+
+
+def test_engine_from_a_config_without_search_section(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)  # no models/ here: CLIP's default paths don't exist
+    engine = build_engine({"store": {"path": "s.db"}, "search": {"enabled": False}})
+    assert engine.clip is None and engine.faces is None
+    engine.store.close()

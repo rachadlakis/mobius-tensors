@@ -15,6 +15,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import cv2
 import yaml
@@ -22,6 +23,17 @@ import yaml
 from histor.engine.cameras import is_stream_url, main_stream_url, mask_url, resolve_source
 from histor.engine.pipeline import Pipeline
 from histor.engine.stream import is_live, iter_frames
+
+
+def default_camera_name(source: str, camera: str | None) -> str:
+    """The name stored with events and sent in alerts: --camera, else the source (a camera name
+    from the config, a file), but never a stream URL, which may hold a password: a bare URL is
+    named after its host."""
+    if camera:
+        return camera
+    if is_stream_url(source):
+        return urlsplit(source).hostname or "camera"
+    return source
 
 
 def main() -> None:
@@ -47,8 +59,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     source = args.source if args.source is not None else str(config.get("source", 0))
-    # Alerts get the camera name, never the resolved URL (which may hold a password).
-    camera_name = args.camera or source
+    camera_name = default_camera_name(source, args.camera)
     cameras = config.get("cameras") or {}
     main_url = main_stream_url(cameras[source]) if source in cameras else None
     source = resolve_source(source, cameras)

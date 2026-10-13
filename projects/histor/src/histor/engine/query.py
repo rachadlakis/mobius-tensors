@@ -11,6 +11,7 @@ Times are the server's local time. Unknown words are kept as the visual descript
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -57,6 +58,24 @@ def _at(day: datetime, hour: float) -> datetime:
     return day + timedelta(hours=hour)
 
 
+ISO = r"(\d{4}-\d{2}-\d{2})(?:[ t](\d{1,2}:\d{2}(?::\d{2})?))?"  # a date, maybe a time
+# (queries are lower-cased first: ISO's "T" arrives as "t")
+
+
+def _exact(date: str, clock: str | None, end: bool = False) -> datetime:
+    """An ISO date and time; a date alone that ends a range runs to the end of its day."""
+    if clock:
+        hour, rest = clock.split(":", 1)
+        return datetime.fromisoformat(f"{date} {int(hour):02d}:{rest}")
+    day = datetime.fromisoformat(date)
+    return day + timedelta(days=1) if end else day
+
+
+def _year(text: str | None, now: datetime) -> int:
+    year = int(text) if text else now.year
+    return year + 2000 if year < 100 else year
+
+
 def parse_query(text: str, now: datetime | None = None,
                 camera_names: list[str] | None = None,
                 camera_aliases: dict[str, str] | None = None) -> ParsedQuery:
@@ -94,16 +113,48 @@ def parse_query(text: str, now: datetime | None = None,
         since, until = now - delta, now
         labels.append(m.group(0).strip())
 
+    def cut_date(pattern: str, ymd: Callable[[re.Match[str]], tuple[int, int, int]]
+                 ) -> datetime | None:
+        nonlocal s
+        for m in re.finditer(pattern, s):
+            try:
+                found = datetime(*ymd(m))
+            except ValueError:  # "30/2", "50/50", "9/25": not a date, so it stays in the text
+                continue
+            s = s[: m.start()] + " " + s[m.end():]
+            return found
+        return None
+
+    def cut_exact() -> tuple[datetime, datetime] | None:
+        """A range of ISO dates / times, or one ISO time (around it, like "at 10pm")."""
+        nonlocal s
+        for m in re.finditer(rf"\b(?:from |between )?{ISO} ?(?:to|until|till|and|-) ?{ISO}\b", s):
+            try:
+                span = _exact(m[1], m[2]), _exact(m[3], m[4], end=True)
+            except ValueError:
+                continue
+            s = s[: m.start()] + " " + s[m.end():]
+            return span
+        for m in re.finditer(rf"\b(?:at |around )?{ISO}\b", s):
+            try:
+                at = _exact(m[1], m[2]) if m[2] else None
+            except ValueError:
+                at = None
+            if at is not None:  # a date alone is for the explicit dates below
+                s = s[: m.start()] + " " + s[m.end():]
+                return at - timedelta(minutes=30), at + timedelta(minutes=30)
+        return None
+
+    # --- exact times, as a model passes them: "2026-10-12 22:10 to 2026-10-12 22:30",
+    #     "2026-10-01 to 2026-10-03" (to the end of that day), or one "2026-10-12 22:10"
+    if since is None and (span := cut_exact()):
+        since, until = span
+
     # --- explicit dates: 2026-09-25 or 25/09(/2026)
-    m = cut(r"\b(\d{4})-(\d{2})-(\d{2})\b")
-    if m:
-        day = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
-    else:
-        m = cut(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b")
-        if m:
-            year = int(m.group(3)) if m.group(3) else now.year
-            year += 2000 if year < 100 else 0
-            day = datetime(year, int(m.group(2)), int(m.group(1)))
+    day = cut_date(r"\b(\d{4})-(\d{2})-(\d{2})\b", lambda m: (int(m[1]), int(m[2]), int(m[3])))
+    if day is None:
+        day = cut_date(r"\b(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\b",
+                       lambda m: (_year(m[3], now), int(m[2]), int(m[1])))
 
     # --- named days
     if day is None and since is None:
@@ -130,7 +181,8 @@ def parse_query(text: str, now: datetime | None = None,
         if m.group(3) is None and m.group(6) == "pm":  # "2 to 4pm" -> both pm
             start = _hour(m.group(1), m.group(2), "pm")
         since, until = _at(base, start), _at(base, end if end > start else end + 24)
-    elif m := cut(r"\b" + _TIME + r" ?(?:to|-|until) ?" + _TIME + r"\b"):
+    # (not inside a date: the "02-30" of "2026-02-30" is no time range)
+    elif m := cut(r"(?<![-/\d])\b" + _TIME + r" ?(?:to|-|until) ?" + _TIME + r"\b(?![-/\d])"):
         start, end = _hour(*m.group(1, 2, 3)), _hour(*m.group(4, 5, 6))
         if m.group(3) is None and m.group(6) == "pm":
             start = _hour(m.group(1), m.group(2), "pm")

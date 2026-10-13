@@ -38,7 +38,7 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
    focused on what the owner asked to watch for, saved and sent (see [Reports](#reports)).
 
 The detector, tracker, CLIP encoder, store and search are the engine in `src/histor/engine/`
-([ENGINE.md](ENGINE.md)); the product modules sit on top in `src/histor/`. One uv environment,
+([DOCUMENTATION.md](DOCUMENTATION.md#13-code-layout)); the product modules sit on top in `src/histor/`. One uv environment,
 models in `models/`.
 
 ## Quick start
@@ -54,7 +54,7 @@ uv run -m histor.ask "person with a bag on street"
 uv run -m histor.ask                            # interactive, empty line quits
 ```
 
-The models run on the GPU when there is one (`device: auto`, see [GPU](ENGINE.md#gpu)).
+The models run on the GPU when there is one (`device: auto`, see [GPU](DOCUMENTATION.md#14-models-and-licences)).
 NVIDIA machine: `uv sync --no-group cpu --group gpu`.
 
 ## Test on a laptop
@@ -70,15 +70,15 @@ skeleton, and raising both hands for 3 s or lying down for 10 s fires an alert.
 uv run --group ui -m histor.ui        # configs/laptop.yaml, opens http://127.0.0.1:7860
 ```
 
-1. **Camera**: *Start recording* (source `0` = the built-in webcam). The live view shows the
+1. **Camera**: *Record* (source `0` = the built-in webcam). The live view shows the
    tracked objects, and *Faces stored* the face prints being kept (best 5 per visit). Leave the
    frame and come back: that's a second visit.
-2. **Find a person**: upload a photo, or *Take photo from the live camera*, pick a time range
+2. **Find a person**: upload a photo, or *Use a frame from the live camera*, pick a time range
    (`today`, `last 10 minutes`) and *Search*: likely / possible visits with their best face.
    No LLM needed.
 3. **Ask**: the chat, with *Attach photo* for face questions. Needs Ollama running
-   (`ollama serve`, `ollama pull qwen3:4b`) or the `claude` model (`uv sync --group claude`,
-   `ANTHROPIC_API_KEY` in `.env`).
+   (`ollama serve`, `ollama pull qwen3.5:2b-q4_K_M`: small, for trying it out; it also reads
+   images) or the `claude` model (`uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env`).
 
 The test store is `data/store/laptop.db` (delete `data/store/laptop*` to start over), separate
 from a site's. Video files and camera URLs work as a source too.
@@ -142,7 +142,7 @@ In the interactive chat, `/model claude` switches model (and starts a new conver
 ### Looking for a person from a photo
 
 Needs `faces.enabled: true` (biometric data: client approval first, see the
-[engine docs](ENGINE.md#face-search-and-privacy)), and only
+[engine docs](DOCUMENTATION.md#21-face-search-opt-in)), and only
 finds people on cameras that were recording faces at the time.
 
 ```text
@@ -163,7 +163,12 @@ Likely yes: on the office camera from 13:40 to 13:45 (face clearly seen at 13:44
   many faces the checked cameras recorded and whether they can see faces: no match is not proof
   the person was not there.
 
-Any OpenAI-compatible server works as `api: openai`: llama.cpp's `llama-server`
+Ollama entries use `api: ollama`: Ollama's own API, which takes the context size per request
+(`num_ctx`, 16384 by default). Through its OpenAI-compatible endpoint Ollama keeps its default
+of 4096 tokens and silently cuts longer prompts, so the model loses its instructions and the tool
+results. `think: false` turns a thinking model's reasoning off (the vision model behind `look`
+and alert checking has it off by default: a yes/no answer in a second, not minutes). Any
+OpenAI-compatible server works as `api: openai`: llama.cpp's `llama-server`
 (`base_url: http://127.0.0.1:8080/v1`), LM Studio, vLLM, or a hosted one with
 `api_key: ${SOME_KEY}`. Add an entry, no code change. With a cloud model, the question and the
 search results (times, cameras, labels, thumbnail paths) are sent, never images or video.
@@ -203,7 +208,7 @@ Draw areas and lines in the test bench (**Zones & lines** tab) and paste the YAM
 channel filters by `rules`, `events`, `labels`, `hours` and `cooldown_seconds`. Every event goes
 into the store with a snapshot, so the chat answers "did any alert go off last night?" from the
 full list, whatever the channels sent. Channel details and the plan for Telegram, WhatsApp, SMS
-and on-site sirens: [engine docs](ENGINE.md#integrations-what-exists-and-what-comes-next).
+and on-site sirens: [engine docs](DOCUMENTATION.md#17-alerts-and-channels).
 
 More event types, each in its own config section and through the same channels:
 
@@ -217,7 +222,7 @@ More event types, each in its own config section and through the same channels:
 
 A one-way line (`direction: in`) is a wrong-way alarm. Sounds are classified in memory and never
 stored; they need ffmpeg and a camera with a microphone. Details and thresholds:
-[engine docs](ENGINE.md#more-rules-crowding-abandoned-objects-tampering).
+[engine docs](DOCUMENTATION.md#16-areas-lines-and-other-rules).
 
 Object rules work on the detector's 80 classes today. New things to detect (fire and smoke,
 objects a customer names) need a model trained for them; the rules and channels then apply
@@ -226,7 +231,7 @@ unchanged.
 Body poses add two event types: `down` (rule `person_down`: a person lying for 10 s) and
 `hands_up` (both hands above the head for 3 s). Enable them in the `pose:` section
 (`alerts: [down]` by default); they reach the same channels and the same `alerts` tool. Details,
-models and limits: [engine docs](ENGINE.md#body-poses-what-people-were-doing).
+models and limits: [engine docs](DOCUMENTATION.md#22-body-poses-what-people-were-doing).
 
 ## Reports
 
@@ -275,9 +280,9 @@ sent to it, never images.
 ## Cameras
 
 Cameras are declared under `cameras:` in `configs/default.yaml`, see
-[IP cameras](ENGINE.md#ip-cameras-poe). The `recording:` section saves
+[IP cameras](DOCUMENTATION.md#35-install-the-software). The `recording:` section saves
 each camera's main stream and crops from its full-resolution keyframes
-([details](ENGINE.md#main-stream-recording-and-hi-res-crops)). For the HTTP API
+([details](DOCUMENTATION.md#20-main-stream-recording-and-hi-res-crops)). For the HTTP API
 (`/search`, `/search/face`, `/events`), run `uv run --group server -m histor.engine.server --config configs/default.yaml`.
 
 Give each camera an `about:` at install time, standing at the camera, so the chat knows what
@@ -312,18 +317,19 @@ configs/laptop.yaml    test on a laptop: webcam = camera "laptop", faces on, own
 configs/engine/        engine-only examples (detection, zones, search)
 src/histor/
   engine/              detector, tracker, zones, alerts, store, CLIP / faces / pose / plates / sounds,
-                       tamper and abandoned rules, search, API (ENGINE.md)
+                       tamper and abandoned rules, search, API (DOCUMENTATION.md)
   record.py            recorder (engine/main.py with this config)
   ask.py               question -> ranked sightings (no LLM)
   report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
   tools.py             tools the LLM can call: objects, search, alerts, people, plates, face, look
-  llm.py               model backends: OpenAI-compatible (local) and Claude
+  llm.py               model backends: Ollama, OpenAI-compatible (local) and Claude
   vision.py            the local vision model behind `look` (chat.vision)
   ui.py                test UI (Gradio): record, find a person by photo, chat, reports
 notebooks/             models_tour.ipynb: each model, step by step
 models/                .onnx weights (git-ignored)
 tests/                 uv run pytest (tests/engine/ for the engine)
+tests/smoke/           uv run pytest -m smoke: every entry point with the real models (~1 min)
 ```
 
 ## Next

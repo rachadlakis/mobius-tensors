@@ -100,7 +100,7 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
         for item in items:
             item[f"{key}_url"] = media_url(item.get(key))
             # the moment in the recording, a few seconds early to see it happen
-            found = recordings.find(item["camera"], item["time"] - VIDEO_LEAD_SECONDS)
+            found = recordings.find_lead(item["camera"], item["time"], VIDEO_LEAD_SECONDS)
             item["video_url"] = (f"/recordings/{found[0]}#t={max(0, int(found[1]))}"
                                  if found else None)
         return items
@@ -174,9 +174,10 @@ def create_app(config: dict[str, Any], clip: Any = None, faces: Any = None) -> A
                limit: int = Query(50, le=500)) -> dict[str, Any]:
         """People recorded with body poses: e.g. posture=lying&when=last night, or
         upper=red&lower=blue. Facts are exact per visit (see pose.py)."""
-        from histor.engine.pose import ARMS, CARRIED, COLOURS, FACING, HEAD, MOTIONS, POSTURES
+        from histor.engine.pose import CARRIED, COLOURS, FACING, HEAD, MOTIONS, POSTURES
 
-        for name, value, allowed in (("arms", arms, ("up", *ARMS)), ("facing", facing, FACING),
+        # arms: only the two filters match_people knows (anything else would mean "up")
+        for name, value, allowed in (("arms", arms, ("up", "both_up")), ("facing", facing, FACING),
                                      ("upper", upper, COLOURS), ("lower", lower, COLOURS),
                                      ("head", head, HEAD),
                                      *(("posture", p, POSTURES) for p in posture or []),

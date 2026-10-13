@@ -25,12 +25,14 @@ def build_engine(config: dict[str, Any]) -> SearchEngine:
     if store is None:
         raise SystemExit("The config needs a `store:` section (see configs/default.yaml)")
     clip_cfg = (config.get("search") or {}).get("clip") or {}
+    text = clip_cfg.get("text", "models/clip_text.onnx")  # same defaults as the API server
+    vocab = clip_cfg.get("vocab", "models/clip_bpe_vocab.txt.gz")
     clip = None
-    if Path(clip_cfg["text"]).exists() and Path(clip_cfg["vocab"]).exists():
-        clip = ClipEncoder(image=None, text=clip_cfg["text"], vocab=clip_cfg["vocab"],
+    if Path(text).exists() and Path(vocab).exists():
+        clip = ClipEncoder(image=None, text=text, vocab=vocab,
                            device=clip_cfg.get("device", "auto"))
     else:  # objects, alerts and face search still work
-        print(f"{clip_cfg['text']} not found: visual search by description is off")
+        print(f"{text} not found: visual search by description is off")
     faces_cfg = config.get("faces") or {}
     faces = None
     if faces_cfg.get("enabled"):  # face search with attached photos (chat.py /photo)
@@ -66,8 +68,13 @@ def main() -> None:
 
     config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
     engine = build_engine(config)
-    ask = lambda q: print(format_answer(engine.text(q, top_k=args.top),  # noqa: E731
-                                        engine.store.media_dir))
+
+    def ask(question: str) -> None:
+        try:
+            print(format_answer(engine.text(question, top_k=args.top), engine.store.media_dir))
+        except RuntimeError as e:  # no CLIP text model: say so instead of a traceback
+            print(e)
+
     try:
         if args.question:
             ask(" ".join(args.question))

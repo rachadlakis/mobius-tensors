@@ -228,44 +228,45 @@ chat:
   model: local
   models:
     local:                     # runs on the site's server, footage never leaves it
-      api: openai              # any OpenAI-compatible server: Ollama, llama.cpp, LM Studio, vLLM
-      base_url: http://127.0.0.1:11434/v1   # Ollama; llama.cpp server: http://127.0.0.1:8080/v1
+      api: ollama              # Ollama, context size set per request (num_ctx, default 16384);
+                               # api: openai for llama.cpp, LM Studio, vLLM or a hosted server
+      base_url: http://127.0.0.1:11434      # Ollama; llama.cpp (api: openai): http://127.0.0.1:8080/v1
       model: qwen3:4b          # Apache-2.0, good tool calling on CPU; `ollama pull qwen3:4b`
       temperature: 0.2
       note: Qwen3 4B · Apache-2.0 · 2.5 GB · CPU
     # Newer open models to compare on the same questions (licences checked 2026-10-08,
     # see DOCUMENTATION.md, sections 25.1 and 47.2). `note` is only shown in the UI.
     qwen3.5-4b:                # successor of qwen3:4b, also reads images (see chat.vision)
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: qwen3.5:4b
       temperature: 0.2
       note: Qwen3.5 4B · Apache-2.0 · 3.4 GB · CPU · tools + vision
     granite-3b:                # smallest: for weak servers
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: granite4.1:3b
       temperature: 0.2
       note: IBM Granite 4.1 3B · Apache-2.0 · 2.1 GB · CPU · tuned for tool use
     gemma4-e4b:
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: gemma4:e4b
       temperature: 0.2
       note: Gemma 4 E4B · Apache-2.0 · 6.6 GB · CPU · tools + vision
     local-large:               # better answers, needs ~20 GB RAM or a GPU
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: qwen3:30b-a3b
       note: Qwen3 30B-A3B · Apache-2.0 · 19 GB · 32 GB RAM or GPU
     qwen3.6-large:             # newer large option, 3B active: still usable on a strong CPU
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: qwen3.6:35b
       note: Qwen3.6 35B-A3B · Apache-2.0 · 24 GB · 32 GB RAM or GPU · tools + vision
     nemotron-large:            # Mamba-MoE, 3B active, long context; licence: read OpenMDW 1.1 first
-      api: openai
-      base_url: http://127.0.0.1:11434/v1
+      api: ollama
+      base_url: http://127.0.0.1:11434
       model: nemotron-3.5-lightning
       note: NVIDIA Nemotron 3.5 Lightning 30B-A3B · OpenMDW 1.1 · 25 GB · 32 GB RAM or GPU
     claude:                    # cloud: only search results (text) are sent, never video
@@ -278,8 +279,9 @@ chat:
   # leave the site, only its text answer. Seconds per image on a CPU. `ollama pull qwen3.5:4b`.
   vision:
     enabled: true
+    api: ollama                # or openai (any OpenAI-compatible server with vision)
     model: qwen3.5:4b          # Apache-2.0; also gemma4:e4b, qwen3-vl:2b (smaller, faster)
-    base_url: http://127.0.0.1:11434/v1
+    base_url: http://127.0.0.1:11434
     max_images: 4              # per look
     max_side: 640              # shrink images to this (longest side): speed vs detail
 

@@ -67,3 +67,6 @@ conflicts = [[{ group = "cpu" }, { group = "gpu" }]]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# tests/smoke: every entry point with the real models (slow): uv run pytest -m smoke
+markers = ["smoke: end-to-end runs with the real models in models/ and data/vtest.avi"]
+addopts = "-m 'not smoke'"

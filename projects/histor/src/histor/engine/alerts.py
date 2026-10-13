@@ -145,10 +145,9 @@ class AlertManager:
                 f"{event.count} inside" if event.count else None) or (
                 f"{event.dwell_seconds:.1f}s" if event.dwell_seconds is not None else ""
             )
-            print(
-                f"[{event.timestamp:8.2f}s] {event.type.upper():5s} {event.rule}: "
-                f"{event.label} #{event.track_id} {extra}".rstrip()
-            )
+            who = event.label if event.track_id is None else f"{event.label} #{event.track_id}"
+            print(f"[{event.timestamp:8.2f}s] {event.type.upper():5s} {event.rule}: {who} "
+                  f"{extra}".rstrip())
         if self.jsonl:
             record = {**event.to_dict(), "source": self.source}
             with self.jsonl.open("a", encoding="utf-8") as f:
@@ -231,8 +230,9 @@ def alert_message(payload: dict[str, Any], prefix: str = "") -> tuple[str, str]:
         f"Camera: {payload['camera']}",
         f"Time:   {payload['iso_time']}",
         f"Event:  {payload['type']} ({payload['rule']}) {what}".rstrip(),
-        f"Object: {payload.get('label')} #{payload.get('track_id')}" if payload.get("track_id")
-        is not None else f"Heard:  {payload.get('label')}",
+        f"Heard:  {payload.get('label')}" if payload.get("type") == "sound" else
+        f"Object: {payload.get('label')}" + (f" #{payload['track_id']}"  # crowd, tamper: no id
+                                             if payload.get("track_id") is not None else ""),
     ] + ([f"Check:  {payload['verified']} ({payload.get('verification') or 'no reason'})"]
          if payload.get("verified") else []))
     return title, text
@@ -417,7 +417,8 @@ class TelegramSink(Sink):
         from histor.engine.telegram import cut_clip
 
         try:
-            found = self.recordings.find(payload["camera"], payload["time"] - VIDEO_LEAD_SECONDS)
+            found = self.recordings.find_lead(payload["camera"], payload["time"],
+                                              VIDEO_LEAD_SECONDS)
             path = self.recordings.path(found[0]) if found else None
             clip = cut_clip(path, found[1], self.video_seconds) if path and found else None
             if clip is None:

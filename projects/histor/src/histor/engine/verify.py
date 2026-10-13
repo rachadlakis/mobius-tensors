@@ -130,7 +130,8 @@ class AlertVerifier:
 
         own = {k: config[k] for k in ("events", "rules", "mode", "questions", "max_queue")
                if k in config}
-        model_keys = ("model", "base_url", "api_key", "max_side", "temperature", "timeout", "api")
+        model_keys = ("model", "base_url", "api_key", "max_side", "temperature", "timeout", "api",
+                      "num_ctx", "think")
         settings = {k: v for k, v in (vision or {}).items() if k in model_keys}
         settings.update({k: config[k] for k in model_keys if k in config})
         settings.setdefault("timeout", 60)
