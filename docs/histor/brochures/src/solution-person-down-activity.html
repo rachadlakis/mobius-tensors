@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="en">
 <head>
-<!-- Source of Brochures/en/solution-person-down-activity.pdf (fr/ and ar/ are built from it by i18n.py in brochures-source.zip). Print: Chrome, A4, no margins,
+<!-- Source of page 6 of docs/histor/brochures/Histor — Solutions.pdf (built and merged by i18n.py in brochures-source.zip). Print: Chrome, A4, no margins,
      no headers/footers (chrome --headless=new --no-pdf-header-footer --print-to-pdf=...).
-     Hero: real output of the Histor engine's pipeline with pose on data/vtest.avi. -->
+     Hero: an inline SVG illustration, drawn like the fire and plate sheets' pictures. -->
 <meta charset="utf-8">
 <title>Person Down &amp; Activity — Histor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,14 +31,15 @@
   .top .mt-sub img { height: 8mm; margin: -2.4mm -4mm; }
   .kicker { font-family: "JetBrains Mono", monospace; font-size: 7pt; letter-spacing: .22em;
             color: var(--cyan); text-transform: uppercase; }
-  .hero { display: grid; grid-template-columns: 1fr 88mm; gap: 9mm; margin-top: 6mm; align-items: start; }
+  .hero { display: grid; grid-template-columns: 1fr 74mm; gap: 9mm; margin-top: 6mm; align-items: start; }
   .icon { width: 12mm; height: 12mm; border-radius: 3mm; background: linear-gradient(160deg, #3a6dff, #1a3fb8);
           display: grid; place-items: center; box-shadow: 0 2mm 6mm rgba(40,100,255,.35); }
   .icon svg { width: 6.2mm; height: 6.2mm; stroke: #fff; }
   h1 { font-family: "Space Grotesk", Arial, sans-serif; font-weight: 600; font-size: 24pt;
        line-height: 1.12; margin-top: 4mm; letter-spacing: -.01em; }
   .sub { color: var(--cyan); font-size: 11.5pt; margin-top: 4mm; line-height: 1.4; max-width: 80mm; }
-  figure img { width: 100%; height: 50mm; object-fit: cover; object-position: center 0%; border-radius: 3mm; display: block; border: 1px solid rgba(255,255,255,.12); }
+  figure .vis { aspect-ratio: 4 / 3; border-radius: 3mm; overflow: hidden; border: 1px solid rgba(122,225,255,.35); }
+  figure .vis svg { display: block; width: 100%; height: 100%; }
   figcaption { color: #9aa6c3; font-size: 7pt; margin-top: 2mm; line-height: 1.4; }
 
   main { flex: 1; padding: 6mm 14mm 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 10mm; }
@@ -80,8 +81,8 @@
 <div class="page">
   <header>
     <div class="top">
-      <img src="../../Images/histor/svg/histor-horizontal-transparent-for-dark.svg" alt="Histor">
-      <div class="mtblk"><img class="mtlogo" src="../../Images/brand-kit/svg/logo-horizontal-transparent-for-dark.svg" alt="Mobius Tensors">
+      <img src="../../../../Images/histor/svg/histor-horizontal-transparent-for-dark.svg" alt="Histor">
+      <div class="mtblk"><img class="mtlogo" src="../../../../Images/brand-kit/svg/logo-horizontal-transparent-for-dark.svg" alt="Mobius Tensors">
         <div class="kicker">Solution sheet · Safety</div></div>
     </div>
     <div class="hero">
@@ -91,8 +92,8 @@
         <div class="sub">Know when someone falls, and what everyone was doing.</div>
       </div>
       <figure>
-        <img src="person-down-activity-hero.jpg" alt="Street camera view with a body skeleton drawn on each tracked person">
-        <figcaption>Real output from Histor: 17 body points on every tracked person, about once a second.</figcaption>
+        <div class="vis"><svg role="img" aria-label="Illustration: a person lying in a warehouse aisle, with 17 body points" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="240" fill="#1B2233"/><path d="M0 240L112 112H208L320 240z" fill="#2A3245"/><path d="M0 30L112 96V128L0 222z" fill="#35405A" stroke="#46526F"/><path d="M320 30L208 96V128L320 222z" fill="#35405A" stroke="#46526F"/><g stroke="#46526F"><path d="M0 92L112 107M0 156L112 118"/><path d="M320 92L208 107M320 156L208 118"/></g><g fill="#5B4A3A"><path d="M14 66L40 72V96L14 94z"/><path d="M58 76L80 81V101L58 99z"/><path d="M20 128L46 125V148L20 155z"/><path d="M306 66L280 72V96L306 94z"/><path d="M262 76L240 81V101L262 99z"/><path d="M300 128L274 125V148L300 155z"/></g><path d="M112 96H208V112H112z" fill="#20283A"/><path d="M191.5 111.0L193.4 120.4" stroke="#6F7C98" stroke-width="4.7" stroke-linecap="round"/><path d="M193.4 120.4L193.8 129.0" stroke="#6F7C98" stroke-width="4.7" stroke-linecap="round"/><path d="M189.5 129.0L190.3 140.7" stroke="#6F7C98" stroke-width="4.7" stroke-linecap="round"/><path d="M190.3 140.7L190.7 152.4" stroke="#6F7C98" stroke-width="4.7" stroke-linecap="round"/><path d="M186.0 111.0L186.0 129.0" stroke="#8C9AB8" stroke-width="9.8" stroke-linecap="round"/><path d="M180.5 111.0L179.0 120.4" stroke="#8C9AB8" stroke-width="4.7" stroke-linecap="round"/><path d="M179.0 120.4L178.6 129.0" stroke="#8C9AB8" stroke-width="4.7" stroke-linecap="round"/><path d="M182.5 129.0L182.1 140.7" stroke="#8C9AB8" stroke-width="4.7" stroke-linecap="round"/><path d="M182.1 140.7L181.7 152.4" stroke="#8C9AB8" stroke-width="4.7" stroke-linecap="round"/><circle cx="186.0" cy="102.4" r="4.3" fill="#8C9AB8"/><g stroke="#7AE1FF" stroke-width="1.3" stroke-linecap="round" fill="none"><path d="M180.5 111.0L191.5 111.0"/><path d="M182.5 129.0L189.5 129.0"/><path d="M180.5 111.0L182.5 129.0"/><path d="M191.5 111.0L189.5 129.0"/><path d="M180.5 111.0L179.0 120.4"/><path d="M179.0 120.4L178.6 129.0"/><path d="M191.5 111.0L193.4 120.4"/><path d="M193.4 120.4L193.8 129.0"/><path d="M182.5 129.0L182.1 140.7"/><path d="M182.1 140.7L181.7 152.4"/><path d="M189.5 129.0L190.3 140.7"/><path d="M190.3 140.7L190.7 152.4"/></g><g fill="#FFB23F" stroke="#1B2233" stroke-width=".6"><circle cx="186.0" cy="103.2" r="1.64"/><circle cx="184.8" cy="101.7" r="0.82"/><circle cx="187.2" cy="101.7" r="0.82"/><circle cx="183.2" cy="102.4" r="0.82"/><circle cx="188.8" cy="102.4" r="0.82"/><circle cx="180.5" cy="111.0" r="1.64"/><circle cx="191.5" cy="111.0" r="1.64"/><circle cx="179.0" cy="120.4" r="1.64"/><circle cx="193.4" cy="120.4" r="1.64"/><circle cx="178.6" cy="129.0" r="1.64"/><circle cx="193.8" cy="129.0" r="1.64"/><circle cx="182.5" cy="129.0" r="1.64"/><circle cx="189.5" cy="129.0" r="1.64"/><circle cx="182.1" cy="140.7" r="1.64"/><circle cx="190.3" cy="140.7" r="1.64"/><circle cx="181.7" cy="152.4" r="1.64"/><circle cx="190.7" cy="152.4" r="1.64"/></g><rect x="174" y="98" width="25" height="57" fill="none" stroke="#7AE1FF" stroke-width="1.6"/><rect x="174" y="88" width="44" height="11" fill="#7AE1FF"/><text x="177" y="96.5" font-family="Inter" font-size="8" font-weight="600" fill="#0B1220">standing</text><path d="M122.6 195.3L136.6 206.2" stroke="#6F7C98" stroke-width="9.6" stroke-linecap="round"/><path d="M136.6 206.2L124.2 218.6" stroke="#6F7C98" stroke-width="9.6" stroke-linecap="round"/><path d="M162.9 195.3L184.6 199.9" stroke="#6F7C98" stroke-width="9.6" stroke-linecap="round"/><path d="M184.6 199.9L206.3 206.2" stroke="#6F7C98" stroke-width="9.6" stroke-linecap="round"/><path d="M121.8 186.8L162.9 188.3" stroke="#8C9AB8" stroke-width="20.2" stroke-linecap="round"/><path d="M121.0 178.2L138.1 167.4" stroke="#8C9AB8" stroke-width="9.6" stroke-linecap="round"/><path d="M138.1 167.4L153.6 173.6" stroke="#8C9AB8" stroke-width="9.6" stroke-linecap="round"/><path d="M162.9 181.3L186.2 175.2" stroke="#8C9AB8" stroke-width="9.6" stroke-linecap="round"/><path d="M186.2 175.2L209.4 181.3" stroke="#8C9AB8" stroke-width="9.6" stroke-linecap="round"/><circle cx="104.0" cy="186.0" r="9.3" fill="#8C9AB8"/><g stroke="#7AE1FF" stroke-width="1.3" stroke-linecap="round" fill="none"><path d="M121.0 178.2L122.6 195.3"/><path d="M162.9 181.3L162.9 195.3"/><path d="M121.0 178.2L162.9 181.3"/><path d="M122.6 195.3L162.9 195.3"/><path d="M121.0 178.2L138.1 167.4"/><path d="M138.1 167.4L153.6 173.6"/><path d="M122.6 195.3L136.6 206.2"/><path d="M136.6 206.2L124.2 218.6"/><path d="M162.9 181.3L186.2 175.2"/><path d="M186.2 175.2L209.4 181.3"/><path d="M162.9 195.3L184.6 199.9"/><path d="M184.6 199.9L206.3 206.2"/></g><g fill="#FFB23F" stroke="#1B2233" stroke-width=".6"><circle cx="98.6" cy="188.3" r="2.10"/><circle cx="99.3" cy="184.4" r="1.05"/><circle cx="100.6" cy="190.0" r="1.05"/><circle cx="105.5" cy="180.4" r="1.05"/><circle cx="106.8" cy="191.9" r="1.05"/><circle cx="121.0" cy="178.2" r="2.10"/><circle cx="122.6" cy="195.3" r="2.10"/><circle cx="138.1" cy="167.4" r="2.10"/><circle cx="136.6" cy="206.2" r="2.10"/><circle cx="153.6" cy="173.6" r="2.10"/><circle cx="124.2" cy="218.6" r="2.10"/><circle cx="162.9" cy="181.3" r="2.10"/><circle cx="162.9" cy="195.3" r="2.10"/><circle cx="186.2" cy="175.2" r="2.10"/><circle cx="184.6" cy="199.9" r="2.10"/><circle cx="209.4" cy="181.3" r="2.10"/><circle cx="206.3" cy="206.2" r="2.10"/></g><rect x="87" y="157" width="131" height="71" fill="none" stroke="#FF5A5A" stroke-width="2"/><rect x="87" y="146" width="84" height="11" fill="#FF5A5A"/><text x="90" y="154.5" font-family="Inter" font-size="8" font-weight="600" fill="#fff">person down · 10 s</text><g transform="translate(206 18)"><rect width="104" height="46" rx="5" fill="#0B1220" stroke="#FF5A5A"/><text x="8" y="14" font-family="Inter" font-size="7" fill="#FF5A5A" letter-spacing="1">PERSON DOWN</text><text x="8" y="29" font-family="Space Grotesk" font-weight="700" font-size="11.5" fill="#EAF4FF">Lying for 10 s</text><text x="8" y="40" font-family="Inter" font-size="7" fill="#9FB0D0">Aisle 3 · 23:41</text></g><circle cx="14" cy="14" r="4" fill="#FF5A5A"/><text x="22" y="17.5" font-family="Inter" font-size="8" fill="#C9D3E8">CAM 07 · AISLE 3</text></svg></div>
+        <figcaption>Illustration of an alert: 17 body points on every tracked person, about once a second.</figcaption>
       </figure>
     </div>
   </header>

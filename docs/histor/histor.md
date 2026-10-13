@@ -10,7 +10,7 @@ Ask your cameras what happened, in plain language, and get the frames as evidenc
 | --- | --- |
 | **Status** | Working code; pilot-ready on recorded footage, live alerts to be validated at a pilot site |
 | **Code** | [projects/histor](../../projects/histor/) (Python, one `uv` environment) |
-| **Docs** | [README](../../projects/histor/README.md) · [DOCUMENTATION.md](../../projects/histor/DOCUMENTATION.md) (product, how it works, site installation, model research, roadmap) · [OPEN-QUESTIONS.md](../../projects/histor/OPEN-QUESTIONS.md) · deck, project summary PDF and partner programme in [projects/histor/docs](../../projects/histor/docs/) |
+| **Docs** | [README](../../projects/histor/README.md) · [DOCUMENTATION.md](../../projects/histor/DOCUMENTATION.md) (product, how it works, site installation, model research, roadmap) · [OPEN-QUESTIONS.md](../../projects/histor/OPEN-QUESTIONS.md) · deck, project summary PDF and partner programme in [projects/histor/docs](../../projects/histor/docs/) · brochures: [Solutions](<brochures/Histor — Solutions.pdf>) and [Technical](<brochures/Histor — Technical.pdf>) |
 
 ## What it is
 
