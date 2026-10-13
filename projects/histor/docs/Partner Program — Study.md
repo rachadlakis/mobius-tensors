@@ -58,10 +58,12 @@ For our services (AI agents and chatbots, agent rollout, automations, training, 
 - **Gold:** a live Histor demo and joint meetings with customers.
 - **Platinum:** a demo kit at cost, co-branded material, priority support, and the leads we receive in their area.
 
-## Before setting the rates
+## The price list
 
-- **Set the Histor price list first** (system purchase, split into hardware and AI software, and the yearly subscription, per camera or per site). The rates depend on it.
-- Example: if the AI software part of an 8-camera site is $3,000, Silver earns $360, Gold $750, and a Platinum installer buys it for $1,800 and resells it at $3,000. Check these against our costs once the price list exists.
+- The Histor price list (internal) is in [Pricing — Internal](<Pricing — Internal.md>): **$6,000 per site for up to 8 cameras, $400 per extra camera**; the yearly subscription is $15 per camera per month, billed yearly, at least $600 a year. Every Histor module is part of the system; only an extra module built for a customer costs more ($5,000).
+- Example: on an 8-camera site ($6,000 of software), Silver earns $720, Gold $1,500, and a Platinum installer buys it for $3,600 and resells it at $6,000. On a 16-camera site ($9,200): $1,104, $2,300, and buys at $5,520.
+- Extra modules are software, so they earn commission too. Hardware and the yearly subscription never do.
+- Check the rates against our costs now that the price list exists.
 - Track everything in one simple spreadsheet: partner, customer, level for that deal, AI software amount, commission, paid date.
 
 ## What changed from v1 (2026-10-10)

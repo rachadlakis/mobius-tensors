@@ -29,7 +29,7 @@ server for other agents.
 
 ## Key choices
 
-- Runs on the site's own server, **without a GPU** (ONNX Runtime); footage stays in the building.
+- Runs on the site's own server with **no GPU needed** (ONNX Runtime), which keeps the customer's cost down; a GPU is optional for more cameras per server or heavier models. Footage stays in the building.
 - The chat and vision models run locally by default (Ollama); a cloud model is opt-in and only
   ever receives text.
 - **Commercially clean:** only permissive licences (Apache-2.0, MIT) for code, weights and

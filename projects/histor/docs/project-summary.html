@@ -81,7 +81,7 @@ one of them.</p>
 <li><strong>Private by design.</strong> Runs on the site's own server; footage never leaves the building. The
   default chat model is local (Qwen3 4B via Ollama). A cloud model (Claude) is opt-in and only
   ever receives text (times, cameras, labels), never images or video.</li>
-<li><strong>No GPU needed.</strong> Detection, search and pose run on CPU through ONNX Runtime.</li>
+<li><strong>No GPU needed.</strong> Detection, search and pose run on CPU through ONNX Runtime; a GPU is optional, for bigger sites.</li>
 <li><strong>Commercially clean.</strong> Every model ships under a permissive licence (Apache-2.0 or MIT) for
   code, weights and training data. AGPL/GPL and research-only models are excluded.</li>
 <li><strong>Works with existing cameras.</strong> Any IP camera with RTSP (Hikvision, Dahua, Reolink, Uniview,
@@ -288,7 +288,7 @@ face quality, normal hours) that goes into the model's instructions.</p>
 </ul>
 <h3>Deployment footprint</h3>
 <ul>
-<li>A standard server, no GPU. Cameras declared in YAML; passwords in <code>.env</code>.</li>
+<li>A standard server, GPU optional. Cameras declared in YAML; passwords in <code>.env</code>.</li>
 <li>Recording at 1080p, 4 Mbit/s is about <strong>43 GB per camera per day</strong> (needs ffmpeg ≥ 5.1).</li>
 <li>Main-stream keyframes (1 per second) give sharp crops for search and faces at the cost of one
   extra detection per second per camera.</li>
