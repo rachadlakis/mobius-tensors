@@ -70,24 +70,18 @@ reports:
 chat:
   model: local
   models:
-    local:                                  # small for now: `ollama pull qwen3.5:2b-q4_K_M`
+    local:                                  # `ollama pull qwen3.5:4b`
       api: ollama
       base_url: http://127.0.0.1:11434
-      model: qwen3.5:2b-q4_K_M
+      model: qwen3.5:4b
       temperature: 0.2
-      note: Qwen3.5 2B · Apache-2.0 · 1.9 GB · CPU · tools + vision
+      note: Qwen3.5 4B · Apache-2.0 · 3.4 GB · CPU · tools + vision
     qwen3-4b:                               # `ollama pull qwen3:4b`
       api: ollama
       base_url: http://127.0.0.1:11434
       model: qwen3:4b
       temperature: 0.2
       note: Qwen3 4B · Apache-2.0 · 2.5 GB · CPU
-    qwen3.5-4b:                             # `ollama pull qwen3.5:4b`
-      api: ollama
-      base_url: http://127.0.0.1:11434
-      model: qwen3.5:4b
-      temperature: 0.2
-      note: Qwen3.5 4B · Apache-2.0 · 3.4 GB · CPU · tools + vision
     granite-3b:                             # `ollama pull granite4.1:3b`
       api: ollama
       base_url: http://127.0.0.1:11434
@@ -108,7 +102,7 @@ chat:
   vision:                                   # `look` tool and alert checking: the chat's model
     enabled: true
     api: ollama
-    model: qwen3.5:2b-q4_K_M
+    model: qwen3.5:4b
     base_url: http://127.0.0.1:11434
     max_images: 4
     max_side: 640
