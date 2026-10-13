@@ -2,7 +2,7 @@
 `look`, alert checking, a report's summary and the Telegram bot (against the fake Telegram
 server), on the recorded smoke site.
 
-    ollama serve; ollama pull qwen3.5:2b-q4_K_M   # tools + images: chat, look and checking
+    ollama serve; ollama pull qwen3.5:4b          # tools + images: chat, look and checking
     uv run pytest -m smoke tests/smoke/test_ollama.py
 
 HISTOR_SMOKE_MODEL picks another model. Answers vary from run to run: the tests check that
@@ -21,7 +21,7 @@ import yaml
 from smoke_kit import MISSING, TOKEN, FakeTelegram, run
 
 OLLAMA = "http://127.0.0.1:11434"
-MODEL = os.environ.get("HISTOR_SMOKE_MODEL", "qwen3.5:2b-q4_K_M")
+MODEL = os.environ.get("HISTOR_SMOKE_MODEL", "qwen3.5:4b")
 
 
 def pulled() -> list[str]:

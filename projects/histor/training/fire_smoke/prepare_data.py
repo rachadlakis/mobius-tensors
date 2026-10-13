@@ -241,29 +241,40 @@ def main() -> None:
         kept.append(item)
     groups = find_duplicates(variants)
 
-    # Per scene: most boxes first, skip copies of a frame already chosen, cap the count.
+    # Per scene: originals first, then most boxes; skip copies of a frame already chosen, cap
+    # the count. Roboflow exports bake augmentation into train/ (upside-down and rotated copies)
+    # but never into valid/ or test/, so a copy found there is the original. Fire and smoke rise:
+    # when a frame has an upside-down/rotated copy and neither is known original, drop both.
+    def original(i: int) -> bool:
+        return any(p.lower() in ("valid", "val", "test") for p in kept[i][1].parts)
+
     scenes: dict[int, list[int]] = defaultdict(list)
     for i, g in enumerate(groups):
         scenes[g].append(i)
     chosen: list[tuple[int, int]] = []  # (scene, item)
-    n_copies = n_capped = 0
+    n_copies = n_capped = n_orientation = 0
     for g, members in scenes.items():
-        members.sort(key=lambda i: -len(kept[i][2]))
+        members.sort(key=lambda i: (not original(i), -len(kept[i][2])))
         picked: list[int] = []
+        unsure: set[int] = set()
         for i in members:
-            if any(
-                min(bin(variants[i][0] ^ v).count("1") for v in variants[j]) <= COPY_BITS
-                for j in picked
-            ):
+            copy_of = []  # (picked item, which variant matched: 0 same, 1 mirrored, 2+ turned)
+            for j in picked:
+                bits, k = min((bin(variants[i][0] ^ v).count("1"), k) for k, v in enumerate(variants[j]))
+                if bits <= COPY_BITS:
+                    copy_of.append((j, k))
+            if copy_of:
                 n_copies += 1
+                unsure.update(j for j, k in copy_of if k >= 2 and not original(j))
             elif len(picked) >= args.max_per_scene:
                 n_capped += 1
             else:
                 picked.append(i)
-        chosen += [(g, i) for i in picked]
+        n_orientation += len(unsure)
+        chosen += [(g, i) for i in picked if i not in unsure]
     print(
-        f"{len(scenes)} scenes; dropped {n_copies} copies and {n_capped} frames over "
-        f"{args.max_per_scene} per scene; kept {len(chosen)}"
+        f"{len(scenes)} scenes; dropped {n_copies} copies, {n_orientation} frames of unknown "
+        f"orientation and {n_capped} frames over {args.max_per_scene} per scene; kept {len(chosen)}"
     )
 
     counts: dict[str, Counter] = {s: Counter() for s in SPLITS}
@@ -322,6 +333,7 @@ def main() -> None:
                 "sources": {s: {**cfg["sources"][s], "stats": report[s]} for s in report},
                 "scenes": len(scenes),
                 "copies_dropped": n_copies,
+                "unknown_orientation_dropped": n_orientation,
                 "frames_over_cap_dropped": n_capped,
                 "cctv_versions": n_cctv,
                 "splits": {s: dict(c) for s, c in counts.items()},

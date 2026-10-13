@@ -77,8 +77,7 @@ uv run --group ui -m histor.ui        # configs/laptop.yaml, opens http://127.0.
    (`today`, `last 10 minutes`) and *Search*: likely / possible visits with their best face.
    No LLM needed.
 3. **Ask**: the chat, with *Attach photo* for face questions. Needs Ollama running
-   (`ollama serve`, `ollama pull qwen3.5:2b-q4_K_M`: small, for trying it out; it also reads
-   images) or the `claude` model (`uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env`).
+   (`ollama serve`, `ollama pull qwen3.5:4b`, which also reads images) or the `claude` model (`uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env`).
 
 The test store is `data/store/laptop.db` (delete `data/store/laptop*` to start over), separate
 from a site's. Video files and camera URLs work as a source too.
