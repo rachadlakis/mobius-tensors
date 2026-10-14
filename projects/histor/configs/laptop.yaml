@@ -66,11 +66,23 @@ reports:
   - name: hourly
     every: hourly
     interests: [anyone at the desk, a phone or a bag left on the desk]
+  - name: daily
+    every: daily
+    at: "07:00"
+    interests: [anyone at the desk, a phone or a bag left on the desk]
+  - name: weekly
+    every: weekly
+    day: monday
+    at: "07:00"
+  - name: monthly
+    every: monthly
+    day: 1                                  # day of the month, 1-28
+    at: "07:00"
 
 chat:
-  model: local
+  model: qwen3.5-4b
   models:
-    local:                                  # `ollama pull qwen3.5:4b`
+    qwen3.5-4b:                             # `ollama pull qwen3.5:4b`
       api: ollama
       base_url: http://127.0.0.1:11434
       model: qwen3.5:4b

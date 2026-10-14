@@ -110,7 +110,8 @@ POSE_COLUMNS = ("posture", "arms", "facing", "head", "motion", "carrying", "uppe
 ADDED_COLUMNS = {"poses": ("head", "motion", "carrying"),
                  # the plate read (watchlist `plate` events), how many (`crowd` events)
                  # alert verification (verify.py): yes | no | unsure | error | skipped, reason
-                 "events": ("plate", "count INTEGER", "verified", "verification"),
+                 "events": ("plate", "count INTEGER", "verified", "verification",
+                            "seen REAL"),  # when someone marked it as seen (UI Today)
                  "sightings": ("model",)}  # CLIP model of the embedding (empty = legacy)
 
 
@@ -226,6 +227,13 @@ class EventStore:
         with self._lock:
             self._db.execute("UPDATE events SET verified = ?, verification = ? WHERE id = ?",
                              (verified, verification, event_id))
+            self._db.commit()
+
+    def mark_seen(self, event_id: int, t: float | None = None) -> None:
+        """Someone looked at the alert: it leaves "Needs a look" (UI Today)."""
+        with self._lock:
+            self._db.execute("UPDATE events SET seen = ? WHERE id = ?",
+                             (time.time() if t is None else t, event_id))
             self._db.commit()
 
     def add_sightings(self, rows: list[dict[str, Any]]) -> None:
@@ -446,6 +454,45 @@ class EventStore:
         if row is None or row[0] is None:
             return first, last
         return min(first, row[0]), max(last, row[1])
+
+    def activity(self, since: float, until: float, bucket: float) -> dict[str, list[int]]:
+        """Per camera: tracked objects in view in each `bucket` seconds from `since` (distinct
+        track ids of the search index), e.g. 48 half hours of a day."""
+        n = max(1, int(round((until - since) / bucket)))
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT camera, CAST((time - ?) / ? AS INTEGER) AS b, COUNT(DISTINCT track_id) "
+                "FROM sightings WHERE kind = 'object' AND track_id IS NOT NULL AND time >= ? "
+                "AND time < ? GROUP BY camera, b", (since, bucket, since, until)).fetchall()
+        out: dict[str, list[int]] = {}
+        for camera, b, count in rows:
+            if 0 <= b < n:
+                out.setdefault(camera, [0] * n)[b] = count
+        return out
+
+    def visits(self, since: float, until: float) -> dict[str, int]:
+        """Per camera: tracked objects (distinct track ids) in a time range."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT camera, COUNT(DISTINCT track_id) FROM sightings WHERE kind = 'object' "
+                "AND track_id IS NOT NULL AND time >= ? AND time < ? GROUP BY camera",
+                (since, until)).fetchall()
+        return dict(rows)
+
+    def thumbs_near(self, camera: str, t: float, track_id: int | None = None,
+                    window: float = 30.0, limit: int = 2) -> list[str]:
+        """Search-index thumbnails of a camera around `t` (of one track if given), closest
+        first: more frames of an alert than its one snapshot."""
+        sql = ("SELECT thumb FROM sightings WHERE camera = ? AND time >= ? AND time <= ? "
+               "AND thumb IS NOT NULL")
+        args: list[Any] = [camera, t - window, t + window]
+        if track_id is not None:
+            sql += " AND track_id = ?"
+            args.append(track_id)
+        with self._lock:
+            rows = self._db.execute(sql + " ORDER BY abs(time - ?) LIMIT ?",
+                                    [*args, t, limit * 4]).fetchall()
+        return list(dict.fromkeys(r[0] for r in rows))[:limit]
 
     def counts(self) -> dict[str, int]:
         with self._lock:

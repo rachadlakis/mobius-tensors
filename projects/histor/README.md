@@ -240,7 +240,7 @@ Set up at install time with the owner: how often, which cameras, what they care 
 ```yaml
 reports:
   - name: morning
-    every: daily                # hourly | daily | weekly (with day: monday)
+    every: daily                # hourly | daily | weekly (day: monday) | monthly (day: 1)
     at: "07:00"                 # the period ends then: yesterday 07:00 to today 07:00
     cameras: [gate, yard]       # names or aliases; empty = every camera
     interests:                  # in the owner's words; empty = what happened + anything unusual
@@ -319,7 +319,7 @@ src/histor/
                        tamper and abandoned rules, search, API (DOCUMENTATION.md)
   record.py            recorder (engine/main.py with this config)
   ask.py               question -> ranked sightings (no LLM)
-  report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
+  report.py            hourly / daily / weekly / monthly reports: exact counts + LLM summary, saved and sent
   chat.py              chat CLI: question -> LLM + tools -> answer + evidence
   tools.py             tools the LLM can call: objects, search, alerts, people, plates, face, look
   llm.py               model backends: Ollama, OpenAI-compatible (local) and Claude
@@ -337,7 +337,7 @@ tests/smoke/           uv run pytest -m smoke: every entry point with the real m
 - [X] Alerts: areas and lines, channels with filters (rules, events, labels, hours, cooldown),
   chat tool over the alert history.
 - [ ] More alert channels: Telegram, WhatsApp, SMS, on-site siren / relay.
-- [X] Periodic reports: hourly / daily / weekly per camera set and interests, saved and sent.
+- [X] Periodic reports: hourly / daily / weekly / monthly (or any range) per camera set and interests, saved and sent.
   Next: set them up from the UI; "what did last night's report say" in the chat.
 - [ ] Detectors trained per customer (fire and smoke, customer-specific objects).
 - [X] Body poses: posture (with bending), hands up, facing, head down, still / walking /

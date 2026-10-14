@@ -8,7 +8,7 @@ sources:
   dfire:
     licence: CC0-1.0
     url: https://github.com/gaiasd/DFireDataset
-    classes: {0: smoke, 1: fire}   # TODO check with preview.py once downloaded
+    classes: {0: smoke, 1: fire}   # checked with preview.py 2026-10-13 (reverse of the others)
 
   cqu:
     licence: CC-BY-4.0

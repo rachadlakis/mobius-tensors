@@ -201,9 +201,9 @@ server:
 # sent to the report's channels. Set up at install time, with the owner.
 reports: []
 #  - name: morning
-#    every: daily               # hourly | daily | weekly
-#    at: "07:00"                # daily / weekly: the period ends (and the report goes out) then
-#    # day: monday              # weekly only
+#    every: daily               # hourly | daily | weekly | monthly
+#    at: "07:00"                # daily / weekly / monthly: the period ends (and the report goes out) then
+#    # day: monday              # weekly: a weekday; monthly: day of the month (1-28)
 #    cameras: [gate, yard]      # names or aliases; empty = every camera
 #    interests:                 # in the owner's words; empty = what happened + anything unusual
 #      - vehicles at the gate after hours

@@ -33,6 +33,24 @@
       "port": 8000
     },
     {
+      "name": "histor-dashboard-laptop",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "--directory",
+        "projects/histor",
+        "--group",
+        "server",
+        "-m",
+        "histor.engine.server",
+        "--config",
+        "configs/laptop.yaml",
+        "--port",
+        "8001"
+      ],
+      "port": 8001
+    },
+    {
       "name": "histor-bench",
       "runtimeExecutable": "uv",
       "runtimeArgs": [

@@ -106,6 +106,29 @@ site. The idea discussed (October 2026):
   weeks. **Check Mender first** (open-source over-the-air updates, Apache-2.0: signed updates,
   undo, device dashboard), which could cut it to ~2–3 weeks with only the licence check added.
 
+## Protecting our code on client servers
+
+Not planned yet (idea raised October 2026). Today a site gets the full Python source and our
+trained models (`git clone`, section 35), so anyone with access to the server (client IT, an
+installer, a partner) can copy them and run Histor elsewhere. We need a plan before the first
+paid site. Nothing stops someone with full control of the machine for good; the goal is to make
+copying costly and clearly illegal. Options to weigh:
+
+- **Contract first:** licence agreement for clients and partners (no copying, no reverse
+  engineering, no moving to other machines), with a penalty. Cheapest and needed anyway.
+- **Ship no readable source:** compile the Python (Nuitka or Cython) or ship the planned C++
+  port; ready-to-run servers from one disk image (see updates above).
+- **Protect the models:** our own trained models (fire & smoke first) encrypted on disk and
+  decrypted in memory with the site's licence key. These are the hardest part to rebuild.
+- **Tie the licence to the machine:** the signed licence file (updates section) also names the
+  server's hardware ID, so a copy on another machine refuses to start.
+- **Limit who logs in:** client IT gets the dashboard, not a shell; installers get time-limited
+  accounts; full-disk encryption so a pulled disk is unreadable; every remote session logged.
+- **Watermark** builds and models per site, so a leaked copy shows where it came from.
+
+Open: how far to go before the first sale, and which of these partners must accept in their
+agreement.
+
 ## Models to choose
 
 - **Chat model:** `qwen3:4b` (default) vs `qwen3.5:4b` (tools + vision in one), Gemma 4 E4B,

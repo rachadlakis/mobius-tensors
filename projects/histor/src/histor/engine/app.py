@@ -530,23 +530,26 @@ def build_bench() -> None:
         )
     settings = [model, conf, nms, classes]
 
+    # Fixed heights: a tall photo is fitted in the box instead of pushing the button off screen.
     with gr.Tab("Image"):
-        with gr.Row():
-            img_in = gr.Image(type="numpy", sources=["upload", "clipboard"], label="Original")
-            img_out = gr.Image(type="numpy", label="Detections", interactive=False)
         img_btn = gr.Button("Detect", variant="primary")
+        with gr.Row(equal_height=True):
+            img_in = gr.Image(type="numpy", sources=["upload", "clipboard"], label="Original",
+                              height=460)
+            img_out = gr.Image(type="numpy", label="Detections", interactive=False, height=460)
         img_info = gr.Markdown()
         img_table = gr.Dataframe(
             headers=["label", "score", "x1", "y1", "x2", "y2"], label="Detections",
             interactive=False,
         )
         img_btn.click(detect_image, [img_in, *settings], [img_out, img_table, img_info])
+        img_in.upload(detect_image, [img_in, *settings], [img_out, img_table, img_info])
 
     with gr.Tab("Video"):
-        with gr.Row():
-            vid_in = gr.Video(label="Original", sources=["upload"])
-            vid_out = gr.Video(label="Detections", interactive=False)
         vid_btn = gr.Button("Detect", variant="primary")
+        with gr.Row(equal_height=True):
+            vid_in = gr.Video(label="Original", sources=["upload"], height=400)
+            vid_out = gr.Video(label="Detections", interactive=False, height=400)
         vid_info = gr.Markdown()
         vid_btn.click(detect_video, [vid_in, *settings], [vid_out, vid_info])
 
@@ -580,7 +583,7 @@ def build_bench() -> None:
             )
             ip_start = gr.Button("Start", variant="primary", scale=1)
             ip_stop = gr.Button("Stop", scale=1)
-        ip_out = gr.Image(type="numpy", label="Detections", interactive=False)
+        ip_out = gr.Image(type="numpy", label="Detections", interactive=False, height=480)
         ip_info = gr.Markdown()
         ip_event = ip_start.click(
             detect_ip_camera, [ip_camera, *settings], [ip_out, ip_info],

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from histor import report as report_mod
 from histor.llm import Step, ToolCall
-from histor.report import Reporter, ReportSpec, report_text
+from histor.report import Reporter, ReportSpec, report_text, report_title
 from histor.engine.search import SearchEngine
 from histor.engine.store import EventStore
 
@@ -25,7 +25,19 @@ def test_periods():
     assert weekly.period_end(at(9, 12)) == at(5, 8)         # 2026-10-09 is a Friday
     assert weekly.period(at(5, 8))[0] == datetime(2026, 9, 28, 8)
     with pytest.raises(ValueError):
-        ReportSpec.from_config({"name": "x", "every": "monthly"})
+        ReportSpec.from_config({"name": "x", "every": "yearly"})
+
+
+def test_monthly_periods():
+    monthly = ReportSpec.from_config({"name": "m", "every": "monthly", "day": 1, "at": "07:00"})
+    assert monthly.period_end(at(14, 12)) == at(1, 7)
+    assert monthly.period(at(1, 7)) == (datetime(2026, 9, 1, 7), at(1, 7))
+    assert monthly.next_run(at(14, 12)) == datetime(2026, 11, 1, 7, 2)
+    jan = ReportSpec.from_config({"name": "j", "every": "monthly", "day": 15})
+    assert jan.period(datetime(2027, 1, 15, 7)) == (datetime(2026, 12, 15, 7),
+                                                    datetime(2027, 1, 15, 7))
+    with pytest.raises(ValueError, match="1 to 28"):
+        ReportSpec.from_config({"name": "x", "every": "monthly", "day": 31})
 
 
 class ScriptedBackend:
@@ -82,7 +94,7 @@ def test_report_counts_summary_and_camera_limit(reporter, monkeypatch):
     gate, lobby = r["facts"]["cameras"]
     assert gate["counts"] == {"car": 2} and not lobby["recorded"]   # 08:00 car is after the period
     assert r["facts"]["alerts"]["total"] == 0                      # the yard is not in this report
-    assert "cars at night" in backend.users[0] and "lobby: recorded nothing" in backend.users[0]
+    assert "cars at night" in backend.users[0] and "lobby: no sightings (never" in backend.users[0]
     assert backend.results[0].is_error and "gate, lobby" in backend.results[0].output
     assert json.loads(backend.results[1].output)["total"] == 2
     saved = json.loads(reporter.path("morning", at(9, 7)).read_text(encoding="utf-8"))
@@ -99,6 +111,57 @@ def test_report_without_model_still_has_counts(reporter, monkeypatch):
     assert r["facts"]["alerts"]["total"] == 1 and r["evidence"] == ["snapshots/y1.jpg"]
     text = report_text(r)
     assert "counts below are exact" in text and "yard: enter yard (person)" in text
+
+
+def test_quiet_period_needs_no_model(reporter, monkeypatch):
+    def never(*a):
+        raise AssertionError("the model must not be asked about an empty period")
+    monkeypatch.setattr(report_mod, "create_backend", never)
+    r = reporter.make("all", at(9, 6), send=False)                 # 05:00-06:00: nothing at all
+    assert r["error"] is None and r["summary"].startswith("Nothing seen")
+    gate = r["facts"]["cameras"][0]
+    assert gate["last"] == "2026-10-09 02:00"                      # when it last saw something
+    assert "gate: no sightings (last sighting" in report_text(r)
+
+
+def test_model_title_is_dropped(reporter, monkeypatch):
+    backend = ScriptedBackend([Step("## Daily Report for Thursday\n\n**Cars:** two at the gate.")])
+    monkeypatch.setattr(report_mod, "create_backend", lambda *a: backend)
+    r = reporter.make("morning", at(9, 7), send=False)
+    assert r["summary"] == "**Cars:** two at the gate."
+    assert "Only the cameras listed above exist" in backend.users[0]
+
+
+def test_custom_range_is_saved_apart(reporter, monkeypatch):
+    backend = ScriptedBackend([Step("Three cars.")])
+    monkeypatch.setattr(report_mod, "create_backend", lambda *a: backend)
+    r = reporter.make("morning", at(9, 7), send=False, start=at(8, 20))
+    assert r["custom"] and r["since"] == "2026-10-08 20:00" and r["summary"] == "Three cars."
+    assert "custom report" in backend.users[0]
+    assert r["path"].endswith("2026-10-09_0700_from_2026-10-08_2000.json")
+    assert not reporter.path("morning", at(9, 7)).exists()     # the scheduled one is untouched
+    assert report_text(r).startswith("# morning: custom report")
+    with pytest.raises(ValueError):
+        reporter.make("morning", at(8, 7), send=False, start=at(9, 7))
+
+
+def test_custom_report_any_range(reporter, monkeypatch):
+    backend = ScriptedBackend([Step("Cars at the gate.")])
+    monkeypatch.setattr(report_mod, "create_backend", lambda *a: backend)
+    r = reporter.make("custom", at(9, 7), send=False, start=at(8, 20))
+    assert r["custom"] and r["path"].replace("\\", "/").split("/reports/")[1].startswith("custom/")
+    assert "cars at night" in backend.users[0]          # what the configured reports watch for
+    assert report_text(r).startswith("# Custom report")
+    assert "custom" not in reporter.specs               # never scheduled
+    with pytest.raises(ValueError, match="range"):
+        reporter.make("custom", send=False)
+    with pytest.raises(ValueError, match="kept"):
+        report_mod.load_specs({"reports": [{"name": "custom"}]})
+
+
+def test_report_title():
+    assert report_title({"name": "hourly", "every": "hourly"}) == "Hourly report"
+    assert report_title({"name": "morning", "every": "daily"}) == "morning: daily report"
 
 
 def test_due_starts_with_the_next_period(reporter, monkeypatch):

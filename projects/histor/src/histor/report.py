@@ -2,6 +2,7 @@
 
     uv run -m histor.report                   # run the schedules in `reports:` (keep it running)
     uv run -m histor.report --now morning     # make the report of the last period now, and send it
+    uv run -m histor.report --now morning --since "2026-10-01 00:00" --until "2026-10-08 00:00"
     uv run -m histor.report --list            # saved reports
     uv run -m histor.report --show morning    # print the latest saved one
 
@@ -24,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, time as dtime, timedelta
@@ -42,7 +44,15 @@ from histor.tools import Toolbox
 log = logging.getLogger("histor.report")
 
 PERIODS = {"hourly": timedelta(hours=1), "daily": timedelta(days=1), "weekly": timedelta(days=7)}
+EVERY = (*PERIODS, "monthly")  # a month has no fixed length: handled apart
+CUSTOM = "custom"  # the report for a chosen range (Reporter.custom_spec)
 DAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+
+def add_months(t: datetime, n: int) -> datetime:
+    """Same day and time n months later (day capped at 28: every month has it)."""
+    month = t.month - 1 + n
+    return t.replace(year=t.year + month // 12, month=month % 12 + 1, day=min(t.day, 28))
 MAX_IMAGES = 4  # thumbnails attached to an email
 
 PROMPT = """Write the {every} report for {period}.
@@ -56,6 +66,8 @@ Write for the site's owner, in plain sentences, under {words} words:
 1. What they asked to watch for: one line each, found or not, with camera and time.
 2. Anything else worth knowing: alerts, activity outside usual hours, a camera that recorded nothing.
 3. One line on normal activity (counts, busy times).
+Start directly with point 1: no title or heading, the report already has one.
+Only the cameras listed above exist: don't mention any others.
 Only what the tools returned: no guesses presented as facts."""
 
 
@@ -63,8 +75,8 @@ Only what the tools returned: no guesses presented as facts."""
 class ReportSpec:
     name: str
     every: str = "daily"
-    at: dtime = dtime(7, 0)       # daily / weekly: when a period ends
-    day: int = 0                  # weekly: 0 = monday
+    at: dtime = dtime(7, 0)       # daily / weekly / monthly: when a period ends
+    day: int = 0                  # weekly: 0 = monday; monthly: day of the month (1-28)
     cameras: list[str] = field(default_factory=list)  # empty = every camera
     interests: list[str] = field(default_factory=list)
     model: str | None = None      # chat.models entry; None = chat.model
@@ -77,14 +89,20 @@ class ReportSpec:
         if not d.get("name"):
             raise ValueError("Each report needs a name")
         every = str(d.get("every", "daily")).lower()
-        if every not in PERIODS:
-            raise ValueError(f"Report {d['name']}: every must be {', '.join(PERIODS)}")
-        day = str(d.get("day", "monday")).lower()
-        if day not in DAYS:
-            raise ValueError(f"Report {d['name']}: day must be one of {', '.join(DAYS)}")
+        if every not in EVERY:
+            raise ValueError(f"Report {d['name']}: every must be {', '.join(EVERY)}")
+        if every == "monthly":
+            day = int(d.get("day", 1))
+            if not 1 <= day <= 28:
+                raise ValueError(f"Report {d['name']}: a monthly day must be 1 to 28")
+        else:
+            name = str(d.get("day", "monday")).lower()
+            if name not in DAYS:
+                raise ValueError(f"Report {d['name']}: day must be one of {', '.join(DAYS)}")
+            day = DAYS.index(name)
         interests = d.get("interests") or []
         return cls(name=str(d["name"]), every=every,
-                   at=dtime.fromisoformat(str(d.get("at", "07:00"))), day=DAYS.index(day),
+                   at=dtime.fromisoformat(str(d.get("at", "07:00"))), day=day,
                    cameras=[str(c) for c in d.get("cameras") or []],
                    interests=[interests] if isinstance(interests, str) else list(interests),
                    model=d.get("model"), channels=list(d.get("channels") or []),
@@ -96,16 +114,23 @@ class ReportSpec:
         ready = now - timedelta(minutes=self.delay_minutes)
         if self.every == "hourly":
             return ready.replace(minute=0, second=0, microsecond=0)
+        if self.every == "monthly":
+            end = datetime.combine(ready.date().replace(day=self.day), self.at)
+            return end if end <= ready else add_months(end, -1)
         end = datetime.combine(ready.date(), self.at)
         if self.every == "weekly":
             end -= timedelta(days=(end.weekday() - self.day) % 7)
         return end if end <= ready else end - PERIODS[self.every]
 
     def period(self, end: datetime) -> tuple[datetime, datetime]:
+        if self.every == "monthly":
+            return add_months(end, -1), end
         return end - PERIODS[self.every], end
 
     def next_run(self, now: datetime) -> datetime:
-        return self.period_end(now) + PERIODS[self.every] + timedelta(minutes=self.delay_minutes)
+        end = self.period_end(now)
+        end = add_months(end, 1) if self.every == "monthly" else end + PERIODS[self.every]
+        return end + timedelta(minutes=self.delay_minutes)
 
 
 def load_specs(config: dict[str, Any]) -> list[ReportSpec]:
@@ -113,6 +138,8 @@ def load_specs(config: dict[str, Any]) -> list[ReportSpec]:
     names = [s.name for s in specs]
     if len(set(names)) != len(names):
         raise ValueError(f"Report names must be unique: {names}")
+    if CUSTOM in names:
+        raise ValueError(f"{CUSTOM!r} is kept for reports on a chosen range: pick another name")
     return specs
 
 
@@ -121,7 +148,7 @@ def _fmt(t: datetime) -> str:
 
 
 def period_text(start: datetime, end: datetime) -> str:
-    if end - start == timedelta(hours=1):
+    if start.date() == end.date():
         return f"{start:%a %d %b %H:%M}-{end:%H:%M}"
     return f"{start:%a %d %b %H:%M} to {end:%a %d %b %H:%M}"
 
@@ -147,10 +174,18 @@ class Reporter:
     def close(self) -> None:
         self.toolbox.close()
 
+    def custom_spec(self) -> ReportSpec:
+        """The report for any range (UI "custom", never scheduled): every camera, and what
+        the configured reports watch for."""
+        interests = list(dict.fromkeys(i for s in self.specs.values() for i in s.interests))
+        return ReportSpec(CUSTOM, interests=interests)
+
     # ------------------------------------------------------------------ saved reports
 
-    def path(self, name: str, end: datetime) -> Path:
-        return self.dir / name / f"{end:%Y-%m-%d_%H%M}.json"
+    def path(self, name: str, end: datetime, start: datetime | None = None) -> Path:
+        """start: a custom range, saved apart from the scheduled period ending at the same time."""
+        custom = f"_from_{start:%Y-%m-%d_%H%M}" if start else ""
+        return self.dir / name / f"{end:%Y-%m-%d_%H%M}{custom}.json"
 
     def saved(self, name: str | None = None) -> list[Path]:
         """Saved reports, newest first."""
@@ -167,20 +202,55 @@ class Reporter:
         """Exact counts from the store: never from the model."""
         tb, since, until = self.toolbox, _fmt(start), _fmt(end)
         recorded = tb.recorded(start.timestamp(), end.timestamp())
-        names = spec.cameras or tb.engine.camera_names or sorted(set(tb.about) | set(recorded))
+        # all cameras: the configured ones, and any other that recorded (a simulated camera)
+        names = spec.cameras or (list(tb.engine.camera_names) + sorted(
+            set(recorded) - set(tb.engine.camera_names)) if tb.engine.camera_names
+            else sorted(set(tb.about) | set(recorded)))
         cameras = []
         for cam in names:
             objs = tb.objects(since=since, until=until, camera=cam, limit=1)
-            cameras.append({"camera": cam, "recorded": cam in recorded,
-                            "total": objs["total"], "counts": objs["counts"]})
+            entry = {"camera": cam, "recorded": cam in recorded,
+                     "total": objs["total"], "counts": objs["counts"]}
+            if cam not in recorded:  # when it last saw something: off for days, or a quiet hour?
+                last = tb.last_seen(cam, start.timestamp())
+                entry["last"] = _fmt(datetime.fromtimestamp(last)) if last else None
+            cameras.append(entry)
         alerts = tb.alerts(since=since, until=until, limit=10)
         return {"cameras": cameras, "alerts": {k: alerts[k] for k in ("total", "counts", "events")}}
 
-    def make(self, name: str, end: datetime | None = None, send: bool = True) -> dict[str, Any]:
-        """Make (and save, and send) one report. end: the period's end (default: latest over)."""
-        spec = self.specs[name]
-        end = end or spec.period_end(datetime.now())
-        start, end = spec.period(end)
+    def make(self, name: str, end: datetime | None = None, send: bool = True,
+             start: datetime | None = None) -> dict[str, Any]:
+        """Make (and save, and send) one report. end: the period's end (default: latest over);
+        start: a custom range instead of the report's period (same cameras and interests)."""
+        spec = self.custom_spec() if name == CUSTOM else self.specs[name]
+        custom = start is not None
+        if name == CUSTOM and not custom:
+            raise ValueError("A custom report needs a range (start)")
+        if custom:
+            end = end or datetime.now()
+            if start >= end:
+                raise ValueError("The range must start before it ends")
+        else:
+            start, end = spec.period(end or spec.period_end(datetime.now()))
+        report = {"name": name, "every": spec.every, "custom": custom,
+                  "since": _fmt(start), "until": _fmt(end),
+                  "cameras": spec.cameras or "all", "interests": spec.interests,
+                  **self.compose(spec, start, end, custom),
+                  "model": spec.model or (self.config.get("chat") or {}).get("model"),
+                  "created": _fmt(datetime.now()), "sent": {}}
+        path = self.path(name, end, start if custom else None)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if send and spec.channels:
+            report["sent"] = self.send(spec, report)
+        path.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+        path.with_suffix(".md").write_text(report_text(report), encoding="utf-8")
+        log.info("Report %s %s saved to %s", name, period_text(start, end), path)
+        return {**report, "path": str(path)}  # where it was saved (not stored in the file)
+
+    def compose(self, spec: ReportSpec, start: datetime, end: datetime,
+                custom: bool = False) -> dict[str, Any]:
+        """A report's content, neither saved nor sent: summary (None if the model failed),
+        error, facts, evidence. The UI's Today page uses it for "today so far"."""
         tb = self.toolbox
         tb.only_cameras = list(spec.cameras)
         tb.evidence.clear()
@@ -188,31 +258,23 @@ class Reporter:
             facts = self.facts(spec, start, end)
             snapshots = [e["snapshot"] for e in facts["alerts"]["events"] if e.get("snapshot")]
             tb.evidence.clear()  # the counts' own thumbnails are arbitrary: keep alert snapshots
-            summary, error = self._summary(spec, start, end, facts)
+            # Nothing to tell: a fixed line, no model (it only pads and guesses)
+            summary, error = quiet_summary(spec, start, end, facts), None
+            if summary is None:
+                summary, error = self._summary(spec, start, end, facts, custom)
             evidence = list(dict.fromkeys(snapshots[:3] + tb.evidence))[:8]
         finally:
             tb.only_cameras = []
-        report = {"name": name, "every": spec.every, "since": _fmt(start), "until": _fmt(end),
-                  "cameras": spec.cameras or "all", "interests": spec.interests,
-                  "summary": summary, "error": error, "facts": facts, "evidence": evidence,
-                  "model": spec.model or (self.config.get("chat") or {}).get("model"),
-                  "created": _fmt(datetime.now()), "sent": {}}
-        path = self.path(name, end)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if send and spec.channels:
-            report["sent"] = self.send(spec, report)
-        path.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
-        path.with_suffix(".md").write_text(report_text(report), encoding="utf-8")
-        log.info("Report %s %s saved to %s", name, period_text(start, end), path)
-        return report
+        return {"summary": summary, "error": error, "facts": facts, "evidence": evidence}
 
-    def _summary(self, spec: ReportSpec, start: datetime, end: datetime,
-                 facts: dict[str, Any]) -> tuple[str | None, str | None]:
+    def _summary(self, spec: ReportSpec, start: datetime, end: datetime, facts: dict[str, Any],
+                 custom: bool = False) -> tuple[str | None, str | None]:
         interests = ("The owner asked to watch for:\n" + "\n".join(f"- {i}" for i in spec.interests)
                      if spec.interests else
                      "No specific interests: summarise what happened and anything unusual.")
-        prompt = PROMPT.format(every=spec.every, period=period_text(start, end),
-                               cameras=", ".join(spec.cameras) or "all",
+        prompt = PROMPT.format(every="custom" if custom else spec.every,
+                               period=period_text(start, end),
+                               cameras=", ".join(c["camera"] for c in facts["cameras"]),
                                interests=interests, facts=facts_text(facts),
                                since=_fmt(start), until=_fmt(end), words=spec.words)
         model = spec.model or (self.config.get("chat") or {}).get("model", "local")
@@ -221,13 +283,18 @@ class Reporter:
                                      system_prompt(self.toolbox, now=end), self.toolbox.tools)
             text = answer(backend, self.toolbox, prompt, log,
                           max_rounds=min(12, 4 + 2 * len(spec.interests)))
-            return text, None
+            # small models add a title anyway: the report has its own
+            lines = (text or "").strip().splitlines()
+            while lines and (lines[0].startswith("#") or not lines[0].strip() or
+                             re.fullmatch(r"\*\*[^*]*report[^*]*\*\*:?", lines[0].strip(), re.I)):
+                lines.pop(0)
+            return "\n".join(lines), None
         except (Exception, SystemExit) as e:  # model down, missing or slow: counts only
             log.warning("Report %s: no summary (%s)", spec.name, e)
             return None, str(e)
 
     def send(self, spec: ReportSpec, report: dict[str, Any]) -> dict[str, str]:
-        title = f"[Histor] {report['name']}: {report['every']} report, " \
+        title = f"[Histor] {report_title(report)}, " \
                 f"{period_text(*(datetime.fromisoformat(report[k]) for k in ('since', 'until')))}"
         text = report_text(report)
         images = []
@@ -282,11 +349,39 @@ class Reporter:
             time.sleep(min(300.0, max(5.0, (wake - datetime.now()).total_seconds())))
 
 
+def _last_text(last: str | None) -> str:
+    if not last:
+        return "never recorded anything"
+    t = datetime.fromisoformat(last)
+    return f"last sighting {t:%H:%M}" if t.date() == datetime.now().date() else \
+        f"last sighting {t:%a %d %b %H:%M}"
+
+
+def quiet_summary(spec: ReportSpec, start: datetime, end: datetime,
+                  facts: dict[str, Any]) -> str | None:
+    """The summary of a period with no sightings and no alerts; None if there is more to say."""
+    if facts["alerts"]["total"] or any(c["total"] for c in facts["cameras"]):
+        return None
+    period = period_text(start, end)
+    if not any(c["recorded"] for c in facts["cameras"]):
+        # no rows at all: the camera was off, or nobody passed (empty rooms add no rows)
+        cams = facts["cameras"]
+        who = "the camera" if len(cams) == 1 else "any camera"
+        text = f"Nothing seen {period}: no sightings from {who}. " \
+               "Either nobody passed or the recorder was off"
+        text += f" ({_last_text(cams[0].get('last'))})." if len(cams) == 1 else "."
+    else:
+        text = f"Nothing seen {period}: recording, but no people or objects tracked."
+    if spec.interests:
+        text += " None of what you watch for was seen."
+    return text
+
+
 def facts_text(facts: dict[str, Any]) -> str:
     lines = []
     for c in facts["cameras"]:
         if not c["recorded"]:
-            lines.append(f"- {c['camera']}: recorded nothing in this period (offline?)")
+            lines.append(f"- {c['camera']}: no sightings ({_last_text(c.get('last'))})")
         elif c["counts"]:
             counts = ", ".join(f"{n} {label}" for label, n in c["counts"].items())
             lines.append(f"- {c['camera']}: {counts}")
@@ -306,19 +401,30 @@ def facts_text(facts: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def report_text(report: dict[str, Any]) -> str:
-    """The report as plain text / Markdown: email body, .md file, UI."""
+def report_title(report: dict[str, Any]) -> str:
+    """"Hourly report", or "morning: daily report" when the name says more than the period;
+    "Custom report" for a chosen range."""
+    kind = "custom" if report.get("custom") else report["every"]
+    if report["name"].lower() in (report["every"], kind):
+        return f"{kind.capitalize()} report"
+    return f"{report['name']}: {kind} report"
+
+
+def report_text(report: dict[str, Any], evidence: bool = True) -> str:
+    """The report as plain text / Markdown: email body, .md file, UI (evidence=False: the UI
+    shows the images themselves)."""
     start, end = (datetime.fromisoformat(report[k]) for k in ("since", "until"))
-    cameras = report["cameras"] if isinstance(report["cameras"], str) else \
-        ", ".join(report["cameras"])
-    lines = [f"# {report['name']}: {report['every']} report",
+    names = [c["camera"] for c in report["facts"]["cameras"]]
+    cameras = ", ".join(names) if names else report["cameras"] if \
+        isinstance(report["cameras"], str) else ", ".join(report["cameras"])
+    lines = [f"# {report_title(report)}",
              f"{period_text(start, end)} · cameras: {cameras}", ""]
     if report["interests"]:
         lines += ["Watching for: " + "; ".join(report["interests"]), ""]
     lines += [report["summary"] or f"(No written summary: {report.get('error') or 'model off'}. "
                                    "The counts below are exact.)", "",
               "## Counts", facts_text(report["facts"])]
-    if report["evidence"]:
+    if evidence and report["evidence"]:
         lines += ["", "## Evidence", *(f"- {e}" for e in report["evidence"])]
     return "\n".join(lines) + "\n"
 
@@ -327,6 +433,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Periodic reports of what the cameras saw")
     parser.add_argument("--config", type=Path, default=Path("configs/default.yaml"))
     parser.add_argument("--now", metavar="NAME", help="Make this report for its last period now")
+    parser.add_argument("--since", help="With --now: a custom range start, e.g. 2026-10-01 00:00")
+    parser.add_argument("--until", help="With --since: the range end (default: now)")
     parser.add_argument("--no-send", action="store_true", help="Save only, don't send")
     parser.add_argument("--list", action="store_true", help="List saved reports")
     parser.add_argument("--show", metavar="NAME", help="Print the latest saved report")
@@ -349,7 +457,10 @@ def main() -> None:
             if args.now not in reporter.specs:
                 raise SystemExit(f"No report {args.now!r}. Configured: "
                                  f"{', '.join(reporter.specs) or 'none'}")
-            print(report_text(reporter.make(args.now, send=not args.no_send)))
+            since = datetime.fromisoformat(args.since) if args.since else None
+            until = datetime.fromisoformat(args.until) if args.until else None
+            print(report_text(reporter.make(args.now, until, send=not args.no_send,
+                                            start=since)))
         else:
             reporter.run_forever()
     except KeyboardInterrupt:

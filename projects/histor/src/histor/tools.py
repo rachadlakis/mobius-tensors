@@ -335,6 +335,12 @@ class Toolbox:
                                 "time < ? GROUP BY camera", (since, until)).fetchall()
         return dict(rows)
 
+    def last_seen(self, camera: str, before: float) -> float | None:
+        """Time of the camera's last indexed row before `before` (None: never)."""
+        row = self._db.execute("SELECT MAX(time) FROM sightings WHERE camera = ? AND time < ?",
+                               (camera, before)).fetchone()
+        return row[0] if row else None
+
     def cameras(self) -> list[str]:
         """One line per camera for the model: what it looks at (`about:`) and what has been
         recorded."""
@@ -644,6 +650,8 @@ class Toolbox:
         """A camera name, or an alias of one ("front desk" -> lobby)."""
         name = self.engine.camera_aliases.get(camera.strip().lower(), camera.strip())
         known = self.engine.camera_names or sorted(set(self.about))
+        if known and name not in known:  # a camera not in the config that recorded (a simulation)
+            known = sorted(set(known) | {c["camera"] for c in self.coverage()})
         if known and name not in known:
             raise ValueError(f"No camera {camera!r}. Cameras: {', '.join(known)}")
         return name

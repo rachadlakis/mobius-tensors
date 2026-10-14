@@ -276,7 +276,7 @@ Platinum, 10–30 %) is drafted for introducers and CCTV installers
                                              │
                                              ├─► ask.py     plain-language search, rules only (no LLM)
                                              ├─► chat.py    LLM + tools (+ a local vision model), answers with evidence
-                                             ├─► report.py  hourly / daily / weekly reports
+                                             ├─► report.py  hourly / daily / weekly / monthly reports
                                              └─► server.py  FastAPI: search, people, plates, events, media, recordings
 ```
 
@@ -354,7 +354,7 @@ src/histor/
   telegram_bot.py      the chat as a Telegram bot, for allowed chats
   llm.py               model backends: Ollama, OpenAI-compatible (local) and Claude
   vision.py            the local vision model behind `look` and alert checking
-  report.py            hourly / daily / weekly reports: exact counts + LLM summary, saved and sent
+  report.py            hourly / daily / weekly / monthly reports: exact counts + LLM summary, saved and sent
   ui.py                test UI (Gradio): record, find a person by photo, chat, reports, test bench
   engine/
     detector.py        Detector interface + YOLOX ONNX backend
@@ -1265,7 +1265,7 @@ Set up at install time with the owner: how often, which cameras, what they care 
 ```yaml
 reports:
   - name: morning
-    every: daily                # hourly | daily | weekly (with day: monday)
+    every: daily                # hourly | daily | weekly (day: monday) | monthly (day: 1)
     at: "07:00"                 # the period ends then: yesterday 07:00 to today 07:00
     cameras: [gate, yard]       # names or aliases; empty = every camera
     interests:                  # in the owner's words; empty = what happened + anything unusual

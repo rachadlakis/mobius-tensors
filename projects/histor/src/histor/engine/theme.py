@@ -131,6 +131,31 @@ CSS = """
   box-shadow: inset 0 -2px 0 var(--primary-400) !important}
 .ag-subtabs .tab-wrapper {margin-top: 4px}
 
+/* Camera tab: simulate / modules panels, the modules running, the latest events */
+.ag-panel {padding: 12px !important; border-radius: 12px !important; gap: 8px !important}
+.ag-panel-title {font-weight: 650; font-size: .95rem; margin-bottom: 2px}
+.ag-panel-sub {color: var(--body-text-color-subdued); font-size: .78rem; line-height: 1.4}
+.ag-modules {justify-content: flex-start; margin: 0 0 8px; gap: 6px}
+.ag-recent {margin-top: 10px; border: 1px solid var(--border-color-primary); border-radius: 10px;
+  padding: 9px 11px}
+.ag-recent > span {color: var(--body-text-color-subdued); font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .06em}
+.ag-recent ul {margin: 6px 0 0; padding: 0; list-style: none; font-size: .8rem; line-height: 1.6}
+.ag-recent li b {font-variant-numeric: tabular-nums; font-weight: 600; margin-right: 4px}
+.ag-recent p {margin: 6px 0 0; font-size: .8rem; color: var(--body-text-color-subdued)}
+
+/* the console's main nav: big pill buttons, so the five sections read as the way around */
+.ag-nav > .tab-wrapper {margin: 6px 0 14px; padding: 6px; border-radius: 14px;
+  border: 1px solid var(--border-color-primary); background: var(--block-background-fill)}
+.ag-nav > .tab-wrapper [role="tab"] {font-size: 1rem !important; font-weight: 600 !important;
+  padding: 11px 22px !important; border-radius: 10px !important; margin-right: 4px;
+  min-width: 120px; justify-content: center}
+.ag-nav > .tab-wrapper [role="tab"]:hover {background: var(--background-fill-secondary) !important}
+.ag-nav > .tab-wrapper [role="tab"][aria-selected="true"] {color: white !important;
+  background: var(--color-accent) !important; box-shadow: 0 2px 10px rgba(37, 99, 235, .35) !important}
+.dark .ag-nav > .tab-wrapper [role="tab"][aria-selected="true"] {color: white !important;
+  background: var(--primary-600) !important}
+
 /* labels on images and galleries: quiet, uppercase; galleries start below theirs */
 label[data-testid="block-label"] {text-transform: uppercase; letter-spacing: .06em;
   background: none !important; border: 0 !important; box-shadow: none !important}
@@ -211,4 +236,11 @@ table th, table th * {font-family: var(--font) !important; font-size: 11px !impo
 input[role="combobox"], .wrap:has(> .wrap-inner input[role="combobox"]), .dropdown-arrow,
 [role="option"], label:has(> input[type="radio"]), label:has(> input[type="checkbox"]),
 input[type="radio"], input[type="checkbox"] {cursor: pointer}
+
+/* an open dropdown list: solid, above what is under it (it was see-through in dark mode) */
+ul.option-list {background: var(--background-fill-primary) !important;
+  border: 1px solid var(--border-color-primary) !important; border-radius: 10px !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .35) !important; padding: 4px !important; z-index: 50}
+ul.option-list [role="option"] {border-radius: 7px; padding: 7px 10px !important}
+ul.option-list [role="option"]:hover {background: var(--background-fill-secondary) !important}
 """

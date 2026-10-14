@@ -214,7 +214,8 @@ def main() -> None:
             continue
         class_map = {int(k): names.index(v) for k, v in spec["classes"].items()}
         stats: Counter = Counter()
-        for img in sorted(p for p in root.rglob("*") if p.suffix.lower() in IMAGE_EXTS):
+        images = (p for p in root.rglob("*") if p.suffix.lower() in IMAGE_EXTS)
+        for img in sorted(p for p in images if not p.name.startswith("._")):  # macOS junk
             lines = read_labels(label_path(img), class_map, stats)
             if lines is None:
                 stats["no label file (skipped)"] += 1
