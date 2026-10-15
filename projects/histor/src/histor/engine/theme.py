@@ -132,9 +132,33 @@ CSS = """
 .ag-subtabs .tab-wrapper {margin-top: 4px}
 
 /* Camera tab: simulate / modules panels, the modules running, the latest events */
-.ag-panel {padding: 12px !important; border-radius: 12px !important; gap: 8px !important}
-.ag-panel-title {font-weight: 650; font-size: .95rem; margin-bottom: 2px}
-.ag-panel-sub {color: var(--body-text-color-subdued); font-size: .78rem; line-height: 1.4}
+/* one card: Gradio's group shows grey between its blocks; here they share the card's fill */
+.ag-panel, .ag-panel > .styler, .ag-panel .form, .ag-panel .block {
+  background: var(--block-background-fill) !important; border: 0 !important;
+  box-shadow: none !important}
+.ag-panel {padding: 6px 4px !important; border-radius: 14px !important;
+  border: 1px solid var(--border-color-primary) !important; overflow: hidden}
+.ag-panel .ag-panel {border: 0 !important; padding: 0 !important}  /* Gradio nests two */
+.ag-panel > .styler, .ag-panel .form {gap: 0 !important}
+.ag-panel .row {gap: 0 !important}
+.ag-panel-title {font-weight: 650; font-size: .95rem; margin-bottom: 4px}
+.ag-panel-head .html-container {padding-bottom: 4px !important}
+/* buttons and notes inside a card: the card's inner margins */
+.ag-panel button.ag-card-btn, .ag-panel .ag-card-btns {margin: 2px 12px 10px !important;
+  width: calc(100% - 24px) !important}
+.ag-panel .ag-card-btns button {flex: 1}
+.ag-panel .ag-card-note .html-container {padding: 0 12px 6px !important}
+.ag-panel .ag-card-note .ag-box {margin: 0}
+.ag-panel-sub {color: var(--body-text-color-subdued); font-size: .78rem; line-height: 1.45}
+/* the drop zone: a quiet dashed area that lights up on hover or drag */
+.ag-panel .block.ag-drop {margin: 4px 12px 8px !important; width: auto !important;
+  border: 1px dashed rgba(151, 161, 186, .35) !important; border-radius: 10px !important;
+  background: rgba(151, 161, 186, .04) !important; transition: border-color .15s, background .15s}
+.ag-panel .block.ag-drop:hover, .ag-panel .block.ag-drop:has(.dragging) {
+  border-color: var(--primary-400) !important; background: rgba(40, 100, 255, .08) !important}
+.ag-drop .upload-container .wrap {font-size: .8rem; color: var(--body-text-color-subdued);
+  line-height: 1.35; padding-top: 0 !important}
+.ag-drop .upload-container .icon-wrap {color: var(--primary-300); margin-bottom: 4px}
 .ag-modules {justify-content: flex-start; margin: 0 0 8px; gap: 6px}
 .ag-recent {margin-top: 10px; border: 1px solid var(--border-color-primary); border-radius: 10px;
   padding: 9px 11px}

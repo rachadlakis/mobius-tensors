@@ -215,7 +215,11 @@ def main() -> None:
         class_map = {int(k): names.index(v) for k, v in spec["classes"].items()}
         stats: Counter = Counter()
         images = (p for p in root.rglob("*") if p.suffix.lower() in IMAGE_EXTS)
-        for img in sorted(p for p in images if not p.name.startswith("._")):  # macOS junk
+        images = sorted(p for p in images if not p.name.startswith("._"))  # macOS junk
+        if spec.get("max_images") and len(images) > spec["max_images"]:
+            stats["over max_images (skipped)"] = len(images) - spec["max_images"]
+            images = sorted(random.Random(0).sample(images, spec["max_images"]))
+        for img in images:
             lines = read_labels(label_path(img), class_map, stats)
             if lines is None:
                 stats["no label file (skipped)"] += 1
@@ -230,6 +234,11 @@ def main() -> None:
 
     if not items:
         raise SystemExit("no images found; put datasets in data/raw/<name>/ (see sources.yaml)")
+
+    # Fixed cameras (one view, frames hours apart): every frame looks like a copy of the others to
+    # the hash, so skip it and keep each camera whole in one split instead.
+    fixed = [it for it in items if cfg["sources"][it[0]].get("fixed_cameras")]
+    items = [it for it in items if not cfg["sources"][it[0]].get("fixed_cameras")]
 
     print(f"hashing {len(items)} images ...")
     variants, kept = [], []
@@ -280,11 +289,12 @@ def main() -> None:
 
     counts: dict[str, Counter] = {s: Counter() for s in SPLITS}
     plan = []
-    for g, i in chosen:
-        source, img, lines = kept[i]
-        split = split_of(f"{variants[g][0]:016x}")
+    keyed = [(f"{variants[g][0]:016x}", kept[i]) for g, i in chosen]
+    keyed += [(f"{source}/{img.parent.name}", (source, img, lines)) for source, img, lines in fixed]
+    for key, (source, img, lines) in keyed:
+        split = split_of(key)
         stem = f"{source}_{hashlib.sha1(str(img.relative_to(args.raw)).encode()).hexdigest()[:12]}"
-        plan.append((split, stem, img, lines))
+        plan.append((split, stem, img, lines, cfg["sources"][source].get("cctv", True)))
         counts[split]["images"] += 1
         counts[split]["negatives" if not lines else "positives"] += 1
         for line in lines:
@@ -300,10 +310,10 @@ def main() -> None:
         (args.out / "images" / split).mkdir(parents=True)
         (args.out / "labels" / split).mkdir(parents=True)
     n_cctv = 0
-    for split, stem, img, lines in plan:
+    for split, stem, img, lines, cctv in plan:
         rng = random.Random(stem)
         ext = img.suffix.lower()
-        if split == "train" and rng.random() < args.cctv:
+        if split == "train" and rng.random() < args.cctv and cctv:
             cctv_version(img, args.out / "images" / split / f"{stem}.jpg", rng)
             n_cctv += 1
         elif ext in TRAINER_EXTS:

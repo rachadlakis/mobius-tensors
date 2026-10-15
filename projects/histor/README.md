@@ -70,8 +70,12 @@ skeleton, and raising both hands for 3 s or lying down for 10 s fires an alert.
 uv run --group ui -m histor.ui        # configs/laptop.yaml, opens http://127.0.0.1:7860
 ```
 
-1. **Camera**: *Record* (source `0` = the built-in webcam). The live view shows the
-   tracked objects, and *Faces stored* the face prints being kept (best 5 per visit). Leave the
+It opens on **Today**: the day so far in words, the alerts that need a look (*Mark as seen*),
+each camera's activity (strips or a grid), the journal of events, and the chat beside it.
+The other pages are in the top bar (*Test bench* appears with the *Developer* switch on):
+
+1. **Cameras**: *Start* (source `0` = the built-in webcam). The live view shows the
+   tracked objects, with the counts beside it (faces kept: best 5 per visit). Leave the
    frame and come back: that's a second visit.
 2. **Find a person**: upload a photo, or *Use a frame from the live camera*, pick a time range
    (`today`, `last 10 minutes`) and *Search*: likely / possible visits with their best face.

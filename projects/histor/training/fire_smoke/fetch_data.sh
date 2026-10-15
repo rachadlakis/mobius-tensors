@@ -22,14 +22,22 @@ get "https://zenodo.org/api/records/15826133/files/Indoor%20Fire%20Smoke.zip/con
 get https://huggingface.co/datasets/hanvithSai/gavin-dfire-raw/resolve/main/train.tar dfire_train.tar ""
 get https://huggingface.co/datasets/hanvithSai/gavin-dfire-raw/resolve/main/test.tar dfire_test.tar ""
 
-rm -rf data/raw/cqu data/raw/indoor data/raw/dfire
+# Pyro-SDIS v2.0, Apache-2.0 (pyronear/pyro-sdis): long-range smoke, parquet
+mkdir -p data/downloads/pyro
+PYRO=https://huggingface.co/datasets/pyronear/pyro-sdis/resolve/main/data
+for p in train-00000-of-00003 train-00001-of-00003 train-00002-of-00003 val-00000-of-00001; do
+  get "$PYRO/$p.parquet" "pyro/$p.parquet" ""
+done
+
+rm -rf data/raw/cqu data/raw/indoor data/raw/dfire data/raw/pyro
 mkdir -p data/raw/cqu data/raw/indoor data/raw/dfire
+${PYTHON:-python} unpack_pyro.py data/downloads/pyro/*.parquet
 unzip -q data/downloads/cqu.zip -d data/raw/cqu
 unzip -q data/downloads/indoor.zip -d data/raw/indoor -x "__MACOSX/*" "*.DS_Store"
 tar -xf data/downloads/dfire_train.tar -C data/raw/dfire --exclude="._*"
 tar -xf data/downloads/dfire_test.tar -C data/raw/dfire --exclude="._*"
 
-for d in cqu indoor dfire; do
+for d in cqu indoor dfire pyro; do
   echo "$d: $(find data/raw/$d -iname '*.jpg' ! -name '._*' | wc -l) images, $(find data/raw/$d -name '*.txt' ! -name '._*' | wc -l) txt"
 done
-# Expected about: cqu 11021 images, indoor 5000, dfire 21527 (17221 train + 4306 test)
+# Expected about: cqu 11021 images, indoor 5000, dfire 21527 (17221 train + 4306 test), pyro 12378

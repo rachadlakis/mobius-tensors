@@ -195,3 +195,19 @@ def test_unknown_report_camera_fails_at_start(tmp_path):
     with pytest.raises(ValueError, match="garage"):
         Reporter(config, SearchEngine(store, None, camera_names=["gate"]))
     store.close()
+
+
+def test_delete_a_saved_report(tmp_path):
+    store = EventStore(tmp_path / "store" / "histor.db")
+    reporter = Reporter({"store": {"path": str(store.path)}, "reports": []},
+                        SearchEngine(store=store))
+    saved = reporter.dir / "daily" / "2026-10-14_0700.json"
+    saved.parent.mkdir(parents=True)
+    saved.write_text("{}")
+    saved.with_suffix(".md").write_text("x")
+    assert reporter.delete(saved) and not saved.exists() and not saved.with_suffix(".md").exists()
+    assert not reporter.delete(saved)                      # already gone
+    with pytest.raises(ValueError):                        # never a file outside reports/
+        reporter.delete(store.path)
+    with pytest.raises(ValueError):
+        reporter.delete(reporter.dir / ".." / "x.json")

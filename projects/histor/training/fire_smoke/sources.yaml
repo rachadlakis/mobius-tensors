@@ -19,3 +19,11 @@ sources:
     licence: CC-BY-4.0
     url: https://zenodo.org/records/15826133   # Roboflow export, includes flipped copies
     classes: {0: fire, 1: smoke}   # checked with preview.py 2026-10-13
+
+  pyro:                          # long-range wildfire smoke from fixed towers (unpack_pyro.py)
+    licence: Apache-2.0
+    url: https://huggingface.co/datasets/pyronear/pyro-sdis   # v2.0, 12,378 images
+    classes: {0: smoke}
+    fixed_cameras: true          # split by camera, no near-duplicate hashing
+    cctv: false                  # already camera frames; downscaling would erase the tiny smoke
+    max_images: 6000             # Histor is indoor first: distant smoke should not dominate

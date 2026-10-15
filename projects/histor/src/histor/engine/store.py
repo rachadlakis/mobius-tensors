@@ -480,10 +480,11 @@ class EventStore:
         return dict(rows)
 
     def thumbs_near(self, camera: str, t: float, track_id: int | None = None,
-                    window: float = 30.0, limit: int = 2) -> list[str]:
-        """Search-index thumbnails of a camera around `t` (of one track if given), closest
-        first: more frames of an alert than its one snapshot."""
-        sql = ("SELECT thumb FROM sightings WHERE camera = ? AND time >= ? AND time <= ? "
+                    window: float = 30.0, limit: int = 2, table: str = "sightings") -> list[str]:
+        """Thumbnails of a camera around `t` (of one track if given), closest first: more
+        frames of an alert than its one snapshot (sightings), or its person's face (faces)."""
+        assert table in {"sightings", "faces"}
+        sql = (f"SELECT thumb FROM {table} WHERE camera = ? AND time >= ? AND time <= ? "
                "AND thumb IS NOT NULL")
         args: list[Any] = [camera, t - window, t + window]
         if track_id is not None:
@@ -525,6 +526,30 @@ class EventStore:
                 for rel in files:  # scene thumbs are shared by tiles: delete once, ignore misses
                     (self.media_dir / rel).unlink(missing_ok=True)
             self._db.commit()
+        return deleted
+
+    def clear(self) -> dict[str, int]:
+        """Delete everything stored: every row and the JPEGs they point to (UI "Delete all
+        saved data"). Only files the rows name are removed, then the folders left empty."""
+        tables = {"events": "snapshot", "sightings": "thumb", "faces": "thumb", "poses": None,
+                  "plates": "thumb"}
+        deleted, files = {}, set()
+        with self._lock:
+            for table, media_col in tables.items():
+                if media_col:
+                    files |= {r[0] for r in self._db.execute(
+                        f"SELECT DISTINCT {media_col} FROM {table} WHERE {media_col} IS NOT NULL")}
+                deleted[table] = self._db.execute(f"DELETE FROM {table}").rowcount
+            self._db.commit()
+            self._db.execute("VACUUM")  # the face prints leave the file too, not just the index
+        root = self.media_dir.resolve()
+        for rel in files:
+            path = (root / rel).resolve()
+            if root in path.parents:
+                path.unlink(missing_ok=True)
+        for folder in sorted((d for d in root.rglob("*") if d.is_dir()), reverse=True):
+            if not any(folder.iterdir()):
+                folder.rmdir()
         return deleted
 
 

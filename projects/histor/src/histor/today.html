@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Histor · Today</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script>try{document.documentElement.dataset.hxTheme=localStorage.getItem('histor.theme')||'dark'}catch(e){}</script>
+<style>
+:root{
+  --bg:#080d1f;--panel:#0b1230;--panel-2:#0e1530;--panel-3:#161e3d;--knob:#2a3253;
+  --line:rgba(151,161,186,.16);--line-soft:rgba(151,161,186,.12);--line-strong:rgba(151,161,186,.24);
+  --text:#eef1f7;--text-2:#c9d0df;--text-3:#97a1ba;--text-4:#69738f;--answer:#dbe2f0;--code:#93b1ff;
+  --blue:#2864ff;--blue-hover:#1a4fe6;--cyan:#6fd8f7;
+  --alert:#ef4444;--warn:#f59e0b;--plate:#6fd8f7;--info:#6089ff;--ok:#22c55e;
+  --mono:ui-monospace,'Cascadia Mono',Consolas,monospace;
+  --link:#93b1ff;--link-hover:#bfd0ff;--bad:#fca5a5;--good:#86efac;--hover:#1b2448;--cell-num:rgba(238,241,247,.8);
+  color-scheme:dark;
+}
+:root[data-hx-theme="light"]{
+  --bg:#f5f7fb;--panel:#ffffff;--panel-2:#ffffff;--panel-3:#eef1f7;--knob:#dde3ee;
+  --line:rgba(11,18,48,.10);--line-soft:rgba(11,18,48,.08);--line-strong:rgba(11,18,48,.16);
+  --text:#0b1230;--text-2:#2a3253;--text-3:#4a5370;--text-4:#69738f;--answer:#161e3d;--code:#1a4fe6;
+  --cyan:#0e7490;--plate:#0891b2;
+  --link:#1a4fe6;--link-hover:#163fba;--bad:#b91c1c;--good:#15803d;--hover:#e2e6ef;--cell-num:#0b1230;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.4 ui-sans-serif,system-ui,-apple-system,'Segoe UI Variable Text','Segoe UI',sans-serif;
+  display:flex;flex-direction:column;overflow:hidden}
+a{color:var(--link)}a:hover{color:var(--link-hover)}
+button{font:inherit;color:inherit}
+input::placeholder{color:var(--text-4)}
+.mono{font-family:var(--mono)}
+.num{font-variant-numeric:tabular-nums}
+{{TOPBAR_CSS}}
+
+.layout{flex:1;min-height:0;display:flex}
+.main{flex:1;min-width:0;overflow:auto;padding:24px 40px 64px;display:flex;flex-direction:column;gap:18px}
+
+/* head */
+.head{display:flex;flex-direction:column;gap:8px;max-width:860px}
+.head .row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.head h1{margin:0;font-size:28px;font-weight:650;letter-spacing:-.02em;line-height:1.1}
+.kicker{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--cyan)}
+.summary{margin:0;font-size:14px;line-height:1.5;color:var(--text-2);text-wrap:pretty}
+.summary.wait::after{content:" · writing the summary…";color:var(--text-4)}
+.figures{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--text-3)}
+.figures b{color:var(--text);font-variant-numeric:tabular-nums}
+
+/* needs a look */
+.needs{display:flex;flex-direction:column;gap:8px}
+.needs-title{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:650}
+.pill{padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;
+  background:rgba(239,68,68,.16);color:var(--bad)}
+.pill.ok{background:rgba(34,197,94,.16);color:var(--good)}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.card-a{display:flex;flex-direction:column;gap:8px;padding:8px 10px;border-radius:10px;
+  background:var(--panel-2);border:1px solid rgba(239,68,68,.28)}
+.card-a .top{display:flex;gap:10px}
+.card-a .thumb{width:48px;height:36px;flex:none;object-fit:cover;border-radius:6px;display:block;background:var(--panel-3)}
+.card-a .txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.card-a .txt b{font-weight:600;line-height:1.3;font-size:13px}
+.card-a .txt span{font-size:12px;color:var(--text-3);font-variant-numeric:tabular-nums}
+.card-a .acts{display:flex;gap:6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border-radius:7px;
+  background:var(--panel-3);border:1px solid var(--line);font-size:12px;cursor:pointer;color:var(--text);text-decoration:none}
+a.btn:hover{color:var(--text)}
+.btn:hover{border-color:var(--line-strong);background:var(--hover)}
+.btn.primary{background:var(--blue);border-color:var(--blue);font-weight:600;color:#fff}
+.btn.primary:hover{background:var(--blue-hover)}
+.btn.big{padding:9px 16px;border-radius:9px;font-size:13px}
+.btn.big.primary{padding:9px 18px}
+.card-a .acts .btn{flex:1}
+.caught{padding:12px 14px;border-radius:10px;background:rgba(34,197,94,.07);
+  border:1px solid rgba(34,197,94,.3);font-size:13px;color:var(--text-2)}
+
+/* filters */
+.filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:14px;border-top:1px solid var(--line-soft)}
+.filters .lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-4)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:5px 12px;border-radius:999px;font-size:13px;cursor:pointer;background:transparent;
+  color:var(--text-2);border:1px solid var(--line-strong)}
+.chip:hover{background:rgba(151,161,186,.08)}
+.chip[aria-pressed="true"]{background:var(--text);color:var(--panel);border-color:var(--text)}
+.filters .note{font-size:12px;color:var(--text-4)}
+
+/* the day */
+.day{display:flex;flex-direction:column;gap:12px;padding:16px 18px 18px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--line)}
+.day-head{display:flex;align-items:center;gap:10px}
+.day-head b{font-size:15px;font-weight:650}
+.day-head .hint{font-size:13px;color:var(--text-3)}
+.seg{display:flex;padding:3px;border-radius:8px;background:var(--bg);border:1px solid var(--line);font-size:12px;margin-left:auto}
+.seg button{padding:3px 11px;border-radius:6px;cursor:pointer;background:transparent;color:var(--text-3);border:0}
+.seg button[aria-pressed="true"]{background:var(--knob);color:var(--text)}
+.strips{position:relative;display:flex;flex-direction:column}
+.axis{position:relative;height:20px;margin-left:96px}
+.axis span{position:absolute;transform:translateX(-50%);font-size:11px;color:var(--text-4);font-family:var(--mono)}
+.axis span:first-child{transform:none}.axis span:last-child{transform:translateX(-100%)}
+.lane{display:flex;height:46px;border-top:1px solid rgba(151,161,186,.1)}
+.lane-name{width:96px;flex:none;display:flex;flex-direction:column;justify-content:center;gap:1px;min-width:0;padding-right:8px}
+.lane-name b{font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lane-name span{font-size:11px;color:var(--text-4)}
+.lane-track{flex:1;position:relative}
+.bars{position:absolute;inset:7px 0;display:flex;align-items:flex-end;gap:2px}
+.bars span{flex:1;border-radius:2px 2px 0 0;min-height:0}
+.mark{position:absolute;top:50%;width:10px;height:10px;transform:translate(-50%,-50%) rotate(45deg);
+  border-radius:3px;cursor:pointer;box-shadow:0 0 0 2px var(--panel);z-index:2;border:0;padding:0}
+.mark.sel{width:14px;height:14px}
+.overlay{position:absolute;top:0;bottom:0;left:96px;right:0;pointer-events:none}
+.future{position:absolute;top:20px;bottom:0;right:0;
+  background:repeating-linear-gradient(135deg,rgba(151,161,186,.05) 0 6px,transparent 6px 12px)}
+.nowline{position:absolute;top:0;bottom:0;width:1px;background:var(--cyan)}
+.nowlbl{position:absolute;top:0;transform:translateX(4px);font-size:11px;color:var(--cyan);font-weight:600}
+.playhead{position:absolute;top:20px;bottom:0;width:2px;margin-left:-1px;background:var(--text)}
+.grid{display:flex;flex-direction:column;gap:3px}
+.grid-row{display:flex;gap:3px}
+.grid-hours{display:flex;gap:3px;padding-left:96px;height:17px}
+.grid-hours span{flex:1;font-size:10px;color:var(--text-4);font-family:var(--mono)}
+.grid-hours span.now{color:var(--cyan)}
+.grid .lane-name{width:93px}
+.cell{flex:1;height:43px;position:relative;border-radius:5px;border:0;padding:0;min-width:0}
+.cell.has-ev{cursor:pointer}
+.cell i{position:absolute;top:5px;right:5px;width:7px;height:7px;transform:rotate(45deg);border-radius:2px}
+.cell em{position:absolute;left:4px;bottom:3px;font-size:10px;font-style:normal;color:var(--cell-num);font-family:var(--mono)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding-left:96px;font-size:12px;color:var(--text-3)}
+.legend span{display:flex;align-items:center;gap:6px}
+.dia{width:7px;height:7px;transform:rotate(45deg);border-radius:2px;display:inline-block}
+
+/* journal */
+.journal{display:flex;flex-direction:column}
+.hour{display:flex;gap:24px;padding:20px 0;border-top:1px solid var(--line-soft)}
+.hour-lbl{width:84px;flex:none;font-size:24px;font-weight:300;color:var(--text-3);font-family:var(--mono);line-height:1.2}
+.hour-items{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.ev{display:flex;flex-direction:column;gap:14px;padding:14px;margin:-4px -14px;border-radius:12px;
+  cursor:pointer;background:transparent;border:1px solid transparent;scroll-margin-top:24px}
+.ev:hover{background:rgba(151,161,186,.04)}
+.ev.sel{background:rgba(40,100,255,.10);border-color:rgba(40,100,255,.4);cursor:default}
+.ev-row{display:flex;gap:18px}
+.ev-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.ev-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--text-3)}
+.ev-meta .dot{width:7px;height:7px;border-radius:50%}
+.ev-meta .t{font-family:var(--mono);color:var(--text-2)}
+.ev-meta .k{font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:11px}
+.state{padding:1px 7px;border-radius:999px;font-size:11px;font-weight:600}
+.state.open{background:rgba(239,68,68,.16);color:var(--bad)}
+.state.seen,.state.held{background:rgba(151,161,186,.12);color:var(--text-3)}
+.ev-title{font-size:17px;font-weight:600;line-height:1.3}
+.ev-text{font-size:14px;line-height:1.5;color:var(--text-2);text-wrap:pretty}
+.ev-thumb{width:176px;height:108px;flex:none;object-fit:cover;border-radius:8px;display:block;background:var(--panel-3)}
+.ev-open{display:flex;flex-direction:column;gap:14px}
+.frames{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.frames img,.frames .ph{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:8px;display:block;background:var(--panel-3)}
+.devbox{padding:10px 12px;border-radius:8px;background:var(--bg);border:1px dashed var(--line-strong);
+  font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--code);white-space:pre-line;display:none}
+body.hx-dev .devbox{display:block}
+.ev-acts{display:flex;gap:8px;flex-wrap:wrap}
+.end{display:flex;gap:24px;padding:20px 0;border-top:1px solid var(--line-soft);color:var(--text-4)}
+.end .hour-lbl{color:var(--text-4)}
+.end div:last-child{font-size:14px;padding-top:6px}
+.empty{color:var(--text-3);font-size:14px;padding:20px 0;border-top:1px solid var(--line-soft)}
+
+/* ask */
+.ask{width:420px;flex:none;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line)}
+.ask-head{display:flex;align-items:center;gap:10px;padding:18px 20px;border-bottom:1px solid var(--line)}
+.ask-head b{font-weight:650;font-size:15px}
+.ask-head .new{background:none;border:0;color:var(--text-4);font-size:12px;cursor:pointer;padding:0}
+.ask-head .new:hover{color:var(--text-2)}
+.ask-head .sp{flex:1}
+.ask-head i{width:7px;height:7px;border-radius:50%;background:var(--text-4);flex:none}
+.ask-head i.ok{background:var(--ok)}.ask-head i.warn{background:var(--warn)}.ask-head i.err{background:var(--alert)}
+.ask-head .model{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.msgs{flex:1;min-height:0;overflow:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:16px;padding:20px}
+.msgs .intro{color:var(--text-3);line-height:1.55;font-size:13px}
+.q{align-self:flex-end;max-width:86%;padding:10px 14px;border-radius:14px 14px 4px 14px;background:var(--blue);color:#fff;line-height:1.45;overflow-wrap:anywhere}
+.q small{display:block;font-size:11px;opacity:.8;margin-bottom:2px}
+.calls{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;background:var(--bg);border:1px solid var(--line)}
+.calls div{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-4)}
+.calls code{font-family:var(--mono);font-size:12px;color:var(--code);line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.a{line-height:1.55;color:var(--answer);text-wrap:pretty;overflow-wrap:anywhere}
+.a p{margin:0 0 8px}.a p:last-child{margin:0}.a ul{margin:0 0 8px;padding-left:18px}
+.a code{font-family:var(--mono);font-size:12px;color:var(--code)}
+.a.err{color:var(--bad)}
+.thinking{color:var(--text-3);font-size:13px}
+.thinking::after{content:"";animation:dots 1.2s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+.evid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.evid img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;display:block;background:var(--panel-3)}
+.ask-foot{display:flex;flex-direction:column;gap:10px;padding:16px 20px 20px;border-top:1px solid var(--line)}
+.examples{display:flex;flex-wrap:wrap;gap:6px}
+.examples button{padding:5px 11px;border-radius:999px;border:1px solid var(--line-strong);font-size:12px;
+  color:var(--text-2);cursor:pointer;background:transparent;text-align:left}
+.examples button:hover{background:rgba(151,161,186,.08)}
+.composer{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line-strong)}
+.composer:focus-within{border-color:rgba(40,100,255,.6)}
+.ctx{align-self:flex-start;display:flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;background:var(--panel-3);font-size:12px;color:var(--text-2)}
+.ctx[hidden]{display:none}
+.ctx i{width:6px;height:6px;border-radius:50%}
+.ctx button{margin-left:4px;color:var(--text-4);cursor:pointer;background:none;border:0;padding:0;font-size:14px;line-height:1}
+.ctx button:hover{color:var(--text)}
+.composer .row{display:flex;align-items:center;gap:8px}
+.composer input[type=text]{flex:1;min-width:0;background:none;border:0;outline:none;color:var(--text);font:inherit}
+.composer .photo{padding:5px 10px;border-radius:7px;border:1px solid var(--line-strong);font-size:12px;color:var(--text-2);cursor:pointer;background:transparent}
+.composer .photo:hover{background:rgba(151,161,186,.08)}
+.composer .send{padding:5px 12px;border-radius:7px;background:var(--blue);color:#fff;font-size:12px;font-weight:600;cursor:pointer;border:0}
+.composer .send:hover{background:var(--blue-hover)}
+.composer .send:disabled{opacity:.5;cursor:default}
+.note-line{font-size:12px;color:var(--text-3)}
+
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+@media (max-width:1280px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.ask{width:360px}}
+@media (max-width:1000px){
+  body{overflow:auto;height:auto}
+  .layout{flex-direction:column}
+  .main{overflow:visible;padding:20px 16px 40px}
+  .ask{width:auto;border-left:0;border-top:1px solid var(--line);min-height:560px}
+  .ev-thumb{width:120px;height:76px}
+  .hour{gap:12px}.hour-lbl{width:56px;font-size:18px}
+}
+@media (max-width:640px){
+  .cards{grid-template-columns:minmax(0,1fr)}
+  .lane-name,.grid .lane-name{width:64px}.axis,.grid-hours,.legend{margin-left:0}
+  .axis{margin-left:64px}.grid-hours{padding-left:64px}.legend{padding-left:0}.overlay{left:64px}
+  .ev-row{flex-direction:column}.ev-thumb{width:100%;height:auto;aspect-ratio:16/9}
+}
+</style>
+</head>
+<body>
+{{TOPBAR}}
+<div class="layout">
+  <main class="main" id="main">
+    <section class="head">
+      <div class="row"><h1 id="day">Today</h1><span class="kicker" id="kicker"></span></div>
+      <p class="summary" id="summary">Loading…</p>
+      <div class="figures" id="figures"></div>
+    </section>
+    <section class="needs" aria-labelledby="needs-title">
+      <div class="needs-title" id="needs-title">Needs a look <span class="pill" id="open-count">0</span></div>
+      <div id="needs"></div>
+    </section>
+    <div class="filters">
+      <span class="lbl">Show</span>
+      <div class="chips" id="filters" role="group" aria-label="Filter events"></div>
+      <span class="note">Applies to the day and the log below</span>
+    </div>
+    <section class="day" aria-label="The day">
+      <div class="day-head">
+        <b>The day</b><span class="hint" id="view-hint"></span>
+        <div class="seg" role="group" aria-label="View">
+          <button type="button" data-view="Strips">Strips</button>
+          <button type="button" data-view="Grid">Grid</button>
+        </div>
+      </div>
+      <div id="timeline"></div>
+      <div class="legend">
+        <span><i class="dia" style="background:var(--alert)"></i>Alert</span>
+        <span><i class="dia" style="background:var(--warn)"></i>Rule</span>
+        <span><i class="dia" style="background:var(--plate)"></i>Plate</span>
+        <span><i class="dia" style="background:var(--info)"></i>Other</span>
+      </div>
+    </section>
+    <section class="journal" id="journal" aria-label="Events, newest first"></section>
+  </main>
+  <aside class="ask" aria-label="Ask">
+    <div class="ask-head">
+      <b>Ask</b><button type="button" class="new" id="new-chat" title="Start a new conversation">New</button>
+      <span class="sp"></span><i id="model-dot"></i><span class="model" id="model"></span>
+    </div>
+    <div class="msgs" id="msgs" aria-live="polite">
+      <div class="intro">Ask about what the cameras saw. Answers come from the recordings: the lookups made show above each answer, the frames it looked at below.</div>
+    </div>
+    <div class="ask-foot">
+      <div class="examples" id="examples"></div>
+      <form class="composer" id="composer">
+        <div class="ctx" id="ctx" hidden><i></i><span></span><button type="button" aria-label="Remove context">×</button></div>
+        <div class="row">
+          <input type="text" id="question" placeholder="Ask about what the cameras saw" autocomplete="off" aria-label="Question">
+          <input type="file" id="photo-file" accept="image/*" hidden>
+          <button type="button" class="photo" id="photo" title="Attach a photo of a person to look for">Photo</button>
+          <button type="submit" class="send" id="send">Send</button>
+        </div>
+      </form>
+    </div>
+  </aside>
+</div>
+<script>{{TOPBAR_JS}}</script>
+<script>
+(() => {
+const KC = {alert: 'var(--alert)', warn: 'var(--warn)', plate: 'var(--plate)', info: 'var(--info)'};
+const FILTERS = ['All', 'Alerts', 'People', 'Vehicles', 'Sounds'];
+const EXAMPLES = ['What happened in the last hour?', 'How many people came in today?',
+  'Was anyone carrying a bag this morning?', 'Did any alert go off last night?'];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const pct = h => (Math.max(0, Math.min(24, h)) / 24 * 100).toFixed(3) + '%';
+const pad = n => String(n).padStart(2, '0');
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+
+const S = {data: null, raw: '', sel: null, filter: 'All', view: store.get('histor.view', 'Strips'),
+  ctx: null, frames: {}, busy: false, dev: false};
+const dev = () => document.body.classList.contains('hx-dev');
+const match = e => S.filter === 'All' || (S.filter === 'Alerts' ? e.kind === 'alert' : e.group === S.filter);
+const byId = id => S.data && S.data.events.find(e => e.id === id);
+
+// ------------------------------------------------------------------ data
+
+async function load() {
+  try {
+    const r = await fetch('/api/today');
+    if (!r.ok) throw new Error(r.status);
+    const raw = await r.text();
+    if (raw === S.raw) return;
+    const first = !S.data;
+    const before = S.data ? S.data.figures.events : -1;
+    S.raw = raw; S.data = JSON.parse(raw);
+    if (S.sel != null && !byId(S.sel)) S.sel = null;
+    render();
+    if (first || S.data.figures.events !== before) summary();
+  } catch (e) {
+    $('summary').textContent = 'Could not load the day (' + e.message + '). Retrying…';
+  }
+}
+
+let summaryRun = 0;
+async function summary() {
+  const run = ++summaryRun;
+  $('summary').classList.add('wait');
+  try {
+    const r = await fetch('/api/summary');
+    const s = await r.json();
+    if (run !== summaryRun) return;
+    $('summary').textContent = s.text;
+    $('summary').title = s.source === 'model' ? 'Written by the chat model from the recordings' : 'From the counts (no model)';
+  } catch (e) {}
+  if (run === summaryRun) $('summary').classList.remove('wait');
+}
+
+// ------------------------------------------------------------------ render
+
+function render() {
+  const d = S.data;
+  if (!d) return;
+  $('day').textContent = d.day;
+  $('kicker').textContent = d.weekday + ' · so far';
+  if (!$('summary').classList.contains('wait') && !$('summary').title) $('summary').textContent = d.summary;
+  const f = d.figures;
+  $('figures').innerHTML = [[f.visits, 'visits'], [f.faces, 'faces kept'], [f.plates, 'plates read'],
+    [f.events, f.events === 1 ? 'event' : 'events']].map(([n, l]) => `<span><b>${n.toLocaleString()}</b> ${l}</span>`).join('');
+  const m = d.model;
+  $('model-dot').className = m.state; $('model').textContent = m.text; $('model').title = m.text;
+  renderNeeds(); renderFilters(); renderTimeline(); renderJournal();
+}
+
+function renderNeeds() {
+  const open = S.data.events.filter(e => e.state === 'open').reverse();
+  const pill = $('open-count');
+  pill.textContent = open.length; pill.classList.toggle('ok', !open.length);
+  $('needs').innerHTML = open.length ? `<div class="cards">${open.map(e => `
+    <div class="card-a">
+      <div class="top">
+        ${e.img ? `<img class="thumb" src="${esc(e.img)}" alt="">` : '<span class="thumb"></span>'}
+        <div class="txt"><b>${esc(e.short)}</b><span>${e.time.slice(0, 5)} · ${esc(e.camera)}</span></div>
+      </div>
+      <div class="acts">
+        <button type="button" class="btn" data-show="${e.id}">Show</button>
+        <button type="button" class="btn primary" data-seen="${e.id}">Mark as seen</button>
+      </div>
+    </div>`).join('')}</div>`
+    : '<div class="caught">All caught up. New alerts will show up here.</div>';
+}
+
+function renderFilters() {
+  $('filters').innerHTML = FILTERS.map(f =>
+    `<button type="button" class="chip" data-filter="${f}" aria-pressed="${f === S.filter}">${f}</button>`).join('');
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.view === S.view));
+  $('view-hint').textContent = S.view === 'Strips' ? 'Visits every 30 min · click a mark' : 'Visits per hour · darker is busier';
+}
+
+function renderTimeline() {
+  const d = S.data, now = d.now, sel = byId(S.sel);
+  const lanes = d.cameras;
+  if (!lanes.length) {
+    $('timeline').innerHTML = '<div class="note-line">No camera has recorded today yet. Start one on <a href="/app/?__theme=' + window.histor_theme() + '&tab=cameras">Cameras</a>.</div>';
+    return;
+  }
+  if (S.view === 'Strips') {
+    const max = Math.max(1, ...lanes.flatMap(l => l.bins));
+    const axis = [0, 3, 6, 9, 12, 15, 18, 21, 24].map(h => `<span style="left:${pct(h)};${now < 24 && h > now - 1.5 && h < now + 2 ? 'visibility:hidden' : ''}">${pad(h)}:00</span>`).join('');
+    const rows = lanes.map(l => {
+      const bars = l.bins.map((n, i) => {
+        if (i / 2 > now) return '<span></span>';
+        const v = n / max;
+        return `<span style="height:${n ? Math.max(4, Math.round(v * 100)) : 2}%;background:rgba(96,137,255,${n ? (0.18 + v * 0.4).toFixed(2) : '.08'})" title="${esc(l.name)} ${pad(Math.floor(i / 2))}:${i % 2 ? '30' : '00'} · ${n} ${dev() ? 'tracks' : 'visits'}"></span>`;
+      }).join('');
+      const marks = d.events.filter(e => e.camera === l.name).map(e => {
+        const on = e.id === S.sel;
+        return `<button type="button" class="mark${on ? ' sel' : ''}" data-pick="${e.id}" title="${e.time.slice(0, 5)} ${esc(e.short)}"
+          style="left:${pct(e.hour)};background:${KC[e.kind]};opacity:${match(e) ? 1 : .2};box-shadow:${on ? `0 0 0 3px var(--panel),0 0 0 5px ${KC[e.kind]}` : '0 0 0 2px var(--panel)'}" aria-label="${e.time.slice(0, 5)} ${esc(e.short)}"></button>`;
+      }).join('');
+      return `<div class="lane"><div class="lane-name"><b title="${esc(l.name)}">${esc(l.name)}</b><span>${l.visits.toLocaleString()} ${dev() ? 'tracks' : 'visits'}</span></div>
+        <div class="lane-track"><div class="bars">${bars}</div>${marks}</div></div>`;
+    }).join('');
+    const today = now < 24;
+    $('timeline').innerHTML = `<div class="strips"><div class="axis">${axis}</div>${rows}
+      <div class="overlay">${today ? `<div class="future" style="left:${pct(now)}"></div><div class="nowline" style="left:${pct(now)}"></div><span class="nowlbl" style="left:${pct(now)}">now</span>` : ''}
+      ${sel ? `<div class="playhead" style="left:${pct(sel.hour)}"></div>` : ''}</div></div>`;
+  } else {
+    const max = Math.max(1, ...lanes.flatMap(l => l.hours));
+    const nowH = Math.floor(now);
+    const hours = [...Array(24)].map((_, h) => `<span class="${h === nowH ? 'now' : ''}">${h % 3 === 0 ? pad(h) : ''}</span>`).join('');
+    const rows = lanes.map(l => {
+      const cells = l.hours.map((n, h) => {
+        const evs = d.events.filter(e => e.camera === l.name && Math.floor(e.hour) === h)
+          .sort((a, b) => ({alert: 0, warn: 1, plate: 2, info: 3}[a.kind] - ({alert: 0, warn: 1, plate: 2, info: 3}[b.kind])));
+        const ev = evs.find(match) || evs[0];
+        const future = h > nowH;
+        const v = n / max;
+        const bg = future ? 'repeating-linear-gradient(135deg,rgba(151,161,186,.06) 0 4px,transparent 4px 8px)'
+          : n ? `rgba(40,100,255,${Math.min(.95, .08 + v * .85).toFixed(2)})` : 'rgba(40,100,255,.05)';
+        const ring = sel && sel.camera === l.name && Math.floor(sel.hour) === h ? '0 0 0 2px var(--text)' : 'none';
+        const title = future ? '' : `${l.name} ${pad(h)}:00 · ${n} visits` + (evs.length ? ` · ${evs.length} event${evs.length > 1 ? 's' : ''}` : '');
+        return `<button type="button" class="cell${ev ? ' has-ev' : ''}" ${ev ? `data-pick="${ev.id}"` : 'tabindex="-1"'} title="${esc(title)}" style="background:${bg};box-shadow:${ring}">
+          ${ev ? `<i style="background:${KC[ev.kind]};opacity:${match(ev) ? 1 : .25}"></i>` : ''}
+          ${dev() && !future ? `<em>${n}</em>` : ''}</button>`;
+      }).join('');
+      return `<div class="grid-row"><div class="lane-name"><b title="${esc(l.name)}">${esc(l.name)}</b><span>${l.visits.toLocaleString()} visits</span></div>${cells}</div>`;
+    }).join('');
+    $('timeline').innerHTML = `<div class="grid"><div class="grid-hours">${hours}</div>${rows}</div>`;
+  }
+}
+
+function renderJournal() {
+  const evs = S.data.events.filter(match);
+  const groups = {};
+  evs.forEach(e => (groups[e.time.slice(0, 2)] = groups[e.time.slice(0, 2)] || []).push(e));
+  const hours = Object.keys(groups).sort().reverse();
+  let out = hours.map(h => `<div class="hour"><div class="hour-lbl">${h}:00</div><div class="hour-items">
+    ${groups[h].slice().reverse().map(eventHtml).join('')}</div></div>`).join('');
+  if (!S.data.events.length) out = '<div class="empty">Nothing has happened yet today.</div>';
+  else if (!evs.length) out = '<div class="empty">Nothing of this kind today.</div>';
+  out += '<div class="end"><div class="hour-lbl">00:00</div><div>Start of the day.</div></div>';
+  $('journal').innerHTML = out;
+}
+
+function eventHtml(e) {
+  const on = e.id === S.sel;
+  const state = {open: 'Needs a look', seen: 'Seen', held: 'Not real'}[e.state] || '';
+  const extra = S.frames[e.id];
+  let open = '';
+  if (on) {
+    const frames = extra ? extra.frames : (e.img ? [e.img] : []);
+    const cells = frames.slice(0, 3).map(u => `<img src="${esc(u)}" alt="" loading="lazy">`).join('');
+    const face = extra && extra.face && S.data.faces_on && e.group === 'People';
+    open = `<div class="ev-open">
+      ${cells ? `<div class="frames">${cells}</div>` : ''}
+      <div class="devbox">${esc(e.dev)}</div>
+      <div class="ev-acts">
+        <button type="button" class="btn big primary" data-ask="${e.id}">Ask about this</button>
+        ${face ? `<a class="btn big" href="/app/?__theme=${window.histor_theme()}&tab=find&photo=${encodeURIComponent(extra.face)}">Find this person</a>` : ''}
+        ${e.state === 'open' ? `<button type="button" class="btn big" data-seen="${e.id}">Mark as seen</button>` : ''}
+      </div></div>`;
+  }
+  return `<div class="ev${on ? ' sel' : ''}" id="ev-${e.id}" data-pick="${e.id}" ${on ? '' : 'role="button" tabindex="0"'} aria-expanded="${on}">
+    <div class="ev-row">
+      <div class="ev-body">
+        <div class="ev-meta"><span class="dot" style="background:${KC[e.kind]}"></span><span class="t">${e.time.slice(0, 5)}</span>
+          <span>${esc(e.camera)}</span><span class="k" style="color:${KC[e.kind]}">${esc(e.type)}</span>
+          ${state ? `<span class="state ${e.state}">${state}</span>` : ''}</div>
+        <div class="ev-title">${esc(e.title)}</div>
+        ${e.text ? `<div class="ev-text">${esc(e.text)}</div>` : ''}
+      </div>
+      ${!on ? (e.img ? `<img class="ev-thumb" src="${esc(e.img)}" alt="" loading="lazy">` : '') : ''}
+    </div>${open}</div>`;
+}
+
+// ------------------------------------------------------------------ actions
+
+async function pick(id, scroll = true) {
+  S.sel = id;
+  renderTimeline(); renderJournal();
+  if (scroll) requestAnimationFrame(() => {
+    const el = $('ev-' + id), box = $('main');
+    if (!el) return;
+    if (box.scrollHeight > box.clientHeight)
+      box.scrollTo({top: box.scrollTop + el.getBoundingClientRect().top - box.getBoundingClientRect().top - 24, behavior: 'smooth'});
+    else el.scrollIntoView({behavior: 'smooth', block: 'start'});
+  });
+  if (!S.frames[id]) {
+    try {
+      const r = await fetch('/api/events/' + id);
+      if (r.ok) { S.frames[id] = await r.json(); if (S.sel === id) renderJournal(); }
+    } catch (e) {}
+  }
+}
+
+async function seen(id) {
+  const e = byId(id);
+  if (e) e.state = 'seen';
+  renderNeeds(); renderJournal();
+  try { await fetch(`/api/events/${id}/seen`, {method: 'POST'}); } catch (err) {}
+  S.raw = '';  // the next load re-renders from the store
+}
+
+function setCtx(id) {
+  S.ctx = id;
+  const e = byId(id), box = $('ctx');
+  box.hidden = !e;
+  if (e) {
+    box.querySelector('i').style.background = KC[e.kind];
+    box.querySelector('span').textContent = `About ${e.time.slice(0, 5)} · ${e.camera} · ${e.type.toLowerCase()}`;
+    $('question').focus();
+  }
+}
+
+document.addEventListener('click', ev => {
+  const t = ev.target;
+  let b;
+  if ((b = t.closest('[data-seen]'))) { ev.stopPropagation(); return seen(+b.dataset.seen); }
+  if ((b = t.closest('[data-ask]'))) { ev.stopPropagation(); return setCtx(+b.dataset.ask); }
+  if ((b = t.closest('[data-show]'))) return pick(+b.dataset.show);
+  if ((b = t.closest('[data-filter]'))) { S.filter = b.dataset.filter; renderFilters(); renderTimeline(); renderJournal(); return; }
+  if ((b = t.closest('[data-view]'))) { S.view = b.dataset.view; store.set('histor.view', S.view); renderFilters(); renderTimeline(); return; }
+  if (t.closest('a, .frames, .devbox')) return;
+  if ((b = t.closest('[data-pick]'))) {
+    const id = +b.dataset.pick;
+    if (b.classList.contains('ev')) { if (S.sel !== id) pick(id, false); return; }
+    return pick(id);
+  }
+});
+document.addEventListener('keydown', ev => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('.ev[data-pick]')) { ev.preventDefault(); pick(+ev.target.dataset.pick, false); }
+});
+document.addEventListener('histor-dev', () => { if (S.data) { renderTimeline(); } });
+
+// ------------------------------------------------------------------ ask
+
+function md(text) {  // the little Markdown small models write: paragraphs, lists, bold, code
+  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+  const blocks = String(text || '').trim().split(/\n{2,}/);
+  return blocks.map(b => {
+    const lines = b.split('\n');
+    if (lines.every(l => /^\s*([-*]|\d+\.)\s+/.test(l)))
+      return '<ul>' + lines.map(l => '<li>' + inline(l.replace(/^\s*([-*]|\d+\.)\s+/, '')) + '</li>').join('') + '</ul>';
+    return '<p>' + lines.map(inline).join('<br>') + '</p>';
+  }).join('');
+}
+
+function add(html) {
+  const box = $('msgs');
+  box.querySelector('.intro')?.remove();
+  box.insertAdjacentHTML('beforeend', html);
+  box.scrollTop = box.scrollHeight;
+  return box.lastElementChild;
+}
+
+async function ask(question) {
+  question = question.trim();
+  if (!question || S.busy) return;
+  S.busy = true; $('send').disabled = true;
+  const e = byId(S.ctx);
+  add(`<div class="q">${e ? `<small>About ${e.time.slice(0, 5)} · ${esc(e.camera)} · ${esc(e.type.toLowerCase())}</small>` : ''}${esc(question)}</div>`);
+  const wait = add('<div class="thinking">Looking through the recordings</div>');
+  $('question').value = '';
+  try {
+    const r = await fetch('/api/ask', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({question, event: S.ctx})});
+    const a = await r.json();
+    wait.remove();
+    if (!r.ok) throw new Error(a.detail || r.status);
+    if (a.calls.length) add(`<div class="calls"><div>Looked up (${a.calls.length}) · ${a.seconds} s</div>${a.calls.map(c => `<code>${esc(c)}</code>`).join('')}</div>`);
+    add(`<div class="a${a.error ? ' err' : ''}">${md(a.answer)}</div>`);
+    if (a.evidence.length) add(`<div class="evid">${a.evidence.map(u => `<img src="${esc(u)}" alt="" loading="lazy">`).join('')}</div>`);
+  } catch (err) {
+    wait.remove();
+    add(`<div class="a err">Could not ask: ${esc(err.message)}</div>`);
+  }
+  S.busy = false; $('send').disabled = false;
+}
+
+$('examples').innerHTML = EXAMPLES.map(x => `<button type="button">${esc(x)}</button>`).join('');
+$('examples').addEventListener('click', ev => { const b = ev.target.closest('button'); if (b) ask(b.textContent); });
+$('composer').addEventListener('submit', ev => { ev.preventDefault(); ask($('question').value); });
+$('ctx').querySelector('button').addEventListener('click', () => setCtx(null));
+$('new-chat').addEventListener('click', async () => {
+  await fetch('/api/ask/reset', {method: 'POST'}).catch(() => {});
+  $('msgs').innerHTML = '<div class="intro">New conversation. Ask about what the cameras saw.</div>';
+});
+$('photo').addEventListener('click', () => $('photo-file').click());
+$('photo-file').addEventListener('change', async ev => {
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  try {
+    const r = await fetch('/api/photo', {method: 'POST', body: file});
+    const p = await r.json();
+    add(`<div class="calls"><div>Photo${p.ok ? ' · ' + esc(p.name) : ''}</div><img src="${url}" alt="" style="width:96px;border-radius:6px">
+      <code>${esc(p.message)}${p.ok ? '. Now ask about it, e.g. did this person come in today?' : ''}</code></div>`);
+  } catch (err) { add(`<div class="a err">Could not attach the photo: ${esc(err.message)}</div>`); }
+});
+
+load();
+setInterval(load, 15000);
+})();
+</script>
+</body>
+</html>

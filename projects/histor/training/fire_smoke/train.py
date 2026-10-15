@@ -4,6 +4,7 @@
     .venv/Scripts/python.exe -I train.py --size s --batch 8    # YOLOv9-S if small smoke is missed
     .venv/Scripts/python.exe -I train.py --resume runs/<name>/weights/last.pt
     .venv/Scripts/python.exe -I train.py --export runs/<name>/weights/best.pt   # after a Ctrl+C
+    .venv/Scripts/python.exe -I train.py --resume runs/<name>/weights/last.pt --pause 120   # cool down
 
 Runs land in runs/<name>/; the best checkpoint is exported to models/fire_smoke_<name>.onnx.
 """
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -33,6 +35,7 @@ def main() -> None:
     ap.add_argument("--name", default=None, help="run name (default yolo9<size>_<imgsz>)")
     ap.add_argument("--project", type=Path, default=HERE / "runs")
     ap.add_argument("--resume", type=Path, default=None, help="checkpoint to continue from")
+    ap.add_argument("--pause", type=int, default=0, help="seconds to rest after each epoch (laptop heat)")
     ap.add_argument("--no-export", action="store_true")
     ap.add_argument("--export", type=Path, default=None, help="only export this checkpoint")
     args = ap.parse_args()
@@ -43,9 +46,10 @@ def main() -> None:
     if args.export:
         export(LibreYOLO, args.export, args.imgsz, args.export.parent.parent.name)
         return
+    callbacks = [Pause(args.pause)] if args.pause else None
     if args.resume:
         model = LibreYOLO(str(args.resume))
-        results = model.train(data=str(args.data), resume=True)
+        results = model.train(data=str(args.data), resume=True, callbacks=callbacks)
     else:
         # COCO weights from the YOLOv9 authors' MIT release; the 80-class head is rebuilt for 2.
         model = LibreYOLO(f"LibreYOLO9{args.size}.pt")
@@ -68,6 +72,7 @@ def main() -> None:
             # Fire and smoke can be anywhere in the frame and any way round except upside down.
             flip_prob=0.5,
             mixup_prob=0.1,
+            callbacks=callbacks,
         )
     print({k: v for k, v in results.items() if isinstance(v, (int, float, str))})
 
@@ -75,6 +80,17 @@ def main() -> None:
         return
     best = Path(results.get("best_checkpoint") or args.project / name / "weights" / "best.pt")
     export(LibreYOLO, best, args.imgsz, best.parent.parent.name)
+
+
+class Pause:
+    """Rest the GPU after every epoch (checkpoint already saved), so a laptop can cool down."""
+
+    def __init__(self, seconds: int) -> None:
+        self.seconds = seconds
+
+    def on_train_epoch_end(self, event) -> None:
+        print(f"epoch {event.epoch}/{event.total_epochs} done, pausing {self.seconds} s", flush=True)
+        time.sleep(self.seconds)
 
 
 def export(LibreYOLO, checkpoint: Path, imgsz: int, name: str) -> None:

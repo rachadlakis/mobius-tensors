@@ -2,8 +2,8 @@ import threading
 
 import cv2
 import numpy as np
-from histor.ui import (IMAGE_FPS, IMAGE_SECONDS, MODULES, file_frames, modules_on, thumb_caption,
-                       with_modules)
+from histor.ui import (IMAGE_FPS, IMAGE_SECONDS, MODULES, file_frames, modules_on,
+                       results_only, thumb_caption, with_modules)
 
 
 def test_photos_and_videos_play_as_one_camera(tmp_path):
@@ -48,3 +48,16 @@ def test_modules_ticked_override_the_config():
 def test_thumb_caption():
     assert thumb_caption("thumbs/d/laptop_1791968124389_1.jpg").startswith("laptop ")
     assert thumb_caption("snapshots/y1.jpg") == "y1.jpg"
+
+
+def test_results_only_keeps_nothing(tmp_path):
+    config = {"store": {"path": "data/store/site.db", "retention_days": 7},
+              "alerts": {"cooldown_seconds": 5, "channels": [{"type": "telegram"}],
+                         "email": {"to": "x@example.com"}}}
+    tried = results_only(config, tmp_path)
+    assert tried["store"]["path"] == str(tmp_path / "results.db")
+    assert tried["store"]["media_dir"] == str(tmp_path / "media")
+    assert tried["store"]["retention_days"] == 7            # the rest of the section is kept
+    assert tried["alerts"]["channels"] == [] and tried["alerts"]["email"] is None
+    assert tried["alerts"]["cooldown_seconds"] == 5
+    assert config["store"]["path"] == "data/store/site.db"  # the config itself is untouched

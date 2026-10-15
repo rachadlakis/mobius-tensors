@@ -192,6 +192,17 @@ class Reporter:
         pattern = f"{name}/*.json" if name else "*/*.json"
         return sorted(self.dir.glob(pattern), key=lambda p: p.stem, reverse=True)
 
+    def delete(self, path: str | Path) -> bool:
+        """Delete one saved report (its .json and .md). Only a file of this reporter's folder:
+        the path may come from a web page. Returns whether it was there."""
+        path = Path(path).resolve()
+        if path.suffix != ".json" or path.parent.parent != self.dir.resolve():
+            raise ValueError(f"Not a saved report: {path}")
+        found = path.is_file()
+        path.unlink(missing_ok=True)
+        path.with_suffix(".md").unlink(missing_ok=True)
+        return found
+
     @staticmethod
     def load(path: Path) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -248,9 +259,10 @@ class Reporter:
         return {**report, "path": str(path)}  # where it was saved (not stored in the file)
 
     def compose(self, spec: ReportSpec, start: datetime, end: datetime,
-                custom: bool = False) -> dict[str, Any]:
+                custom: bool = False, prompt: str = "") -> dict[str, Any]:
         """A report's content, neither saved nor sent: summary (None if the model failed),
-        error, facts, evidence. The UI's Today page uses it for "today so far"."""
+        error, facts, evidence. prompt: instead of PROMPT, same fields (the UI's Today page
+        asks for one paragraph of "today so far")."""
         tb = self.toolbox
         tb.only_cameras = list(spec.cameras)
         tb.evidence.clear()
@@ -261,18 +273,18 @@ class Reporter:
             # Nothing to tell: a fixed line, no model (it only pads and guesses)
             summary, error = quiet_summary(spec, start, end, facts), None
             if summary is None:
-                summary, error = self._summary(spec, start, end, facts, custom)
+                summary, error = self._summary(spec, start, end, facts, custom, prompt)
             evidence = list(dict.fromkeys(snapshots[:3] + tb.evidence))[:8]
         finally:
             tb.only_cameras = []
         return {"summary": summary, "error": error, "facts": facts, "evidence": evidence}
 
     def _summary(self, spec: ReportSpec, start: datetime, end: datetime, facts: dict[str, Any],
-                 custom: bool = False) -> tuple[str | None, str | None]:
+                 custom: bool = False, prompt: str = "") -> tuple[str | None, str | None]:
         interests = ("The owner asked to watch for:\n" + "\n".join(f"- {i}" for i in spec.interests)
                      if spec.interests else
                      "No specific interests: summarise what happened and anything unusual.")
-        prompt = PROMPT.format(every="custom" if custom else spec.every,
+        prompt = (prompt or PROMPT).format(every="custom" if custom else spec.every,
                                period=period_text(start, end),
                                cameras=", ".join(c["camera"] for c in facts["cameras"]),
                                interests=interests, facts=facts_text(facts),

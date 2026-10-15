@@ -1372,7 +1372,15 @@ uv run --group ui -m histor.ui                                   # configs/lapto
 uv run --group ui -m histor.ui --config configs/default.yaml     # a site's config
 ```
 
-Tabs: **Camera** (start recording, live view with tracks, skeletons and plates), **Find a person**
+Home page: **Today** (`src/histor/today.py` + `today.html`, plain HTML and JSON, no CDN): a
+written summary of the day so far (the chat model, from the same facts as a report; the counts
+alone if the model is down), "Needs a look" (open alerts, *Mark as seen* is stored in
+`events.seen`), each camera's activity per 30 min (strips) or per hour (grid) with the events
+on it, the journal by hour, and the chat with the event as context (*Ask about this*). The
+*Developer* switch adds track ids, rules and counts, and the Test bench to the top bar.
+
+The other pages are Gradio, under `/app`, behind the same top bar: **Cameras** (start recording,
+live view with tracks, skeletons and plates), **Find a person**
 (photo → likely / possible visits, no LLM), **Ask** (the chat, with *Attach photo*; shows whether
 the model's server is up), **Reports**, and the engine's **Test bench**: pick a model and compare
 original vs. annotated for an image, a video, the webcam or an IP camera; draw **Zones & lines**

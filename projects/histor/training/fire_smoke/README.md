@@ -1,6 +1,7 @@
 # Fire and smoke detector: training
 
-Trains Histor's fire/smoke specialist detector (DOCUMENTATION.md section 45). Everything for it
+Trains Histor's fire/smoke specialist detector (DOCUMENTATION.md section 45). Every run, with its
+data, settings, cost and results, is recorded in [../README.md](../README.md). Everything for it
 lives here: datasets, runs, exported models and the `.venv`. Only the scripts and this README are
 in git.
 
@@ -35,6 +36,15 @@ fire_smoke/
 | `dfire`  | 21,527 | CC0 1.0   | [gaiasd/DFireDataset](https://github.com/gaiasd/DFireDataset)                                                     |
 | `cqu`    | 11,027 | CC BY 4.0 | [CQU, Figshare 10.25946/28747046](https://acquire.cqu.edu.au/articles/dataset/Annotated_Fire_-Smoke_Image_Dataset_for_fire_detection_Using_YOLO_/28747046) |
 | `indoor` | 5,000  | CC BY 4.0 | [Zenodo 15826133](https://zenodo.org/records/15826133)                                                            |
+| `pyro`   | 12,378 (6,000 used) | Apache-2.0 | [pyronear/pyro-sdis](https://huggingface.co/datasets/pyronear/pyro-sdis) v2.0, added 2026-10-15                    |
+
+`pyro` is long-range wildfire smoke seen from fixed towers, plus 1,634 frames the Pyronear system
+wrongly flagged (clouds, fog, glare), which make good hard negatives. It fills the weak spot of
+the first model (small, distant smoke). Options in `sources.yaml`: `fixed_cameras` (the same view
+for months, so the hash would call every frame a copy: split by camera instead), `cctv: false`
+(already camera frames; downscaling would erase the smoke) and `max_images` (Histor is indoor
+first). `unpack_pyro.py` turns its parquet files into images and labels, one folder per camera.
+The other sources keep exactly the same split as before.
 
 CC BY means the model card must credit the dataset authors. Add a dataset only if its licence
 allows commercial use (DOCUMENTATION.md section 43) and record it here and in `sources.yaml`.
@@ -54,6 +64,21 @@ uv pip install --python .venv/Scripts/python.exe "libreyolo[onnx]" onnxruntime
 # 3. train (best checkpoint is exported to models/fire_smoke_<run>.onnx)
 .venv/Scripts/python.exe -I train.py
 ```
+
+Score a finished run on the held-out test split with
+`.venv/Scripts/python.exe -I evaluate.py runs/<name>/weights/best.pt` (writes `runs/<name>/test_metrics.json`).
+
+Smoke test an exported ONNX the way Histor runs it (onnxruntime on CPU, no torch):
+`.venv/Scripts/python.exe -I smoke_test.py models/<name>.onnx` scores each test image (does a fire
+picture raise fire, does a clean one stay quiet) at several thresholds, times CPU inference and
+writes `runs/smoke_<name>.json` plus a contact sheet. Its decoder matches LibreYOLO's own to 0.05 px,
+so it is the reference for the YOLOv9 decoder in `engine/detector.py`. `--images <dir>` runs it
+on any folder of pictures.
+
+On RunPod (Linux): `bash fetch_data.sh` downloads and unpacks the three datasets on the pod (faster
+than uploading), then `python -m venv --system-site-packages /root/venv` (keeps the image's
+PyTorch) and install LibreYOLO there. YOLOv9-S, batch 32, 12 workers on an RTX PRO 4500 Blackwell:
+~3 min an epoch, 60 epochs in 3 h for about $2.20 (October 2026).
 
 Scripts must run from a file (not `python -c`): on Windows the data-loader workers re-import the
 main module.
