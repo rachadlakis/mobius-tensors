@@ -62,7 +62,7 @@ All built by `prepare_data.py` from `sources.yaml`:
 | --- | --- | --- | --- | --- | --- |
 | v0 (trial) | `indoor` only | 2,159 | 280 | – | run 0 |
 | v1 | `dfire` (CC0), `cqu` (CC BY 4.0), `indoor` (CC BY 4.0) | 17,751 | 2,417 | 2,300 | runs 1, 2 |
-| v2 | v1 + `pyro` (Pyro-SDIS v2.0, Apache-2.0, capped at 6,000) | *filled in after the merge* | | | run 3 |
+| v2 | v1 + `pyro` (Pyro-SDIS v2.0, Apache-2.0, capped at 6,000) | 22,826 | 3,380 | 2,627 | run 3 |
 
 **v1 details:**
 - After merging: 19,678 scenes. Dropped 11,002 copies, 3,632 frames over the per-scene cap, and
@@ -72,9 +72,26 @@ All built by `prepare_data.py` from `sources.yaml`:
 - On RunPod, v1 was rebuilt from a D-Fire mirror and came out slightly different: val 2,442 and
   test 2,332 images (vs 2,417 and 2,300 locally).
 
-**v2:** adds long-range smoke from fixed towers, the first model's weak spot. It also adds 1,634
+**Backup:** v2 as trained (one tar per split, plus `dataset.yaml`, `report.json`, `sources.yaml`
+and a card crediting every source) is in the private Hugging Face dataset
+[Rachad/histor-fire-smoke](https://huggingface.co/datasets/Rachad/histor-fire-smoke). Get it on a
+new pod with `python hf_upload.py Rachad/histor-fire-smoke --get` instead of `fetch_data.sh` +
+`prepare_data.py`, which takes minutes instead of ~25. The token is `HUGGINGFACE_API_KEY` in
+`projects/histor/.env`; on a pod, put it in `HF_TOKEN`. Keep the repo private.
+
+**v2:** adds long-range smoke from fixed towers, the first model's weak spot. It also adds
 Pyronear false alarms (clouds, fog, glare) as hard negatives. Pyro is split by camera, skips the
 hash and gets no CCTV copies. The v1 sources keep exactly the same split.
+
+v2 details (pod build, 2026-10-15):
+- **Pyro:** 6,000 of 12,378 images, random sample, seed 0. That gives 5,896 smoke boxes and
+  810 false-alarm frames.
+- **Train:** 18,070 positives and 4,756 negatives; 19,049 smoke and 18,201 fire boxes.
+- **CCTV-like copies:** 3,647.
+- **Pyro boxes are tiny:** plumes on the horizon, often under 10 px at 640 (checked with
+  `preview.py`, `runs/preview_pyro.jpg`).
+- **Pyro's share of each split is uneven:** whole cameras go to one split, so Pyro takes about 28 %
+  of val and 11 % of test.
 
 ### Settings shared by all runs
 
@@ -112,11 +129,13 @@ LibreYOLO defaults unless noted:
 | Hardware | Laptop, RTX 4050 6 GB, 120 s cooling pause after each epoch |
 | Model | YOLOv9-T (~8 MB ONNX), batch 16, 2 workers |
 | Data | v1 |
-| Epochs | 60 planned; at epoch 53 on 2026-10-15 |
+| Epochs | 60 of 60, finished 2026-10-15 08:23 UTC (16.9 h of training, plus the pauses) |
 | Speed | ~35 img/s; about 21 min an epoch including the pause |
-| Best so far (val) | epoch 53: mAP50 0.638, mAP50-95 0.354, recall 0.583 |
-| Snapshot | `fire_smoke_yolov9t_640_e15_laptop_2026-10-13` (epoch 15: val mAP50 0.575, mAP50-95 0.308) |
-| Outcome | Running. To do when it ends: score on the test split, smoke test, export. |
+| Best (val) | epoch 60: mAP50 0.655, mAP50-95 0.366 |
+| Model file | `fire_smoke_yolov9t_640_e60_laptop_2026-10-15` (`.onnx` 8 MB) |
+| Test | mAP50 0.668, mAP50-95 0.369, recall 0.569, mAP small 0.152, best F1 0.64 at conf 0.21 |
+| Snapshot | `fire_smoke_yolov9t_640_e15_laptop_2026-10-13` (epoch 15: val mAP50 0.575, mAP50-95 0.308), superseded |
+| Outcome | Only 0.015–0.018 below run 2 (S) on the test split, at about a third of the size. Smoke test still to do. |
 
 #### Run 2: `yolo9s_640` (RunPod), the current best
 
@@ -158,14 +177,100 @@ Smoke test (`smoke_test.py`, onnxruntime CPU with 4 threads, 2,300 local test im
 
 | | |
 | --- | --- |
-| Date | 2026-10-15 |
-| Hardware | RunPod, RTX PRO 4500 Blackwell Server Edition, $0.72/h |
-| Model | YOLOv9-S, batch 32, 12 workers |
+| Date | 2026-10-15, 06:34 UTC |
+| Hardware | RunPod, RTX PRO 4500 Blackwell Server Edition (32 GB), $0.72/h |
+| Model | YOLOv9-S, batch 32, 12 workers, 713 iterations an epoch |
 | Data | v2 (adds Pyro-SDIS) |
 | Epochs | 100 |
+| Command | `python train.py --size s --epochs 100 --batch 32 --workers 12 --name yolo9s_640_e100_pyro` |
 | Why | more epochs (run 2 was still improving) and long-range smoke data |
-| Estimate | ~6–7 h, ~$5 |
-| Result | *to fill in* |
+| Estimate | ~6.5 h, ~$5 |
+| What happened | **Stopped early at epoch 63 of 100** (patience 30: best val mAP50-95 0.355 at epoch 33, then flat). So it never reached the last 15 no-mosaic epochs, which gave runs 1 and 2 their final +0.014 to +0.032. 3.7 h. Fixed: `train.py` now defaults to `--patience 0` and passes it on `--resume`. |
+| Test (v2 split, best = epoch 33) | mAP50 0.634, mAP50-95 0.347. Not comparable with runs 1–2: the v2 test includes Pyro's tiny distant smoke. |
+| Resume | approved 2026-10-15: after run 4, `train.py --resume .../last.pt --patience 0` continues it from epoch 63 to 100 (~2.2 h, ~$1.70). The epoch-63 results are kept as `*_e63stop_*`. |
+| Result | 100 of 100 (resume 15:15–17:27 UTC, 2.2 h). Test (v2): mAP50 0.693, mAP50-95 0.385, mAP small 0.187, best F1 0.67 at conf 0.23. Model `fire_smoke_yolov9s_640_e100_runpod_2026-10-15`. The resume added +0.038 mAP50-95 over the epoch-63 stop. |
+
+#### Run 4: `yolo9t_640_e100_pyro` (RunPod)
+
+| | |
+| --- | --- |
+| Hardware | the same pod, started by `finish.sh` as soon as run 3 is scored |
+| Model | YOLOv9-T, batch 32, 12 workers, `--patience 0` |
+| Data | v2 |
+| Epochs | 100, hard cap 5.5 h (`timeout`) to stay inside the $11 RunPod balance. A first start with patience 30 was restarted at epoch 3 (2026-10-15 10:30 UTC) so it can't stop early like run 3. |
+| Why | Small sites and weak CPUs: T is about a third of S's compute, so it fits several cameras at 1–2 checks a second |
+| Time | 100 of 100 epochs, 4.72 h (10:30–15:13 UTC), ~2.8 min an epoch; ~$3.40 |
+| Model file | `fire_smoke_yolov9t_640_e100_runpod_2026-10-15` (`.onnx` 8 MB), best = epoch 100 |
+| Test (v2 split) | mAP50 0.671, mAP50-95 0.369, recall 0.558, mAP small 0.161, best F1 0.64 at conf 0.23 |
+| Outcome | Best model so far for its size; see [Comparison](#comparison-on-one-test-set). |
 
 Run 3 changes two things at once, the epochs and the data. A gain can't be split between them
 without another run. That was accepted to save a run.
+
+### Comparison on one test set
+
+All models scored on the **v2 test split** (2,627 images, none seen in training by any model), with
+`compare.py` (mAP via LibreYOLO on the laptop GPU) and `smoke_test.py` (onnxruntime, CPU,
+per-image alarms at confidence 0.25). Split by source:
+- **all:** the whole split.
+- **old:** D-Fire, CQU and Indoor (2,332 images). This is exactly run 2's own test set, so it shows
+  whether the new data cost anything on ordinary fire and smoke.
+- **pyro:** 295 images of distant smoke from towers, including frames of clouds, fog and glare.
+
+Results in `fire_smoke/runs/compare_v2_test.json`.
+
+mAP50-95 (mAP50 in brackets):
+
+| Model | Data | all | old | pyro |
+| --- | --- | --- | --- | --- |
+| Tiny 60 ep, laptop (run 1) | v1 | 0.347 (0.636) | 0.369 (0.669) | 0.043 (0.126) |
+| Small 60 ep (run 2) | v1 | 0.361 (0.653) | **0.384** (0.686) | 0.045 (0.147) |
+| Small stopped at 63 (run 3) | v2 | 0.347 (0.634) | 0.355 (0.643) | **0.261** (0.526) |
+| **Tiny 100 ep (run 4)** | v2 | **0.369** (0.671) | 0.381 (0.685) | 0.229 (0.484) |
+| **Small resumed to 100 (run 3)** | v2 | **0.385** (0.693) | **0.395** (0.702) | **0.268** (0.550) |
+
+Per image at confidence 0.25 (share of pictures that raise the right alarm):
+
+| Model | Old: fire caught | Old: smoke caught | Old: clean quiet | Indoor: smoke caught | Pyro: smoke caught | Pyro: smoke false alarm |
+| --- | --- | --- | --- | --- | --- | --- |
+| Tiny 60 (run 1) | 90.4 % | 81.2 % | 94.6 % | 71.3 % | 14.0 % | 26.7 % |
+| Small 60 (run 2) | 87.6 % | 75.6 % | 96.7 % | 66.7 % | 13.2 % | 17.8 % |
+| Small 63 (run 3) | 83.2 % | 70.3 % | 94.0 % | 54.6 % | 66.4 % | 20.0 % |
+| Tiny 100 (run 4) | 91.4 % | 83.2 % | 95.1 % | 82.4 % | 73.6 % | 33.3 % |
+| **Small 100 (run 3)** | **92.2 %** | **84.9 %** | **96.1 %** | **83.3 %** | 69.6 % | 20.0 % |
+
+Fires caught at the **same false-alarm rate** (a fairer comparison than one fixed threshold,
+because models score differently). Per image, old sources (2,332) and Indoor alone (243, so
+1 image ≈ 1 point):
+
+| Model | Fire, 2 % false | Fire, 5 % false | Smoke, 2 % false | Smoke, 5 % false | Indoor fire, 5 % | Indoor smoke, 5 % |
+| --- | --- | --- | --- | --- | --- | --- |
+| Tiny 60 v1 | 80.1 % | 94.1 % | 66.9 % | 81.2 % | 93.3 % | 81.5 % |
+| Small 60 v1 | 79.8 % | **96.1 %** | 67.0 % | 83.2 % | 94.6 % | **88.0 %** |
+| Tiny 100 v2 | 81.3 % | 94.1 % | **70.3 %** | 83.2 % | 91.3 % | 87.0 % |
+| Small 100 v2 | **84.2 %** | 94.3 % | 68.2 % | **85.3 %** | **95.3 %** | 86.1 % |
+
+At equal false alarms the models differ by only a few points. The operating point matters more:
+letting false alarms go from 2 % to 5 % per image raises fires caught by about 10 points. Histor's
+persistence check is what keeps those extra false alarms from reaching people.
+
+Takeaways:
+- **Best model: Small 100 (run 3, resumed).** It is best on every slice, and it raises fire alarms
+  on 92 % of fire pictures and smoke alarms on 85 % of smoke pictures. Tiny 100 is the choice for
+  weak CPUs, about 1 point behind.
+- **Pyro-SDIS works:** distant smoke goes from ~14 % to ~74 % caught.
+- **It cost nothing on the old sources:** Tiny 100 matches Small 60 there (0.381 vs 0.384) and
+  catches more indoor smoke (82 % vs 67 %).
+- **The price is more false alarms on the Pyronear hard negatives** (clouds, fog), 33 % vs 18 %.
+  Histor's persistence check (alarm only if it holds over several checks) is meant for exactly that.
+- **CPU timings from the scoring pass are not used:** other jobs shared the CPU (the same Tiny network
+  measured 29 and 64 ms). Clean benchmark, nothing else running, laptop i7-13700H, onnxruntime,
+  640×640, 300 test images:
+
+| Network | 4 threads | 2 threads | Checks a second on 4 threads |
+| --- | --- | --- | --- |
+| Tiny (8 MB) | 26 ms (p95 30) | 40 ms | ~38 |
+| Small (29 MB) | 79 ms (p95 90) | 122 ms | ~13 |
+
+  At 2 checks a second per camera, 4 threads carry ~19 cameras on Tiny or ~6 on Small
+  (estimate; a server CPU will differ).

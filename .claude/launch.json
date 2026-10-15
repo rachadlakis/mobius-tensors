@@ -65,6 +65,21 @@
       "port": 7860
     },
     {
+      "name": "training-monitor",
+      "runtimeExecutable": "projects/histor/training/fire_smoke/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-I",
+        "projects/histor/training/fire_smoke/monitor.py",
+        "--pod",
+        "root@216.81.151.71:14503",
+        "--pod-start",
+        "2026-10-15T06:09:29Z",
+        "--rate",
+        "0.72"
+      ],
+      "port": 8765
+    },
+    {
       "name": "website",
       "runtimeExecutable": "python",
       "runtimeArgs": [

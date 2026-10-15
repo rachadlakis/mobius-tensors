@@ -80,6 +80,27 @@ than uploading), then `python -m venv --system-site-packages /root/venv` (keeps 
 PyTorch) and install LibreYOLO there. YOLOv9-S, batch 32, 12 workers on an RTX PRO 4500 Blackwell:
 ~3 min an epoch, 60 epochs in 3 h for about $2.20 (October 2026).
 
+On the pod, work happens on the container disk (`/root/fire_smoke`, fast, wiped when the pod
+stops). `/workspace` is the network volume and survives stopping and deleting the pod. During a
+run, a small loop (`sync.sh` on the pod) copies the run folder, the logs, `report.json` and
+`models/` to `/workspace/fire_smoke/` every 10 minutes and once more when training ends. A second
+one (`finish.sh`) waits for the end, runs `evaluate.py` and `smoke_test.py`, copies the results to
+`/workspace`, writes `/workspace/fire_smoke/FINISHED` and stops the pod (`runpodctl stop pod
+$RUNPOD_POD_ID`), so no GPU hours are paid after training. **Lesson from 2026-10-15:** that stop
+failed. A script started with `nohup` from SSH does not get RunPod's `RUNPOD_API_KEY` /
+`RUNPOD_POD_ID` (they live in `/etc/rp_environment`, which only interactive shells load), so
+start such scripts with `source /etc/rp_environment`, and still check the pod's status yourself.
+
+Live view: `monitor.py` serves a page on http://localhost:8765 with every run's curves (laptop runs
+from `runs/`, pod runs over the pod's direct SSH, refreshed each minute) and the pod's cost so far.
+In the Claude app it is the `training-monitor` entry in `.claude/launch.json`; update `--pod` and
+`--pod-start` there for a new pod.
+
+Dataset backup: `hf_upload.py <user>/<repo>` packs `data/merged/` into one tar per split and
+pushes it to a private Hugging Face dataset; `--get` brings it back on a new machine. The pod's
+`huggingface_hub` looks for its token under `$XDG_CACHE_HOME` (`/workspace/.cache`), so pass
+`HF_TOKEN` explicitly.
+
 Scripts must run from a file (not `python -c`): on Windows the data-loader workers re-import the
 main module.
 

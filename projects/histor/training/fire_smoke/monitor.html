@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fire/smoke training</title>
+<style>
+  :root { --bg:#fbfbf9; --card:#fff; --ink:#0b0b0b; --muted:#6b6a65; --line:#e4e3dc; --ok:#0c8a0c; --warn:#b77a00; --bad:#c43c3c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141413; --card:#1d1d1b; --ink:#f0efec; --muted:#a3a29b; --line:#2f2f2c; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 system-ui, sans-serif; padding:16px; }
+  h1 { font-size:18px; font-weight:600; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:13px; margin-bottom:14px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px; margin-bottom:16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .name { font-weight:600; display:flex; align-items:center; gap:6px; }
+  .sw { width:10px; height:10px; border-radius:2px; flex:none; }
+  .meta { color:var(--muted); font-size:12px; }
+  .big { font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .bar { height:5px; background:var(--line); border-radius:3px; margin:6px 0; overflow:hidden; }
+  .bar > div { height:100%; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+  .chart { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px; }
+  .chart h2 { font-size:13px; font-weight:500; color:var(--muted); margin:0 0 4px; }
+  .box { position:relative; height:220px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; }
+</style>
+</head>
+<body>
+<h1>Fire/smoke training</h1>
+<div class="sub" id="sub">loading...</div>
+<div class="cards" id="cards"></div>
+<div class="grid">
+  <div class="chart"><h2>Val mAP50-95 (the score runs are picked by)</h2><div class="box"><canvas id="c_map"></canvas></div></div>
+  <div class="chart"><h2>Val mAP50</h2><div class="box"><canvas id="c_map50"></canvas></div></div>
+  <div class="chart"><h2>Train loss (lower is better)</h2><div class="box"><canvas id="c_loss"></canvas></div></div>
+  <div class="chart"><h2>Val recall</h2><div class="box"><canvas id="c_recall"></canvas></div></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#e8a200', '#d55181', '#6250d6'];
+const LABEL = {
+  yolo9s_640: 'S · 60 ep · v1 (run 2)',
+  yolo9t_640: 'T · 60 ep · v1 · laptop (run 1)',
+  yolo9s_640_e100_pyro: 'S · 100 ep · v2 (run 3)',
+  yolo9t_640_e100_pyro: 'T · 100 ep · v2 (run 4)',
+};
+const ORDER = Object.keys(LABEL);
+const charts = {};
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const grid = dark ? '#2c2c2a' : '#e8e7e1', tick = '#8a8983';
+
+function colorOf(name) {
+  const i = ORDER.indexOf(name);
+  return PALETTE[(i < 0 ? ORDER.length + name.length : i) % PALETTE.length];
+}
+function fmtDur(s) {
+  if (s == null) return '–';
+  const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60);
+  return h ? `${h} h ${m} min` : `${m} min`;
+}
+function ago(t) {
+  if (!t) return '–';
+  const s = Date.now() / 1000 - t;
+  return s < 90 ? 'just now' : s < 5400 ? `${Math.round(s / 60)} min ago` : `${(s / 3600).toFixed(1)} h ago`;
+}
+function chart(id, key, dec) {
+  return new Chart(document.getElementById(id), {
+    type: 'line',
+    data: { datasets: [] },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, parsing: false,
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { title: i => 'Epoch ' + i[0].parsed.x, label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(dec)}` } },
+      },
+      scales: {
+        x: { type: 'linear', min: 1, grid: { display: false }, ticks: { color: tick }, title: { display: true, text: 'epoch', color: tick } },
+        y: { grid: { color: grid }, ticks: { color: tick } },
+      },
+    },
+  });
+}
+
+async function refresh() {
+  let d;
+  try { d = await (await fetch('/data.json', { cache: 'no-store' })).json(); } catch { return; }
+  const names = Object.keys(d.runs).sort((a, b) => (ORDER.indexOf(a) + 99 * (ORDER.indexOf(a) < 0)) - (ORDER.indexOf(b) + 99 * (ORDER.indexOf(b) < 0)));
+
+  const p = d.pod || {};
+  const podTxt = p.ok == null ? 'pod: not watched' :
+    `<span class="dot" style="background:${p.ok ? 'var(--ok)' : 'var(--bad)'}"></span>pod ${p.ok ? 'reachable' : 'unreachable (stopped?)'}` +
+    (p.cost != null ? ` · up ${p.hours} h · ≈ $${p.cost.toFixed(2)} at $${p.rate}/h` : '');
+  document.getElementById('sub').innerHTML = `${podTxt} · refreshed ${new Date().toLocaleTimeString()}`;
+
+  document.getElementById('cards').innerHTML = names.map(n => {
+    const r = d.runs[n], rows = r.rows, last = rows[rows.length - 1] || {};
+    const best = rows.reduce((b, x) => (x.map ?? -1) > (b.map ?? -1) ? x : b, {});
+    const pct = r.total ? Math.min(100, 100 * r.epoch / r.total) : 0;
+    const running = r.state === 'running';
+    const stale = running && Date.now() / 1000 - (r.updated || 0) > 3 * 3600;
+    const state = stale ? '<span style="color:var(--warn)">no update for 3 h+</span>' : r.state;
+    return `<div class="card">
+      <div class="name"><span class="sw" style="background:${colorOf(n)}"></span>${LABEL[n] || n}</div>
+      <div class="meta">${n} · ${r.where} · ${state}</div>
+      <div class="bar"><div style="width:${pct}%;background:${colorOf(n)}"></div></div>
+      <div class="meta">epoch ${r.epoch}${r.total ? ' / ' + r.total : ''}${running ? ' · ETA ' + fmtDur(r.eta_s) : ''} · last epoch ${ago(r.updated)}</div>
+      <div><span class="big">${best.map != null ? best.map.toFixed(3) : '–'}</span>
+        <span class="meta"> best mAP50-95 (ep ${best.epoch ?? '–'}) · mAP50 ${last.map50 != null ? last.map50.toFixed(3) : '–'} now</span></div>
+    </div>`;
+  }).join('');
+
+  for (const [id, key] of [['c_map', 'map'], ['c_map50', 'map50'], ['c_loss', 'loss'], ['c_recall', 'recall']]) {
+    const c = charts[id];
+    c.data.datasets = names.map(n => ({
+      label: LABEL[n] || n,
+      data: d.runs[n].rows.filter(x => x[key] != null).map(x => ({ x: x.epoch, y: x[key] })),
+      borderColor: colorOf(n), backgroundColor: colorOf(n),
+      borderWidth: 2, pointRadius: 0, tension: 0.2,
+      borderDash: d.runs[n].state === 'running' ? [] : [5, 4],
+    }));
+    c.update();
+  }
+}
+
+charts.c_map = chart('c_map', 'map', 3);
+charts.c_map50 = chart('c_map50', 'map50', 3);
+charts.c_loss = chart('c_loss', 'loss', 2);
+charts.c_recall = chart('c_recall', 'recall', 3);
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>

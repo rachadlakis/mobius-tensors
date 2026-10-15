@@ -29,9 +29,9 @@ def main() -> None:
     # Each Windows worker process loads the CUDA libraries (~2 GB of virtual memory each).
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--lr0", type=float, default=0.01, help="SGD start learning rate")
-    # The last 15 epochs (no mosaic, lowest learning rate) usually give the best model, so this is
-    # a guard against a run that has stalled, not the normal way a run ends.
-    ap.add_argument("--patience", type=int, default=30, help="stop after N epochs without gain")
+    # Off by default: the last 15 epochs (no mosaic, lowest learning rate) give the best model, and
+    # validation can sit flat for 30+ epochs before them (run 3 stopped at 63 of 100 that way).
+    ap.add_argument("--patience", type=int, default=0, help="stop after N epochs without gain (0 = never)")
     ap.add_argument("--name", default=None, help="run name (default yolo9<size>_<imgsz>)")
     ap.add_argument("--project", type=Path, default=HERE / "runs")
     ap.add_argument("--resume", type=Path, default=None, help="checkpoint to continue from")
@@ -49,7 +49,9 @@ def main() -> None:
     callbacks = [Pause(args.pause)] if args.pause else None
     if args.resume:
         model = LibreYOLO(str(args.resume))
-        results = model.train(data=str(args.data), resume=True, callbacks=callbacks)
+        # Saved settings come back with the checkpoint; patience is overridden so a run that
+        # stopped early can be continued to its planned last epoch.
+        results = model.train(data=str(args.data), resume=True, patience=args.patience, callbacks=callbacks)
     else:
         # COCO weights from the YOLOv9 authors' MIT release; the 80-class head is rebuilt for 2.
         model = LibreYOLO(f"LibreYOLO9{args.size}.pt")

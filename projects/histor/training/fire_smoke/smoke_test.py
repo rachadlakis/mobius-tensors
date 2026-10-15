@@ -3,6 +3,7 @@
     .venv/Scripts/python.exe -I smoke_test.py models/<name>.onnx               # whole test split
     .venv/Scripts/python.exe -I smoke_test.py models/<name>.onnx --limit 300
     .venv/Scripts/python.exe -I smoke_test.py models/<name>.onnx --images dir  # any pictures, no labels
+    .venv/Scripts/python.exe -I smoke_test.py models/<name>.onnx --root data/v2_test/all --tag v2test
 
 Checks the ONNX loads, decodes its output (YOLOv9 layout: one `output` tensor (1, 4+nc, anchors),
 xyxy in letterboxed input pixels, sigmoid scores, top-left letterbox), and scores it per image,
@@ -102,6 +103,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("model", type=Path)
     ap.add_argument("--split", default="test")
+    ap.add_argument("--root", type=Path, default=HERE / "data" / "merged", help="dataset holding images/<split>")
+    ap.add_argument("--tag", default="", help="suffix for the output names (e.g. the test set)")
     ap.add_argument("--images", type=Path, default=None, help="folder of pictures instead of a split")
     ap.add_argument("--limit", type=int, default=0, help="score only this many images (0 = all)")
     ap.add_argument("--conf", type=float, default=0.25, help="threshold for the boxes drawn")
@@ -122,7 +125,7 @@ def main() -> None:
     inp = sess.get_inputs()[0].name
     print(f"{model.name}: input {sess.get_inputs()[0].shape}, output {sess.get_outputs()[0].shape}, {names}")
 
-    root = args.images or HERE / "data" / "merged" / "images" / args.split
+    root = args.images or args.root / "images" / args.split
     images = sorted(p for p in root.rglob("*") if p.suffix.lower() in IMAGE_EXTS)
     random.Random(0).shuffle(images)
     if args.limit:
@@ -157,17 +160,28 @@ def main() -> None:
 
     # Image-level: a picture "raises" a class if any box of that class clears the threshold.
     labelled = args.images is None
-    by_t = {}
-    for t in THRESHOLDS:
+
+    def image_level(subset: list[dict], t: float) -> dict:
         r = {}
         for c, name in names.items():
-            pos = [x for x in rows if c in x["gt"]]
-            neg = [x for x in rows if c not in x["gt"]]
+            pos = [x for x in subset if c in x["gt"]]
+            neg = [x for x in subset if c not in x["gt"]]
             r[f"{name}_hit"] = sum(x["max"][c] > t for x in pos) / max(len(pos), 1)
             r[f"{name}_false"] = sum(x["max"][c] > t for x in neg) / max(len(neg), 1)
-        bg = [x for x in rows if not x["gt"]]
+        bg = [x for x in subset if not x["gt"]]
         r["clean_quiet"] = sum(all(v <= t for v in x["max"].values()) for x in bg) / max(len(bg), 1)
-        by_t[f"{t:.2f}"] = {k: round(v, 3) for k, v in r.items()}
+        return {k: round(v, 3) for k, v in r.items()}
+
+    by_t = {f"{t:.2f}": image_level(rows, t) for t in THRESHOLDS}
+    # Merged images are named <source>_<hash>: score each source on its own, and the v1 sources
+    # together ("old"), so a gain on one kind of picture can't hide a loss on another.
+    sources: dict[str, list[dict]] = {}
+    for x in rows:
+        sources.setdefault(x["image"].split("_", 1)[0], []).append(x)
+    if len(sources) > 1 and "pyro" in sources:
+        sources["old"] = [x for x in rows if not x["image"].startswith("pyro_")]
+    by_source = {s: {"images": len(xs), **{f"{t:.2f}": image_level(xs, t) for t in THRESHOLDS}}
+                 for s, xs in sorted(sources.items())}
 
     counts = {
         "images": len(rows),
@@ -183,8 +197,10 @@ def main() -> None:
     report = {"model": model.name, "source": str(root), "counts": counts, "speed_cpu": speed}
     if labelled:
         report["image_level"] = by_t
+        report["by_source"] = by_source
 
-    out = HERE / "runs" / f"smoke_{model.stem}.json"
+    stem = f"smoke_{model.stem}{'_' + args.tag if args.tag else ''}"
+    out = HERE / "runs" / f"{stem}.json"
     out.parent.mkdir(exist_ok=True)
     report["images"] = [{k: v for k, v in x.items() if not k.startswith("_")} for x in rows]
     out.write_text(json.dumps(report, indent=1), encoding="utf-8")
@@ -215,7 +231,7 @@ def main() -> None:
         head = np.full((26, tile * per, 3), 30, np.uint8)
         cv2.putText(head, f"{label} ({len(items)})", (6, 19), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (230, 230, 230), 1)
         sheet_rows += [head, np.hstack(tiles)]
-    sheet = HERE / "runs" / f"smoke_{model.stem}.jpg"
+    sheet = HERE / "runs" / f"{stem}.jpg"
     cv2.imwrite(str(sheet), np.vstack(sheet_rows), [cv2.IMWRITE_JPEG_QUALITY, 85])
     print(f"\nwrote {out}\nwrote {sheet}")
 
