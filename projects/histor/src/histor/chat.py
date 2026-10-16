@@ -63,6 +63,7 @@ How to work:
   "who entered the yard" -> alerts(rules=["yard"], types=["enter"]);
   "did a smoke alarm go off" -> alerts(types=["sound"], rules=["smoke_alarm"]);
   "was any camera covered or moved" -> alerts(types=["tamper"]);
+  "was there a fire or smoke" -> alerts(types=["fire"]);
   "any bag left behind" -> alerts(types=["abandoned"]).{people_help}{plates_help}{face_help}{look_help}
 - For exact times use since/until ("2026-10-02 18:00"), resolved against Now above. Hours
   without am/pm ("between 1 and 4") mean daytime (13:00 to 16:00) unless the question or the

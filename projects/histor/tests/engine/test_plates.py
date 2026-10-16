@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -541,6 +542,8 @@ def test_pipeline_watchlist_event_reaches_store_and_live_view(store):
         events += result.events
         if i == 6:
             drawn = pipe.draw(frame.copy(), result)
+        time.sleep(0.02)  # reads run on the indexer's thread; a real camera gives it ~100 ms
+                          # a frame, so without a pause the event may only come out at close()
     pipe.close()
     rows = store._db.execute("SELECT type, rule, label, plate FROM events").fetchall()
     assert [tuple(r) for r in rows] == [("plate", "boss", "car", "AB123")]

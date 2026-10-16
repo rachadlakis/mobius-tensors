@@ -63,7 +63,13 @@ QUESTIONS: dict[str, str] = {
     "hands_up": "Does the person in the red box have both hands raised above their head?",
     "abandoned": "Is the object in the red box a bag or suitcase left on its own, with nobody "
                  "holding or standing next to it?",
+    "fire": "Does a red box show real {label} from something burning, not a lamp, screen, "
+            "sunset, reflection, steam, fog or cloud?",
 }
+# Checked only when listed in `events`, and never held back even in veto mode: a model saying NO
+# to a real fire is the one mistake not worth risking. The verdict is still added to the alert.
+OPT_IN = {"fire"}
+NEVER_VETO = {"fire"}
 PLURALS = {"person": "people", "bus": "buses"}
 VERDICTS = ("yes", "no", "unsure")
 MODES = ("veto", "tag")
@@ -112,7 +118,7 @@ class AlertVerifier:
             raise ValueError(f"alerts.verify.events: no question for {unknown}; add one under "
                              "alerts.verify.questions")
         self.ask = ask
-        self.events = set(events) if events else set(self.questions)
+        self.events = set(events) if events else set(self.questions) - OPT_IN
         self.rules = set(rules or [])
         self.mode = mode
         self._queue: queue.Queue[tuple[Any, ...] | None] = queue.Queue(max_queue)
@@ -185,6 +191,6 @@ class AlertVerifier:
                 log.exception("Handling the verdict of %s/%s failed", payload.get("rule"),
                               payload.get("type"))
 
-    def sends(self, verdict: str) -> bool:
-        """Whether an alert with this verdict goes to the channels."""
-        return not (self.mode == "veto" and verdict == "no")
+    def sends(self, verdict: str, event_type: str | None = None) -> bool:
+        """Whether an alert with this verdict goes to the channels (fire always does)."""
+        return event_type in NEVER_VETO or not (self.mode == "veto" and verdict == "no")

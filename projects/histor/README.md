@@ -32,7 +32,7 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
    look), runs as many lookups as the question needs, and answers in sentences, listing the
    thumbnails it looked at as evidence. `look` lets a local vision model read those images.
 4. **Alert** (optional): areas, lines, crowding, abandoned bags, camera tampering, poses,
-   watchlist plates and sounds fire events while recording; each is stored with a snapshot and
+   watchlist plates, sounds and fire or smoke (our own model) raise events while recording; each is stored with a snapshot and
    sent to the channels whose filters accept it.
 5. **Report** (optional): hourly, daily or weekly, a summary of what the chosen cameras saw,
    focused on what the owner asked to watch for, saved and sent (see [Reports](#reports)).
@@ -227,9 +227,13 @@ A one-way line (`direction: in`) is a wrong-way alarm. Sounds are classified in 
 stored; they need ffmpeg and a camera with a microphone. Details and thresholds:
 [engine docs](DOCUMENTATION.md#16-areas-lines-and-other-rules).
 
-Object rules work on the detector's 80 classes today. New things to detect (fire and smoke,
-objects a customer names) need a model trained for them; the rules and channels then apply
-unchanged.
+Object rules work on the detector's 80 classes. Fire and smoke have their own model, trained
+by us (`training/`), and their own section, `fire:`. It raises a `fire` alert when flames or
+smoke are seen on 3 of 5 checks (every 0.5 s). Install the model with
+`uv run -m histor.engine.download_model fire_smoke`; the repo is private, so it needs
+`HF_TOKEN`. It adds early warning to certified smoke and heat detectors; it does not replace
+them. Other new things to detect (objects a customer names) need a model trained for them; the
+rules and channels then apply unchanged.
 
 Body poses add two event types: `down` (rule `person_down`: a person lying for 10 s) and
 `hands_up` (both hands above the head for 3 s). Enable them in the `pose:` section
@@ -343,7 +347,9 @@ tests/smoke/           uv run pytest -m smoke: every entry point with the real m
 - [ ] More alert channels: Telegram, WhatsApp, SMS, on-site siren / relay.
 - [X] Periodic reports: hourly / daily / weekly / monthly (or any range) per camera set and interests, saved and sent.
   Next: set them up from the UI; "what did last night's report say" in the chat.
-- [ ] Detectors trained per customer (fire and smoke, customer-specific objects).
+- [X] Fire and smoke: our own YOLOv9 model (training/), `fire` alerts with persistence.
+  Next: real fire videos and a pilot site's own footage; CLIP score for fires that fill the frame.
+- [ ] Detectors trained per customer (customer-specific objects).
 - [X] Body poses: posture (with bending), hands up, facing, head down, still / walking /
   running, carried bags, clothing colours (`people` tool), person-down and hands-up alerts. Next: staged-fall test at a pilot site; a smaller COCO-only pose model.
 - [ ] Chat in the browser: `/chat` endpoint + page showing the evidence thumbnails.

@@ -57,7 +57,7 @@ def test_alerts_filters(toolbox):
 
 
 def test_alerts_bad_type_goes_back_to_the_model(toolbox):
-    r = toolbox.run(ToolCall("1", "alerts", {"types": ["fire"]}))
+    r = toolbox.run(ToolCall("1", "alerts", {"types": ["weapon"]}))
     assert r.is_error and "enter, exit, dwell, cross" in r.output
     ok = json.loads(toolbox.run(ToolCall("2", "alerts", {"rules": ["gate_line"]})).output)
     assert ok["total"] == 1

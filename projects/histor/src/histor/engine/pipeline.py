@@ -19,6 +19,10 @@ With a `sounds` section (sound.py) and a source with audio, the camera's microph
 classified on its own thread (YAMNet): smoke alarms, breaking glass, gunshots, screams and
 sirens become `sound` events through the same channels. The audio itself is never kept.
 
+With a `fire` section (fire.py), the frame also goes through Histor's own fire/smoke model
+about twice a second; flames or smoke seen on several checks in a row raise a `fire` event
+through the same channels, with the boxes drawn on the snapshot.
+
 Two rules need no model: `tamper` (tamper.py: the picture covered, dark, blurred, turned or
 frozen) and `abandoned` (abandoned.py: a bag or suitcase left still with nobody near it).
 
@@ -47,6 +51,7 @@ if TYPE_CHECKING:
     from histor.engine.sound import SoundListener
     from histor.engine.abandoned import AbandonedWatch
     from histor.engine.tamper import TamperCheck
+    from histor.engine.fire import FireWatch
     from histor.engine.mainstream import MainStream
     from histor.engine.store import EventStore
 
@@ -78,6 +83,7 @@ class Pipeline:
         sounds: SoundListener | None = None,
         tamper: TamperCheck | None = None,
         abandoned: AbandonedWatch | None = None,
+        fire: FireWatch | None = None,
     ) -> None:
         """start_time: unix time of timestamp 0 (live: now; a recorded file: when it was filmed).
         mainstream: the camera's main stream (recording + keyframes for hi-res crops)."""
@@ -96,6 +102,7 @@ class Pipeline:
         self.sounds = sounds
         self.tamper = tamper
         self.abandoned = abandoned
+        self.fire = fire
         self.start_time = time.time() if start_time is None else start_time
 
     def wall_time(self, timestamp: float) -> float:
@@ -168,6 +175,16 @@ class Pipeline:
             from histor.engine.tamper import TamperCheck
 
             tamper = TamperCheck.from_config(config["tamper"])
+        fire = None
+        from histor.engine.fire import fire_enabled
+
+        if fire_enabled(config.get("fire"), camera):
+            from histor.engine.fire import FireWatch
+
+            try:
+                fire = FireWatch.from_config(config["fire"])
+            except FileNotFoundError as e:  # record the rest anyway, but say it loudly
+                log.error("NO FIRE DETECTION for camera %s: %s", camera, e)
         monitor = ZoneMonitor.from_config(config.get("zones")) if config.get("zones") else None
         abandoned = None
         if abandoned_enabled(config.get("abandoned"), camera):
@@ -188,7 +205,7 @@ class Pipeline:
         alerts = AlertManager.from_config(config.get("alerts"), source=source, store=store,
                                           vision=vision, recording=config.get("recording")) if (
             monitor or (pose and pose.alert_types) or (plates and plates.watchlist) or sounds
-            or tamper or abandoned
+            or tamper or abandoned or fire
         ) else None
         mainstream = None
         if live and main_url and config.get("recording"):
@@ -199,7 +216,7 @@ class Pipeline:
                                                 keyframes=indexer is not None or pose is not None
                                                 or plates is not None)
         return cls(create_detector(config["model"]), tracker, monitor, alerts, store, indexer,
-                   start_time, mainstream, pose, plates, sounds, tamper, abandoned)
+                   start_time, mainstream, pose, plates, sounds, tamper, abandoned, fire)
 
     def close(self) -> None:
         """Flush the search index and pending alerts (call when the source ends)."""
@@ -225,6 +242,8 @@ class Pipeline:
             self._track(frame, result)
         if self.tamper is not None:
             result.events += self._tamper_events(frame, result.tracks, timestamp)
+        if self.fire is not None:
+            result.events += self._fire_events(frame, result.tracks, timestamp)
         if self.sounds is not None:
             result.events += self._sound_events(frame, result.tracks, timestamp)
         return result
@@ -269,6 +288,20 @@ class Pipeline:
         if self.alerts is None or not found:
             return found
         return self.alerts.handle(found, frame, tracks, self.wall_time(timestamp))
+
+    def _fire_events(self, frame: np.ndarray, tracks: list[Track],
+                     timestamp: float) -> list[ZoneEvent]:
+        """Fire/smoke through the alert channels; the snapshot shows the boxes that raised it."""
+        from histor.engine.fire import EVENT_TYPE, snapshot_with_boxes
+
+        assert self.fire is not None
+        found = self.fire.update(frame, timestamp)
+        events = [ZoneEvent(timestamp, EVENT_TYPE, e.kind, None, e.kind, score=e.score)
+                  for e in found]
+        if self.alerts is None or not events:
+            return events
+        boxed = snapshot_with_boxes(frame, self.fire.last_detections)
+        return self.alerts.handle(events, boxed, tracks, self.wall_time(timestamp))
 
     def _sound_events(self, frame: np.ndarray | None, tracks: list[Track],
                       timestamp: float | None) -> list[ZoneEvent]:
@@ -343,6 +376,10 @@ class Pipeline:
         return HiResFrame(keyframe.time, keyframe.image, boxes)
 
     def draw(self, frame: np.ndarray, result: FrameResult) -> np.ndarray:
+        if self.fire is not None:
+            from histor.engine.fire import draw_fire
+
+            draw_fire(frame, self.fire.boxes(result.timestamp))
         if self.tracker is None:
             return draw_detections(frame, result.detections)
         visible = [t for t in result.tracks if not t.missed]

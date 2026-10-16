@@ -1939,6 +1939,15 @@ flowchart LR
 
 ### 45.3 Models and training
 
+> **Done, October 2026.** We trained YOLOv9 with LibreYOLO (MIT; easier to run than the official
+> YOLOX repo) on D-Fire + CQU + Indoor Fire Smoke + Pyro-SDIS. The best model,
+> `fire_smoke_yolov9s_640_e100`, catches fire in 92 % and smoke in 85 % of test pictures at
+> threshold 0.25, with 96 % of clean pictures left quiet; Tiny is about 1 point behind at a third
+> of the cost. Every run, the comparison on one test set and the method are in
+> `training/README.md`. The models are in the private Hugging Face repo
+> `Rachad/histor-fire-smoke-models` (`download_model fire_smoke`), and fire.py runs them
+> (section 45.4). The plan below was the starting point.
+
 - **No ready-made model we can ship.** Public weights are Ultralytics (AGPL), Darknet/YOLOv5 weights
   from the D-Fire authors' repo (not our format; YOLOv5 is AGPL), or research code.
 - **Train YOLOX ourselves** with the official repo (Apache-2.0), starting from COCO weights. The export
@@ -1978,6 +1987,18 @@ flowchart LR
 4. **Second opinion, then a person.** For a candidate that persists, send 2–3 hi-res keyframes to the
    local vision model: "Is there real fire or smoke? yes/no and one reason". It may veto (a kettle's
    steam, a sunset), never confirm alone. Then alert a person with the snapshot and clip.
+
+> **Built (fire.py, October 2026):** steps 2–4 with our YOLOv9 model.
+> - **Step 2:** a check every 0.5 s; Tiny is the option for weak CPUs.
+> - **Step 3:** an alert when fire or smoke is seen on 3 of the last 5 checks, which comes 1–2.5 s
+>   after it is in view. On a test video, fire and smoke each raised their alert 1 s after they
+>   appeared, with no false alarm on the clean stretches.
+> - **Step 4 changed:** the vision model checks fire alerts only when asked (`alerts.verify.events`)
+>   and **never holds one back**. Its verdict is added to the alert, because a model wrongly
+>   saying NO to a real fire is the one mistake not worth risking.
+>
+> Not built yet: step 1 (CLIP score, which would cover fires that fill the frame) and zones for
+> fire.
 5. **Cheaper signals where a site has them.**
    - Cameras with microphones: YAMNet recognises "Smoke detector, smoke alarm" and "Fire alarm". An
      existing alarm going off is a very specific signal and costs almost nothing to hear.

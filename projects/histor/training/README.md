@@ -18,12 +18,20 @@ listed too.
 - **Test split:** scored once per finished model, never used to pick checkpoints or settings.
 - **Names:** `<task>_<arch>_<imgsz>_e<epochs>_<where>_<date>` (date = when training started).
 - **In git:** scripts and READMEs only. Data, runs, `.pt` and `.onnx` stay on disk (`.gitignore`).
+- **Models:** in the private Hugging Face model repo
+  [Rachad/histor-fire-smoke-models](https://huggingface.co/Rachad/histor-fire-smoke-models),
+  with a model card. Upload with `fire_smoke/hf_models.py`. Histor installs the shipped ones with
+  `uv run -m histor.engine.download_model fire_smoke`, which needs `HF_TOKEN` or
+  `HUGGINGFACE_API_KEY` in `.env`.
+- **Training data:** in the private dataset
+  [Rachad/histor-fire-smoke](https://huggingface.co/datasets/Rachad/histor-fire-smoke)
+  (`fire_smoke/hf_upload.py`).
 
 ## Models
 
 | Task | Trained by us? | Model in use | Status |
 | --- | --- | --- | --- |
-| Fire and smoke | Yes ([below](#fire-and-smoke)) | `fire_smoke_yolov9s_640_e60_runpod_2026-10-14` | Tested, not wired into Histor yet (needs a YOLOv9 decoder in `engine/detector.py`) |
+| Fire and smoke | Yes ([below](#fire-and-smoke)) | `fire_smoke_yolov9s_640_e100_runpod_2026-10-15` (Tiny e100 for weak CPUs) | **In Histor** since 2026-10-16: `engine/fire.py`, `fire:` config section, `download_model fire_smoke` |
 | Objects (80 COCO classes) | No: official YOLOX weights, Apache-2.0 | YOLOX-S / M / Nano | Shipping |
 | Pose | No: ViTPose-B (COCO only) | ViTPose-B | Shipping |
 | Number plates | Not yet: own YOLOX finder planned (DOCUMENTATION.md, plates section) | open-image-models YOLOv9-t, trials only | Legal check pending |
@@ -274,3 +282,22 @@ Takeaways:
 
   At 2 checks a second per camera, 4 threads carry ~19 cameras on Tiny or ~6 on Small
   (estimate; a server CPU will differ).
+
+### In Histor (2026-10-16)
+
+`engine/detector.py` has a `yolov9_onnx` backend (the same decoding as `smoke_test.py`, checked
+on 25 test images: identical detections, boxes within 0.05 px). `engine/fire.py` runs it about
+twice a second and raises a `fire` alert (rule `fire` or `smoke`) when it is seen on 3 of the
+last 5 checks. The vision model's second opinion never holds a fire alert back.
+
+**End-to-end test:** `fire_smoke/make_test_video.py` builds a 39 s video from held-out test
+pictures: clean, indoor fire, clean, indoor smoke, clean, each picture held 3 s.
+`tests/smoke/test_smoke.py::test_fire_alerts_on_a_video` runs it through a real pipeline with
+Small and with Tiny:
+- **Fire:** alarm at 10 s, 1 s after it came into view.
+- **Smoke:** alarm at 25 s, also 1 s after.
+- **Clean stretches:** no false alarm.
+- **Store:** both events stored with a boxed snapshot.
+
+These are still dataset pictures, not real camera footage; the next test is real fire video
+(FireSense, a site's own footage).

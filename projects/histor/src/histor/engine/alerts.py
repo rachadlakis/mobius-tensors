@@ -193,7 +193,7 @@ class AlertManager:
         payload["verified"], payload["verification"] = verdict, reason
         if self.store is not None and payload.get("id"):
             self.store.set_verification(payload["id"], verdict, reason)
-        sent = self.verifier.sends(verdict)
+        sent = self.verifier.sends(verdict, payload.get("type"))
         log.info("%s %s/%s #%s checked: %s (%s)%s", payload["camera"], payload["rule"],
                  payload["type"], payload.get("track_id"), verdict, reason,
                  "" if sent else ", not sent")

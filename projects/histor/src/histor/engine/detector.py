@@ -190,6 +190,89 @@ class YoloxOnnxDetector:
         ]
 
 
+class Yolov9OnnxDetector:
+    """YOLOv9 exported to ONNX by LibreYOLO (MIT), e.g. Histor's own fire/smoke detectors.
+
+    Unlike YOLOX: input RGB scaled to 0..1 (letterboxed top-left with 114, like `letterbox`);
+    one output (1, 4 + C, anchors) whose boxes are already x1, y1, x2, y2 in input pixels and
+    whose class scores already went through the sigmoid; class names in the ONNX metadata.
+    Same decoding as LibreYOLO (checked to 0.05 px in training/fire_smoke/smoke_test.py).
+    """
+
+    def __init__(
+        self,
+        model_path: str | Path,
+        class_names: tuple[str, ...] | list[str] | None = None,
+        conf_threshold: float = 0.25,
+        nms_threshold: float = 0.45,
+        classes: list[str] | None = None,
+        num_threads: int = 0,
+        device: str = "auto",
+    ) -> None:
+        import json
+
+        from histor.engine.onnx_device import create_session
+
+        model_path = Path(model_path)
+        if not model_path.exists():
+            raise FileNotFoundError(
+                f"Model not found: {model_path}. For the fire/smoke models run "
+                "`uv run -m histor.engine.download_model fire_smoke`."
+            )
+        self.session = create_session(model_path, device, num_threads)
+        meta = self.session.get_modelmeta().custom_metadata_map
+        pad = meta.get("letterbox_pad", "topleft")
+        if pad != "topleft":
+            raise ValueError(f"{model_path.name}: letterbox_pad {pad!r} is not supported")
+        model_input = self.session.get_inputs()[0]
+        self.input_name = model_input.name
+        size = int(meta.get("imgsz", 640))
+        self.input_size = (size, size)
+        if class_names is None:
+            names = json.loads(meta.get("names", "{}"))
+            class_names = [names[str(i)] for i in range(len(names))]
+        self.class_names = tuple(class_names)
+        self.conf_threshold = conf_threshold
+        self.nms_threshold = nms_threshold
+        unknown = set(classes or []) - set(self.class_names)
+        if unknown:
+            raise ValueError(f"Unknown class name(s) in `classes`: {sorted(unknown)}")
+        self.allowed_ids = None if not classes else {self.class_names.index(c) for c in classes}
+
+    def detect(self, frame: np.ndarray) -> list[Detection]:
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        blob, ratio = letterbox(rgb, self.input_size)
+        raw = self.session.run(None, {self.input_name: blob[None] / 255.0})[0][0]
+        return self.postprocess(raw, ratio, frame.shape[:2])
+
+    def postprocess(
+        self, raw: np.ndarray, ratio: float, image_shape: tuple[int, int]
+    ) -> list[Detection]:
+        """raw: (4 + C, anchors). Every class above the threshold counts (an anchor can be both
+        fire and smoke), with NMS per class, as LibreYOLO does."""
+        preds = raw.T
+        img_h, img_w = image_shape
+        found: list[tuple[float, int, np.ndarray]] = []
+        for cls in range(preds.shape[1] - 4):
+            if self.allowed_ids is not None and cls not in self.allowed_ids:
+                continue
+            scores = preds[:, 4 + cls]
+            mask = scores > self.conf_threshold
+            if not mask.any():
+                continue
+            boxes = preds[mask, :4] / ratio
+            boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, img_w)
+            boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, img_h)
+            scores = scores[mask]
+            found += [(float(scores[i]), cls, boxes[i]) for i in nms(boxes, scores, self.nms_threshold)]
+        found.sort(key=lambda f: f[0], reverse=True)
+        return [
+            Detection(x1=float(b[0]), y1=float(b[1]), x2=float(b[2]), y2=float(b[3]),
+                      score=score, class_id=cls, label=self.class_names[cls])
+            for score, cls, b in found
+        ]
+
+
 def create_detector(config: dict[str, Any]) -> Detector:
     """Build a detector from the `model` section of a config file."""
     backend = config.get("backend", "yolox_onnx")
@@ -202,6 +285,16 @@ def create_detector(config: dict[str, Any]) -> Detector:
             conf_threshold=config.get("conf_threshold", 0.35),
             nms_threshold=config.get("nms_threshold", 0.45),
             class_agnostic_nms=config.get("class_agnostic_nms", False),
+            classes=config.get("classes"),
+            num_threads=config.get("num_threads", 0),
+            device=config.get("device", "auto"),
+        )
+    if backend == "yolov9_onnx":
+        return Yolov9OnnxDetector(
+            model_path=config["path"],
+            class_names=config.get("class_names"),
+            conf_threshold=config.get("conf_threshold", 0.25),
+            nms_threshold=config.get("nms_threshold", 0.45),
             classes=config.get("classes"),
             num_threads=config.get("num_threads", 0),
             device=config.get("device", "auto"),

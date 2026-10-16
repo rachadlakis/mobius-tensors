@@ -130,6 +130,22 @@ tamper:
   blur_ratio: 0.25             # below this share of the camera's usual sharpness
   moved_similarity: 0.5        # structure vs the usual view (same view ~0.8, turned < 0.5)
 
+# Fire and smoke (fire.py): Histor's own detector (training/fire_smoke) about twice a second; a
+# `fire` alert when flames or smoke are seen on `hits` of the last `window` checks (1-2.5 s).
+# Install the models: `uv run -m histor.engine.download_model fire_smoke` (private: HF_TOKEN).
+# Small (s) ~80 ms a check on 4 CPU threads; Tiny (t) ~26 ms, for weak CPUs or many cameras.
+# Adds early warning to certified smoke/heat detectors; it does not replace them.
+fire:
+  enabled: true
+  cameras: []
+  model:
+    path: models/fire_smoke_yolov9s_640.onnx
+  interval_seconds: 0.5
+  min_score: 0.25              # lower catches more fires and raises more false alarms
+  hits: 3                      # seen on 3 of the last 5 checks
+  window: 5
+  clear_seconds: 60            # a new episode can alert after this long without fire/smoke
+
 alerts:
   console: true
   events: null                 # e.g. [enter, dwell] to alert on only some event types

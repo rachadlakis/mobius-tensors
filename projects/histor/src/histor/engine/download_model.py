@@ -1,11 +1,13 @@
 """Download official pretrained YOLOX ONNX models (Apache-2.0, COCO 80 classes), the face
-models (`faces`), the number plate models (`plates`), the sound event model (`sounds`), or the
-trial pose model (`pose_rtmpose_t`)."""
+models (`faces`), the number plate models (`plates`), the sound event model (`sounds`), the
+trial pose model (`pose_rtmpose_t`), or our own fire/smoke detectors (`fire_smoke`)."""
 
 from __future__ import annotations
 
 import argparse
 import io
+import os
+import shutil
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -60,6 +62,29 @@ SOUND_MODELS = {
 }
 
 
+# Fire and smoke: Mobius Tensors' own YOLOv9 detectors (training/fire_smoke, LibreYOLO, MIT),
+# kept in a private Hugging Face model repo, not in git. Needs a token with read access:
+# HF_TOKEN, or HUGGINGFACE_API_KEY in .env. Pinned revision; the repo's README is the model card.
+FIRE_REPO = "Rachad/histor-fire-smoke-models"
+FIRE_REVISION = "8938cf960b7f568c95565b1edd20067c38b95688"  # 2026-10-16 upload
+FIRE_URL = f"https://huggingface.co/{FIRE_REPO}/resolve/{FIRE_REVISION}"
+FIRE_MODELS = {  # local name -> file in the repo
+    "fire_smoke_yolov9s_640.onnx": "fire_smoke_yolov9s_640_e100_runpod_2026-10-15.onnx",  # default
+    "fire_smoke_yolov9t_640.onnx": "fire_smoke_yolov9t_640_e100_runpod_2026-10-15.onnx",  # weak CPUs
+}
+
+
+def hf_token() -> str:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_API_KEY")
+    if not token:
+        raise SystemExit("fire_smoke: set HF_TOKEN (or HUGGINGFACE_API_KEY in .env) to a Hugging "
+                         f"Face token that can read {FIRE_REPO}")
+    return token
+
+
 def fetch_rtmpose(target: Path) -> Path:
     """The zip holds an MMDeploy SDK folder; keep only its end2end.onnx."""
     if target.exists():
@@ -75,14 +100,17 @@ def fetch_rtmpose(target: Path) -> Path:
     return target
 
 
-def fetch(url: str, target: Path) -> Path:
+def fetch(url: str, target: Path, token: str | None = None) -> Path:
+    """token: a bearer token for private files (never printed)."""
     if target.exists():
         print(f"Already present: {target}")
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
     print(f"Downloading {url} -> {target}")
     partial = target.with_suffix(target.suffix + ".part")
-    urllib.request.urlretrieve(url, partial)
+    request = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"} if token else {})
+    with urllib.request.urlopen(request) as response, partial.open("wb") as out:
+        shutil.copyfileobj(response, out)
     partial.replace(target)  # only a complete download gets the real name
     return target
 
@@ -104,12 +132,19 @@ def download(name: str, out_dir: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("name", nargs="?", default="yolox_s",
-                        choices=[*MODELS, "faces", "plates", "sounds", "pose_rtmpose_t"],
+                        choices=[*MODELS, "faces", "plates", "sounds", "pose_rtmpose_t",
+                                 "fire_smoke"],
                         help="a YOLOX model, `faces` for the face detector + recognizer, "
-                             "`plates` for the plate finder + reader, `sounds` for YAMNet, or "
-                             "`pose_rtmpose_t` (trial pose model)")
+                             "`plates` for the plate finder + reader, `sounds` for YAMNet, "
+                             "`pose_rtmpose_t` (trial pose model), or `fire_smoke` (our own "
+                             "fire/smoke detectors, private: needs HF_TOKEN)")
     parser.add_argument("--out-dir", type=Path, default=Path("models"))
     args = parser.parse_args()
+    if args.name == "fire_smoke":
+        token = hf_token()
+        for filename, remote in FIRE_MODELS.items():
+            fetch(f"{FIRE_URL}/{remote}", args.out_dir / filename, token)
+        return
     if args.name == "faces":
         for filename, base in FACE_MODELS.items():
             fetch(f"{base}/{filename}", args.out_dir / filename)

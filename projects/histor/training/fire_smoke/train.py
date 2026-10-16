@@ -32,6 +32,7 @@ def main() -> None:
     # Off by default: the last 15 epochs (no mosaic, lowest learning rate) give the best model, and
     # validation can sit flat for 30+ epochs before them (run 3 stopped at 63 of 100 that way).
     ap.add_argument("--patience", type=int, default=0, help="stop after N epochs without gain (0 = never)")
+    ap.add_argument("--seed", type=int, default=0, help="change it to measure run-to-run noise")
     ap.add_argument("--name", default=None, help="run name (default yolo9<size>_<imgsz>)")
     ap.add_argument("--project", type=Path, default=HERE / "runs")
     ap.add_argument("--resume", type=Path, default=None, help="checkpoint to continue from")
@@ -63,6 +64,7 @@ def main() -> None:
             lr0=args.lr0,
             workers=args.workers,
             patience=args.patience,
+            seed=args.seed,
             eval_interval=1,  # validate every epoch (default 10), so best.pt and patience are exact
             # PGI auxiliary branch off: training-only, helps deep models most (YOLOv9 paper), and
             # on the 6 GB RTX 4050 it made training 3x slower (11 vs 35 img/s at batch 16).

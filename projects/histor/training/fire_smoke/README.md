@@ -96,6 +96,11 @@ from `runs/`, pod runs over the pod's direct SSH, refreshed each minute) and the
 In the Claude app it is the `training-monitor` entry in `.claude/launch.json`; update `--pod` and
 `--pod-start` there for a new pod.
 
+Models: `hf_models.py` uploads `models/` (every `.onnx`, `.pt`, test metrics, `MODELS.md`, and
+`hf_model_card.md` as the card) to the private
+[Rachad/histor-fire-smoke-models](https://huggingface.co/Rachad/histor-fire-smoke-models). After
+a new upload, update `FIRE_REVISION` and `FIRE_MODELS` in `src/histor/engine/download_model.py`.
+
 Dataset backup: `hf_upload.py <user>/<repo>` packs `data/merged/` into one tar per split and
 pushes it to a private Hugging Face dataset; `--get` brings it back on a new machine. The pod's
 `huggingface_hub` looks for its token under `$XDG_CACHE_HOME` (`/workspace/.cache`), so pass
@@ -114,3 +119,7 @@ so ~12 minutes an epoch for ~22k training images. Measured with LibreYOLO's `pro
 The exported ONNX is not the YOLOX layout Histor decodes today (one `output` tensor, top-left
 letterbox, class names in the ONNX metadata), so `engine/detector.py` needs a YOLOv9 decoder
 before the model plugs in.
+
+Test video for Histor's fire alerts: `.venv/Scripts/python.exe -I make_test_video.py` builds
+`../../data/test_videos/fire_loop.mp4` (39 s, held-out test pictures). Check it with
+`uv run pytest tests/smoke -m smoke -k fire`.

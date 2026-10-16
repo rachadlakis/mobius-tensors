@@ -333,6 +333,11 @@ def describe(e: dict[str, Any]) -> dict[str, Any]:
         kind, group, typ = "alert", "People", "Hands up"
         short = f"Hands up for {held}" if held else "Hands up"
         title = f"Someone held their hands up for {held}" if held else "Someone held their hands up"
+    elif t == "fire":
+        kind, group, typ = "alert", "Other", "Fire"
+        short = "Smoke seen" if rule == "smoke" else "Fire seen"
+        title = f"{short} on the {cam} camera"
+        text = "Check the camera now; the fire/smoke model raised it."
     elif t == "tamper":
         kind, group, typ = "alert", "Other", "Tamper"
         short, title = TAMPER.get(rule, (f"Tamper: {_nice(rule)}", "The {cam} camera: " +

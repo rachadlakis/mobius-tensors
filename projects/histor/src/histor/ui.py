@@ -68,9 +68,8 @@ BRAND = Path(__file__).resolve().parents[4] / "Images" / "histor" / "web"  # rep
 # Modules switched on or off per recording (Camera tab): label -> config section.
 MODULES = {"Faces": "faces", "Pose: person down, hands up": "pose", "Number plates": "plates",
            "Sounds: alarms, glass, shots, screams": "sounds", "Camera tamper": "tamper",
-           "Bags left behind": "abandoned"}
-NOT_YET = ("Fire & smoke: model in training (training/fire_smoke) · Weapons: not offered "
-           "(DOCUMENTATION.md, 46)")
+           "Bags left behind": "abandoned", "Fire & smoke": "fire"}
+NOT_YET = "Weapons: not offered (DOCUMENTATION.md, 46)"
 # Gradio pages: the shared top bar fixed above the page, Gradio's own tab buttons hidden. In
 # <head>, not Gradio's `css` (which it scopes to its container: body.hx-dev would not match).
 APP_HEAD = ('<link rel="icon" href="/favicon.svg" type="image/svg+xml"><style>' + TOPBAR_CSS + """
@@ -404,7 +403,8 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
         on = [("Faces", bool(indexer and indexer.faces)),
               ("Search", bool(indexer and indexer.embedder)), ("Pose", p.pose is not None),
               ("Plates", p.plates is not None), ("Sounds", p.sounds is not None),
-              ("Tamper", p.tamper is not None), ("Bags left", p.abandoned is not None)]
+              ("Tamper", p.tamper is not None), ("Bags left", p.abandoned is not None),
+              ("Fire", p.fire is not None)]
         return '<div class="ag-chips ag-modules">' + "".join(
             f'<span class="ag-chip {"on" if ok else ""}">{n}</span>' for n, ok in on) + "</div>"
 

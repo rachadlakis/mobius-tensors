@@ -189,10 +189,10 @@ dialog .cap .btn { margin-left: auto; }
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
-const HIGH = new Set(["down", "abandoned", "tamper", "sound", "plate", "hands_up"]);
+const HIGH = new Set(["fire", "down", "abandoned", "tamper", "sound", "plate", "hands_up"]);
 const TYPE_NAMES = { enter: "Entered", exit: "Left", dwell: "Stayed", cross: "Crossed",
   crowd: "Crowding", down: "Person down", hands_up: "Hands up", abandoned: "Left unattended",
-  tamper: "Camera tampering", sound: "Sound", plate: "Watchlist plate" };
+  tamper: "Camera tampering", sound: "Sound", plate: "Watchlist plate", fire: "Fire / smoke" };
 const VERDICT = { yes: ["yes", "Checked: real"], no: ["no", "Held back"],
   unsure: ["unsure", "Checked: unsure"], error: ["other", "Not checked (model error)"],
   skipped: ["other", "Not checked (busy)"] };
@@ -255,6 +255,7 @@ function title(e) {
     case "down": return "Person down";
     case "hands_up": return "Hands up";
     case "abandoned": return `${label} left unattended`;
+    case "fire": return rule === "smoke" ? "Smoke seen" : "Fire seen";
     case "tamper": return `Camera ${rule}`;
     case "sound": return `Sound: ${rule}`;
     case "plate": return `Watchlist plate ${e.plate || ""} (${rule})`;

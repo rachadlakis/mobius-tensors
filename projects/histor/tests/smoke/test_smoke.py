@@ -448,3 +448,40 @@ def test_sound_model_on_a_wav(tmp_path):
     listener.close()
     assert listener.error is None and listener.seconds >= 4
     assert all(e.group and 0 <= e.time <= 6 for e in listener.take_events())
+
+
+FIRE_VIDEO = DATA / "test_videos" / "fire_loop.mp4"
+
+
+@pytest.mark.skipif(not FIRE_VIDEO.exists() or not (MODELS / "fire_smoke_yolov9s_640.onnx").exists(),
+                    reason="training/fire_smoke/make_test_video.py and download_model fire_smoke")
+@pytest.mark.parametrize("size", ["s", "t"])
+def test_fire_alerts_on_a_video(tmp_path, size):
+    """Held-out fire and smoke pictures in a video: each alerts within 3 s of coming into view,
+    once, with a snapshot; the clean stretches raise nothing."""
+    from histor.engine.pipeline import Pipeline
+
+    timeline = json.loads((DATA / "test_videos" / "fire_loop.json").read_text(encoding="utf-8"))
+    config = {"model": {"path": str(MODELS / "yolox_nano.onnx")},
+              "store": {"path": str(tmp_path / "db.sqlite")},
+              "fire": {"enabled": True,
+                       "model": {"path": str(MODELS / f"fire_smoke_yolov9{size}_640.onnx")}},
+              "alerts": {"console": False}}
+    pipe = Pipeline.from_config(config, source="kitchen", live=False, start_time=0.0)
+    cap = cv2.VideoCapture(str(FIRE_VIDEO))
+    fps, i = cap.get(cv2.CAP_PROP_FPS) or 10, 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        pipe.process(frame, i / fps)
+        i += 1
+    pipe.close()
+    rows = pipe.store._db.execute("SELECT time, rule, snapshot FROM events WHERE type = 'fire' "
+                                  "ORDER BY time").fetchall()
+    pipe.store.close()
+    for kind in ("fire", "smoke"):
+        start = min(t["from"] for t in timeline if t["kind"] == kind)
+        hits = [r for r in rows if r[1] == kind]
+        assert len(hits) == 1 and start <= hits[0][0] <= start + 3 and hits[0][2], (kind, rows)
+    assert len(rows) == 2  # nothing on the clean stretches

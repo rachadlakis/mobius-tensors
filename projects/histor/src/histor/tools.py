@@ -60,7 +60,7 @@ _FILTERS: dict[str, Any] = {
 }
 
 ALERT_TYPES = ("enter", "exit", "dwell", "cross", "crowd", "down", "hands_up", "plate", "sound",
-               "abandoned", "tamper")
+               "abandoned", "tamper", "fire")
 VISIT_GAP_SECONDS = 600  # objects: a track id seen again after this long is a new visit
 _ISO_KEYS = {"first_seen", "last_seen", "face_seen"}  # same time format as the other tools
 _WHEN = {k: _FILTERS[k] for k in ("when", "since", "until", "camera")}
@@ -92,7 +92,8 @@ TOOLS = [
         "Alerts fired by the site's rules: an object entering or leaving an area, staying longer "
         "than allowed (dwell), too many in an area at once (crowd, with count) or crossing a "
         "line (cross, with direction in/out); a bag or suitcase left with nobody near it "
-        "(abandoned); the camera itself covered, dark, blurred, turned or frozen (tamper, "
+        "(abandoned); flames or smoke seen by the fire/smoke model (fire, rule = fire or smoke); "
+        "the camera itself covered, dark, blurred, turned or frozen (tamper, "
         "rule = blocked / dark / blurred / moved / frozen); and from body "
         "poses a person lying down for a while (down, rule person_down) or holding both hands "
         "up (hands_up), and a vehicle whose number plate is on the site's watchlist (plate, "
