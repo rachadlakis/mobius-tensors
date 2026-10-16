@@ -10,6 +10,7 @@ can use it without importing ADK.
     port: 10005                      # override with <ID>_PORT in .env (e.g. RESEARCHER_PORT)
     description: One line for the card.
     model: worker                    # worker | orchestrator | an explicit model name
+    timeout_seconds: 1800            # optional: how long the Chief of Staff waits (default 300)
     tools: [web_search, fetch_page]  # names from shared/tool_registry.py
     skill:
       id: web_research
@@ -62,6 +63,7 @@ class Employee:
     skill: Skill
     tools: list[str] = field(default_factory=list)
     model: str = "worker"
+    timeout_seconds: float | None = None
     source: Path | None = None
 
     @property
@@ -113,6 +115,15 @@ def load_employee(path: str | Path) -> Employee:
     except (TypeError, ValueError):
         raise EmployeeConfigError(f"{where}: 'port' must be a number.") from None
 
+    timeout = data.get("timeout_seconds")
+    if timeout is not None:
+        try:
+            timeout = float(timeout)
+        except (TypeError, ValueError):
+            raise EmployeeConfigError(f"{where}: 'timeout_seconds' must be a number.") from None
+        if timeout <= 0:
+            raise EmployeeConfigError(f"{where}: 'timeout_seconds' must be positive.")
+
     skill_data = _require(data, "skill", dict, where)
     skill = Skill(
         id=_require(skill_data, "id", str, f"{where} skill"),
@@ -131,6 +142,7 @@ def load_employee(path: str | Path) -> Employee:
         skill=skill,
         tools=_str_list(data, "tools", where),
         model=str(data.get("model") or "worker").strip(),
+        timeout_seconds=timeout,
         source=path,
     )
 

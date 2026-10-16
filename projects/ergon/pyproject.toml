@@ -22,6 +22,7 @@ dependencies = [
     "python-docx",  # Word documents (shared/documents.py)
     "pandas",       # run_python: the Data Analyst's scripts (shared/sandbox.py)
     "matplotlib",   # run_python: charts
+    "claude-agent-sdk",  # the Engineer: Claude Code on its own branch (shared/coding.py)
 ]
 
 [project.optional-dependencies]

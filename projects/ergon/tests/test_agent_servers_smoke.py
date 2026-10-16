@@ -30,6 +30,7 @@ def test_the_team_is_what_we_expect():
         "writer": ("Writer", "content_writing", 10006),
         "sales_rep": ("Sales Rep", "sales", 10007),
         "support_agent": ("Support Agent", "customer_support", 10008),
+        "engineer": ("Engineer", "software_engineering", 10009),
     }
 
 

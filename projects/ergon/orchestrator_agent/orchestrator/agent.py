@@ -336,8 +336,11 @@ async def _send_to_worker(
 # connections by hand; on everywhere else.
 _AUTO_CONNECT = os.getenv("ERGON_ORCHESTRATOR_AUTOINIT", "1") != "0"
 
-# Every employee in employees/*.yaml.
-_DEFAULT_WORKER_URLS = [emp.url for emp in load_all()]
+# Every employee in employees/*.yaml, and how long to wait for those whose work
+# runs longer than A2A_CLIENT_TIMEOUT_SECONDS (timeout_seconds in their YAML).
+_EMPLOYEES = load_all()
+_DEFAULT_WORKER_URLS = [emp.url for emp in _EMPLOYEES]
+_TIMEOUTS = {emp.url: emp.timeout_seconds for emp in _EMPLOYEES if emp.timeout_seconds}
 
 
 class OrchestratorAgent:
@@ -384,7 +387,7 @@ class OrchestratorAgent:
                     print(f"ERROR: Failed to initialize connection for {address}: {e}")
                     continue
                 self.remote_agent_connections[card.name] = RemoteAgentConnections(
-                    agent_card=card, agent_url=address
+                    agent_card=card, agent_url=address, timeout=_TIMEOUTS.get(address)
                 )
                 self.cards[card.name] = card
                 self._connected_addresses.add(address)

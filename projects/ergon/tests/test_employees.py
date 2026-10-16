@@ -155,3 +155,31 @@ class TestModelChoice:
         emp = load_employee(_write(tmp_path, "s.yaml", VALID.replace(
             "model: worker", "model: openai/gpt-4o-mini")))
         assert employee_server.build_model(emp).model == "openai/gpt-4o-mini"
+
+
+class TestTimeout:
+    def test_optional_and_numeric(self, tmp_path):
+        assert load_employee(_write(tmp_path, "a.yaml", VALID)).timeout_seconds is None
+        emp = load_employee(_write(tmp_path, "b.yaml", VALID + "timeout_seconds: 1800\n"))
+        assert emp.timeout_seconds == 1800
+
+    @pytest.mark.parametrize("bad", ["soon", "0", "-5"])
+    def test_bad_values(self, tmp_path, bad):
+        with pytest.raises(EmployeeConfigError, match="timeout_seconds"):
+            load_employee(_write(tmp_path, "c.yaml", VALID + f"timeout_seconds: {bad}\n"))
+
+    def test_chief_of_staff_waits_longer_for_slow_employees(self):
+        import importlib
+
+        agent_mod = importlib.import_module("orchestrator_agent.orchestrator.agent")
+        engineer = find("engineer")
+        assert agent_mod._TIMEOUTS[engineer.url] == 1800
+
+        from a2a.types import AgentCapabilities, AgentCard
+
+        from orchestrator_agent.orchestrator.remote_agent_connection import RemoteAgentConnections
+        card = AgentCard(name="E", description="d", url="http://x/", version="1",
+                         default_input_modes=["text/plain"], default_output_modes=["text/plain"],
+                         capabilities=AgentCapabilities(), skills=[])
+        assert RemoteAgentConnections(card, "http://x/", timeout=1800)._httpx_client.timeout.read == 1800
+        assert RemoteAgentConnections(card, "http://x/")._httpx_client.timeout.read == 300

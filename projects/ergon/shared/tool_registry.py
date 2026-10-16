@@ -9,6 +9,7 @@ registering it here - nothing else.
 from collections.abc import Callable
 
 from shared.calculator import calculate
+from shared.coding import list_repositories, run_coding_task
 from shared.company import read_company_document, search_company_knowledge
 from shared.documents import (
     list_workspace_files,
@@ -36,6 +37,9 @@ TOOLS: dict[str, Callable] = {
         # numbers (shared/calculator.py) and code (shared/sandbox.py)
         calculate,
         run_python,
+        # code (shared/coding.py): Claude Code on a branch of its own
+        run_coding_task,
+        list_repositories,
         # the company's own knowledge (shared/company.py)
         search_company_knowledge,
         read_company_document,

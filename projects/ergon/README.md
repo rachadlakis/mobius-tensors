@@ -19,10 +19,17 @@ The roadmap is in [PLAN.md](PLAN.md).
 | **Writer** | `employees/writer.yaml` | 10006 | Posts, articles, website and brochure copy, newsletters, emails in the company's voice | Word, text files, PDF, knowledge |
 | **Sales Rep** | `employees/sales_rep.yaml` | 10007 | Outreach emails, proposals and quotes from the price list | `calculate`, Word, Excel, PDF, text files, knowledge |
 | **Support Agent** | `employees/support_agent.yaml` | 10008 | Answers customers from the company documents, drafts replies, flags gaps | `calculate`, text files, knowledge |
+| **Engineer** | `employees/engineer.yaml` | 10009 | Code changes in the company's repositories via Claude Code, each on its own branch, for review | `run_coding_task`, `list_repositories`, knowledge |
 
 Knowledge = `search_company_knowledge` and `read_company_document`. Employees **draft**; none of
 them sends, posts or pays. More employees (Project Manager, Executive Assistant, Finance, ...)
 come with connectors. See [PLAN.md](PLAN.md).
+
+**The Engineer** hands each task to Claude Code (the Claude Agent SDK, bundled with its own CLI)
+in a separate git worktree on a new `ergon/<task>-<time>` branch. Your checkout and branches are
+never touched; `git push` is denied to Claude Code. The result is a local branch for you to
+review, or a draft pull request when `ENGINEER_OPEN_PR=true`. Repositories are listed in `.env`
+(`ERGON_REPOS=name=path;...`); cost per task is capped (`ENGINEER_MAX_BUDGET_USD`, default $5).
 
 `run_python` runs the Data Analyst's scripts in a separate Python process with a time limit and
 no API keys, in its own folder under `workspace/runs/`. It is **not a security sandbox**: keep it
@@ -107,6 +114,7 @@ shared/
   documents.py        PDF, Word, Excel and text files into workspace/
   calculator.py       safe arithmetic (calculate)
   sandbox.py          run_python for the Data Analyst
+  coding.py           run_coding_task for the Engineer (Claude Code in a git worktree)
 tests/                offline pytest suite
 run_all.py            starts every employee in employees/
 ```

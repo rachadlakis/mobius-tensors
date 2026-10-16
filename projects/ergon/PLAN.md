@@ -36,6 +36,10 @@ subprocess with a time limit and no secrets) and every employee that handles pri
 `calculate`. Document output: PDF, Word, Excel, Markdown/text/CSV/HTML. The Chief of Staff
 forwards spreadsheets as real files to employees whose card says they take files.
 
+**Engineer (added early, from the second wave):** code changes through Claude Code (Claude Agent
+SDK) in a git worktree on its own `ergon/...` branch; delivers the branch, or a draft pull
+request when `ENGINEER_OPEN_PR=true`. Employees can now set their own `timeout_seconds`.
+
 | Piece | What it is |
 |---|---|
 | `employees/*.yaml` | one file per employee: card, tools, model, instructions |
@@ -135,7 +139,7 @@ These cover the daily work of a small company and reuse most of the existing cod
 | **Finance & Admin** | Quotes into invoices, expense sheets, monthly cash summary. Never pays anything | spreadsheets, accounting export |
 | **Recruiter** | Job posts, CV screening against a rubric, interview kits | document input |
 | **Legal Reviewer** | Checks contracts and NDAs against a checklist and flags risks. A human always signs | document input, checklist in `companies/<id>/knowledge/` |
-| **Engineer** | Code review, scripts, technical docs | GitHub MCP, sandbox |
+| ~~**Engineer**~~ **built** | Code changes on its own branch via Claude Code; review, scripts, docs | Claude Agent SDK, git worktrees; GitHub MCP later |
 
 ### Example: one request, several employees
 

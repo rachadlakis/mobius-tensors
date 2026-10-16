@@ -25,6 +25,10 @@ This folder lives inside the `mobius-tensors` git repo; run git commands from he
   through `run_python`.
 - `run_python` (`shared/sandbox.py`) is a local subprocess with limits, not a security sandbox. It
   must never inherit `.env` secrets (`_child_env`); keep it internal until it runs in a container.
+- The Engineer (`shared/coding.py`) must never change the user's checkout or existing branches:
+  work happens in a worktree on a new `ergon/...` branch, `git push`/branch switching are in
+  `_DISALLOWED_TOOLS`, and pushing a draft PR happens only with `ENGINEER_OPEN_PR=true`. Its
+  offline tests fake Claude Code; `RUN_ENGINEER_LIVE=1` runs the real one (costs money).
 
 ## Environment
 
@@ -73,5 +77,7 @@ employees at import time.
   with `tool_context.save_artifact` is harvested by the executor and returned to the Chief of Staff.
 - Tools that do blocking I/O must be `async` and push the work to a thread
   (`asyncio.to_thread`); a sync tool freezes the employee's server.
+- An employee can set `timeout_seconds` in its YAML when its work outlasts the Chief of Staff's
+  default 300 s wait (the Engineer: 1800).
 - `config.create_tool_filter` must keep the `(tool, readonly_context)` signature or
   `McpToolset.get_tools()` silently returns zero tools.

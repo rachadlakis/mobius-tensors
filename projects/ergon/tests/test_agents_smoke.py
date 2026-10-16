@@ -57,3 +57,9 @@ def test_drafting_employees_cannot_reach_the_web_or_run_code():
 def test_every_employee_with_prices_has_the_calculator():
     for emp_id in ("data_analyst", "sales_rep", "support_agent"):
         assert "calculate" in find(emp_id).tools, emp_id
+
+
+def test_engineer_codes_only_through_its_branch_tool():
+    tools = set(find("engineer").tools)
+    assert {"run_coding_task", "list_repositories"} <= tools
+    assert not tools & {"run_python", "web_search", "fetch_page"}
