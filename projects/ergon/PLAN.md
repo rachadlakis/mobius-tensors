@@ -13,59 +13,69 @@ then just another `company/` folder.
 
 ---
 
-## 1 · Phase 0 is done (2026-10-16)
+## 1 · Where we are (2026-10-16)
 
-The client project is gone; the generic engine stays.
+**Phase 0 (done):** the client project is gone; the generic engine stays. Deleted: the
+client-specific employees and tools, their notebook, scripts, docs, the studio UI prototype (its
+whole data model was client-specific), every saved session and artifact, generated reports and
+caches, and the client's keys in `.env`.
 
-| Kept and cleaned | Now |
+**Phase 1 (done):** employees are YAML files. One generic server runs any of them, a tool
+registry maps tool names to functions, and `run_all.py` and the Chief of Staff both read
+`employees/`. The Researcher and the Data Analyst were moved over unchanged.
+
+| Piece | What it is |
 |---|---|
-| `shared/` | executor, file hand-off, callbacks, persistence, config (LLM switching), web tools (search, page reading, weather) |
-| `shared/documents.py` | new: `write_pdf_report`, `list_workspace_files`; files land in `workspace/` |
-| `orchestrator_agent/` | the **Chief of Staff** |
-| `web_intel_agent_adk/` | the **Researcher** |
-| `data_agent_adk/` | the **Data Analyst**: works from uploaded files, writes PDF reports |
+| `employees/*.yaml` | one file per employee: card, tools, model, instructions |
+| `shared/employees.py` | loads and validates the YAML (unique names and ports, clear errors) |
+| `shared/tool_registry.py` | every tool an employee can be given, by name |
+| `shared/employee_server.py` | `python -m shared.employee_server <id>` runs any employee |
+| `shared/documents.py` | `write_pdf_report`, `list_workspace_files`; files land in `workspace/` |
+| `orchestrator_agent/` | the **Chief of Staff**; finds the team in `employees/` |
 | `tests/` | offline suite, all green |
-
-Deleted: the client-specific employees and tools, their notebook, scripts, docs, the studio UI
-prototype (its whole data model was client-specific), every saved session and artifact, generated
-reports and caches, and the client's keys in `.env`.
 
 ---
 
-## 2 · New shape
+## 2 · Shape
 
 ```
 ergon/
-├── company/                 # the ONLY thing you edit per company
-│   ├── profile.yaml         # who we are, what we sell, prices, tone of voice, policies, who approves what
+├── company/                 # Phase 2: the ONLY thing you edit per company
+│   ├── profile.yaml         # who we are, what we sell, prices, tone of voice, policies
 │   └── knowledge/           # documents employees read: product docs, FAQs, brochures, price list
 ├── employees/               # one YAML file per AI employee
 │   ├── researcher.yaml
-│   ├── data_analyst.yaml
-│   └── ...
-├── chief_of_staff/          # the orchestrator
-├── core/                    # the engine (was shared/)
-│   └── employee_server.py   # ONE generic launcher instead of a copy-pasted __main__.py per agent
-├── tools/                   # tool library, by family: web, knowledge, documents, sandbox, connectors
+│   └── data_analyst.yaml
+├── orchestrator_agent/      # the Chief of Staff (adk web serves it)
+├── shared/                  # the engine: employee server, tool registry, tools, A2A plumbing
 ├── workspace/               # files employees produce (gitignored)
-├── ui/
 ├── tests/
 └── run_all.py               # starts every employee found in employees/
 ```
+
+The earlier idea of renaming `shared/` to `core/` and `orchestrator_agent/` to `chief_of_staff/`
+was dropped: it would touch every import and test for no change in behaviour.
 
 **Hiring an employee is a YAML file, not Python:**
 
 ```yaml
 name: Sales Rep
 port: 10006
-role: >
-  You find and win customers for {company.name}. You write outreach, proposals and quotes
-  using only the products and prices in the company profile.
-skills: [prospecting, outreach, proposals, quotes]
-tools: [search_company_knowledge, price_quote, write_docx, write_pdf]
-permission: draft          # read | draft | act
-model: worker              # worker (cheap) | lead (capable)
+description: Finds and wins customers; drafts outreach, proposals and quotes.
+model: worker              # worker (cheap) | orchestrator (capable) | an explicit model name
+tools: [write_pdf_report]  # names from shared/tool_registry.py
+skill:
+  id: sales
+  name: Sales
+  description: Prospecting, outreach emails, proposals and quotes from the price list.
+  tags: [sales, proposals]
+  examples: ["Draft a proposal for Acme for 12 cameras."]
+instruction: |
+  **Role:** You are the Sales Rep. ...
 ```
+
+Still to add as the phases need them: `permission: read | draft | act` (Phase 4) and the
+company profile in every instruction (Phase 2).
 
 ## 3 · Shared foundations
 
@@ -128,7 +138,7 @@ Chief of Staff → **Researcher** (list with sources) → **Data Analyst** (clea
 | # | Phase | Effort | Done when |
 |---|---|---|---|
 | 0 | ~~**Remove the client project:** delete its code, data and keys, strip config and web tools, rename the package to `ergon`~~ **done** | 1 day | no client trace left; engine tests pass |
-| 1 | **Employee engine:** YAML employees, generic `employee_server.py`, tool registry, `run_all.py` reads `employees/`. Port Researcher and Data Analyst | 2–3 days | two employees running from YAML, Chief of Staff routes between them |
+| 1 | ~~**Employee engine:** YAML employees, generic `employee_server.py`, tool registry, `run_all.py` reads `employees/`. Port Researcher and Data Analyst~~ **done** | 2–3 days | two employees running from YAML, Chief of Staff routes between them |
 | 2 | **Company brain:** `profile.yaml`, `knowledge/`, knowledge search, profile in every prompt. Fill in Mobius Tensors | 2 days | "What does Histor cost for 12 cameras?" is answered correctly from the profile |
 | 3 | **Core team:** Writer, Sales Rep, Support Agent, document output, Python sandbox for the Analyst | 3–4 days | the UAE example above runs end to end |
 | 4 | **Approvals and work log:** draft/act permissions with pause-and-approve, run records, cost per request | 3–4 days | an `act` tool cannot run without your yes; every request has a cost line |

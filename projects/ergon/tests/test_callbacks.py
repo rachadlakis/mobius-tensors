@@ -264,10 +264,10 @@ class TestCallbackBundles:
         assert cb.WEB_INTEL_CALLBACKS["after_agent_callback"] is cb.clear_scrape_budget
         assert cb.strip_unreadable_file_parts in cb.WEB_INTEL_CALLBACKS["before_model_callback"]
 
-    def test_agents_import_with_callbacks_wired(self):
-        # Import-time smoke: the agent modules spread the bundles into LlmAgent.
-        import data_agent_adk.agent as data_analyst
-        import web_intel_agent_adk.agent as web_intel
+    def test_employees_build_with_callbacks_wired(self):
+        # The employee server spreads the bundles into LlmAgent.
+        from shared.employee_server import build_agent
+        from shared.employees import load_all
 
-        assert data_analyst.create_agent is not None
-        assert web_intel.create_agent is not None
+        for emp in load_all():
+            assert build_agent(emp).after_model_callback

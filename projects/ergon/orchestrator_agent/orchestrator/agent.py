@@ -60,10 +60,10 @@ from shared.config import (
     A2A_HEALTHCHECK_TIMEOUT_SECONDS,
     A2A_MAX_RETRIES,
     A2A_RETRY_BACKOFF_SECONDS,
-    agent_url,
     get_llm_model,
     require_llm_credentials,
 )
+from shared.employees import load_all
 from shared.persistence import get_session_service
 
 # Fail fast (and clearly) if the configured LLM_PROVIDER has no credentials.
@@ -308,10 +308,8 @@ async def _send_to_worker(
 # connections by hand; on everywhere else.
 _AUTO_CONNECT = os.getenv("ERGON_ORCHESTRATOR_AUTOINIT", "1") != "0"
 
-_DEFAULT_WORKER_URLS = [
-    agent_url("data"),
-    agent_url("web_intel"),
-]
+# Every employee in employees/*.yaml.
+_DEFAULT_WORKER_URLS = [emp.url for emp in load_all()]
 
 
 class OrchestratorAgent:

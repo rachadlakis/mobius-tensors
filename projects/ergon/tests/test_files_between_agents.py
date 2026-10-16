@@ -36,9 +36,9 @@ from google.genai import types
 from shared import documents
 from shared.a2a_files import convert_a2a_parts_to_genai
 from shared.config import USER_ID
+from shared.executor import BaseA2AExecutor
 
 agent_mod = importlib.import_module("orchestrator_agent.orchestrator.agent")
-dae = importlib.import_module("data_agent_adk.agent_executor")
 
 SESSION_ID = "sess-1"
 DATA_ANALYST = "Data Analyst"
@@ -158,7 +158,7 @@ async def test_upload_and_report_round_trip_through_data_analyst(monkeypatch, tm
     content = types.UserContent(parts=convert_a2a_parts_to_genai(a2a_parts))
 
     svc = InMemoryArtifactService()
-    ex = dae.DataAnalystExecutor(FakeRunner(svc))
+    ex = BaseA2AExecutor(FakeRunner(svc))
     before = await ex._artifact_versions(SESSION_ID)
     await ex._save_incoming_files(content, SESSION_ID)
     assert "brief.pdf" in await ex._artifact_keys(SESSION_ID)

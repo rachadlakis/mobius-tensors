@@ -11,6 +11,7 @@ import os
 import pytest
 
 from shared import config
+from shared.employees import load_all
 
 # provider -> (bare model to pass, expected full model string)
 _PROVIDER_CASES = [
@@ -117,17 +118,12 @@ def test_role_var_can_target_another_provider(reload_config):
 # --------------------------------------------------------------------------- #
 # every worker agent + the orchestrator build on the configured model
 # --------------------------------------------------------------------------- #
-_WORKER_MODULES = [
-    "data_agent_adk.agent",
-    "web_intel_agent_adk.agent",
-]
+@pytest.mark.parametrize("emp", load_all(), ids=lambda e: e.id)
+def test_employee_uses_worker_model(emp):
+    from shared.employee_server import build_agent
 
-
-@pytest.mark.parametrize("module_name", _WORKER_MODULES)
-def test_worker_agent_uses_worker_model(module_name):
-    mod = importlib.import_module(module_name)
-    agent = mod.create_agent()
-    # CLAUDE_MODEL is get_llm_model(role="worker")
+    agent = build_agent(emp)
+    # model: worker -> get_llm_model(role="worker")
     assert agent.model.model == config.model_for_role("worker") or "/" in agent.model.model
     assert agent.model.model.split("/", 1)[0] in config.SUPPORTED_LLM_PROVIDERS
 

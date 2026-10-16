@@ -192,22 +192,11 @@ SESSION_DB_URL = os.getenv("SESSION_DB_URL", f"sqlite+aiosqlite:///{_DEFAULT_DB_
 
 
 ## =============================================================================
-# Agent server settings (host/ports)
+# Employee servers: the host they bind to. Each employee's port is in its own
+# employees/<id>.yaml (override with <ID>_PORT, see shared/employees.py).
 ## =============================================================================
 
 AGENT_HOST = os.getenv("AGENT_HOST", "localhost")
-DATA_PORT = int(os.getenv("DATA_PORT", "10003"))
-WEB_INTEL_PORT = int(os.getenv("WEB_INTEL_PORT", "10005"))
-
-AGENT_PORTS = {
-    "data": DATA_PORT,
-    "web_intel": WEB_INTEL_PORT,
-}
-
-
-def agent_url(agent_name: str) -> str:
-    """Builds the base URL for a worker agent by name ('data', 'web_intel')."""
-    return f"http://{AGENT_HOST}:{AGENT_PORTS[agent_name]}"
 
 
 # --- Orchestrator -> worker call resilience (see orchestrator_agent/.../agent.py) ---

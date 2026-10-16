@@ -5,8 +5,8 @@ Guidance for Claude Code in this project.
 ## What this is
 
 **Ergon** (by Mobius Tensors): a team of AI employees on Google ADK + A2A. A Chief of Staff
-(`orchestrator_agent/`) delegates to employees, each a standalone A2A server. `README.md` is the
-overview; `PLAN.md` is the roadmap and the employee roster.
+(`orchestrator_agent/`) delegates to employees, each a standalone A2A server defined by one YAML
+file in `employees/`. `README.md` is the overview; `PLAN.md` is the roadmap and the roster.
 
 This folder lives inside the `mobius-tensors` git repo; run git commands from here as usual.
 
@@ -35,7 +35,8 @@ Copy `.env.example` to `.env` and fill in the block for your `LLM_PROVIDER`.
 ## Commands
 
 ```bash
-python run_all.py                 # every employee (Researcher :10005, Data Analyst :10003)
+python run_all.py                 # every employee in employees/
+python -m shared.employee_server researcher   # one employee
 cd orchestrator_agent && adk web  # Chief of Staff + chat UI on :8000
 
 python -m pytest                  # offline suite, a few seconds
@@ -47,8 +48,12 @@ employees at import time.
 
 ## Architecture notes
 
-- Every employee has the same shape: Agent Card → A2A server → `shared/executor.py`
-  (`BaseA2AExecutor`) → ADK Runner → `LlmAgent` → tools.
+- Every employee has the same shape, built by `shared/employee_server.py` from its YAML:
+  Agent Card → A2A server → `shared/executor.py` (`BaseA2AExecutor`) → ADK Runner → `LlmAgent`
+  → tools. Add an employee with a YAML file, not Python; add a tool by writing it in `shared/`
+  and registering it in `shared/tool_registry.py`.
+- An employee with `web_search` or `fetch_page` automatically gets the fetch budget
+  (`callbacks.FETCH_TOOLS`).
 - The Chief of Staff discovers employees from their cards on the first turn, sends work with
   `send_message`, and turns any failure into a readable tool result instead of an exception.
 - Files: the Chief of Staff keeps a per-session file store (`tool_context.state["session_files"]`).

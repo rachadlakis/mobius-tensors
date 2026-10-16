@@ -18,6 +18,7 @@ dependencies = [
     "ddgs",         # keyless DuckDuckGo search for the Researcher (shared/web_tools.py)
     "trafilatura",  # main-content extraction for scraped pages
     "openpyxl",     # read user-uploaded .xlsx and convert to CSV text (shared/attachments.py)
+    "pyyaml",       # employees/*.yaml (shared/employees.py)
 ]
 
 [project.optional-dependencies]
@@ -49,7 +50,5 @@ filterwarnings = [
 [tool.setuptools.packages.find]
 include = [
     "shared*",
-    "data_agent_adk*",
-    "web_intel_agent_adk*",
     "orchestrator_agent*",
 ]

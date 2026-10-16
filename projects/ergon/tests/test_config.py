@@ -127,25 +127,9 @@ class TestLlmCredentials:
 # --------------------------------------------------------------------------- #
 # Host / port helpers
 # --------------------------------------------------------------------------- #
-class TestAgentUrls:
-    def test_default_ports(self):
-        assert config.AGENT_PORTS == {
-            "data": 10003,
-            "web_intel": 10005,
-        }
-
-    def test_agent_url_builds_from_host_and_port(self):
-        assert config.agent_url("data") == f"http://{config.AGENT_HOST}:10003"
-        assert config.agent_url("web_intel") == f"http://{config.AGENT_HOST}:10005"
-
-    def test_agent_url_unknown_name_raises(self):
-        with pytest.raises(KeyError):
-            config.agent_url("nope")
-
-    def test_ports_are_overridable_via_env(self, reload_config):
-        cfg = reload_config(WEB_INTEL_PORT="20005", DATA_PORT="20003")
-        assert cfg.WEB_INTEL_PORT == 20005
-        assert cfg.AGENT_PORTS["data"] == 20003
+class TestAgentHost:
+    def test_host_is_overridable_via_env(self, reload_config):
+        assert reload_config(AGENT_HOST="0.0.0.0").AGENT_HOST == "0.0.0.0"
 
 
 # --------------------------------------------------------------------------- #

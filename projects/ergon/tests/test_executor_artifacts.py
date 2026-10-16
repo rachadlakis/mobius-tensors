@@ -1,16 +1,12 @@
-"""The worker executors harvest files their tools saved during a turn and
-attach them to the A2A task (so the Orchestrator receives them)."""
+"""The employee executor harvests files its tools saved during a turn and
+attaches them to the A2A task (so the Chief of Staff receives them)."""
 
-import importlib
-
-import pytest
 from a2a.types import FilePart
 from google.adk.artifacts import InMemoryArtifactService
 from google.genai import types
 
 from shared.config import USER_ID
-
-de = importlib.import_module("data_agent_adk.agent_executor")
+from shared.executor import BaseA2AExecutor
 
 
 class FakeRunner:
@@ -27,13 +23,13 @@ async def _save(svc, session_id, name, data, mime):
 
 
 async def test_artifact_keys_empty_when_none_saved():
-    ex = de.DataAnalystExecutor(FakeRunner(InMemoryArtifactService()))
+    ex = BaseA2AExecutor(FakeRunner(InMemoryArtifactService()))
     assert await ex._artifact_keys("s1") == set()
 
 
 async def test_new_file_artifacts_are_returned_as_a2a_file_parts():
     svc = InMemoryArtifactService()
-    ex = de.DataAnalystExecutor(FakeRunner(svc))
+    ex = BaseA2AExecutor(FakeRunner(svc))
 
     known = await ex._artifact_versions("s1")
     await _save(svc, "s1", "chart.png", b"\x89PNGdata", "image/png")
@@ -52,7 +48,7 @@ async def test_new_file_artifacts_are_returned_as_a2a_file_parts():
 
 async def test_pre_existing_artifacts_are_not_re_harvested():
     svc = InMemoryArtifactService()
-    ex = de.DataAnalystExecutor(FakeRunner(svc))
+    ex = BaseA2AExecutor(FakeRunner(svc))
 
     await _save(svc, "s1", "old.pdf", b"%PDF-old", "application/pdf")
     known = await ex._artifact_versions("s1")  # snapshot AFTER old.pdf exists
@@ -68,7 +64,7 @@ async def test_overwritten_artifact_is_re_harvested():
     results.csv) bumps the version, not the key set. Turn 2 of a
     conversation must still forward it."""
     svc = InMemoryArtifactService()
-    ex = de.DataAnalystExecutor(FakeRunner(svc))
+    ex = BaseA2AExecutor(FakeRunner(svc))
     v1, v2 = b"id,total;1,25.1", b"id,total;2,26.2"
 
     # Turn 1 produces the file and forwards it.
@@ -92,7 +88,7 @@ async def test_overwritten_artifact_is_re_harvested():
 
 async def test_untouched_artifact_is_not_re_harvested_when_another_is_written():
     svc = InMemoryArtifactService()
-    ex = de.DataAnalystExecutor(FakeRunner(svc))
+    ex = BaseA2AExecutor(FakeRunner(svc))
 
     await _save(svc, "s1", "old.pdf", b"%PDF-old", "application/pdf")
     known = await ex._artifact_versions("s1")
@@ -103,19 +99,7 @@ async def test_untouched_artifact_is_not_re_harvested_when_another_is_written():
 
 
 async def test_missing_artifact_service_is_tolerated():
-    ex = de.DataAnalystExecutor(FakeRunner(None))
+    ex = BaseA2AExecutor(FakeRunner(None))
     assert await ex._artifact_keys("s1") == set()
     assert await ex._artifact_versions("s1") == {}
     assert await ex._new_file_artifacts("s1", {}) == []
-
-
-@pytest.mark.parametrize("module_name, cls_name", [
-    ("data_agent_adk.agent_executor", "DataAnalystExecutor"),
-    ("web_intel_agent_adk.agent_executor", "ResearcherExecutor"),
-])
-def test_every_executor_has_the_harvest_helpers(module_name, cls_name):
-    mod = importlib.import_module(module_name)
-    cls = getattr(mod, cls_name)
-    assert hasattr(cls, "_artifact_keys")
-    assert hasattr(cls, "_artifact_versions")
-    assert hasattr(cls, "_new_file_artifacts")

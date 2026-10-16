@@ -43,7 +43,8 @@ _tool_starts: dict[str, float] = {}
 # clear_scrape_budget (after_agent_callback) at the end of each request.
 _fetch_counts: dict[str, int] = {}
 
-_FETCH_TOOLS = {"fetch_page", "web_search"}
+# Tools that fetch web pages. An employee with any of them gets the fetch budget.
+FETCH_TOOLS = frozenset({"fetch_page", "web_search"})
 
 # Mirrors the read=True clamp in web_tools.web_search - keep the two in step or
 # the budget bills for pages that were never fetched.
@@ -193,7 +194,7 @@ def enforce_scrape_budget(
     model as the tool result - so the agent is told, in-band, to stop fetching
     and answer with what it has.
     """
-    if tool.name not in _FETCH_TOOLS:
+    if tool.name not in FETCH_TOOLS:
         return None
 
     # What will this call actually fetch?
