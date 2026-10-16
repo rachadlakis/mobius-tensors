@@ -15,12 +15,12 @@ One folder per project in [docs/](docs/), each with a short page:
 | Project | Description | Status |
 | --- | --- | --- |
 | [histor](docs/histor/histor.md) | Ask your cameras what happened; alerts with a local check, dashboard, MCP server; includes the detection engine (YOLOX → ONNX Runtime) | Working code |
+| [ergon](docs/ergon/ergon.md) | Ergon: a team of AI employees (Chief of Staff, Researcher, Data Analyst, more planned) for any company; Google ADK + A2A | In development |
 | [agent-deployment](docs/agent-deployment/agent-deployment.md) | Installing and managing AI agents (Claude Code, Cowork, Codex, …) on the customer side | Research and templates |
 | [agents](docs/agents/agents.md) | Agentic AI agents and chatbots for customers' workflows | Not started |
 | [automations](docs/automations/automations.md) | Business workflows automated with AI | Not started |
 | [distributed-training](docs/distributed-training/distributed-training.md) | Training and fine-tuning LLMs, object detection models and VLMs, across GPUs when needed | Not started |
 | [forecasting](docs/forecasting/forecasting.md) | Forecasts from customers' time series, and statistical studies | Not started |
-| [object-detection](docs/object-detection/object-detection.md) | Merged into Histor as `histor.engine` (2026-10-09) | Merged |
 
 The website lives in its own repo, next to this one: `../mobius-website`.
 
