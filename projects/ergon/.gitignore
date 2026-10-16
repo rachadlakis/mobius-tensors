@@ -1,0 +1,61 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# ADK runtime session state
+.adk/
+
+# Local session database (SESSION_BACKEND=database)
+*.db
+
+# Test artifacts
+.pytest-tmp/
+.pytest_cache/
+.coverage
+.ruff_cache/
+
+# Files employees produce at runtime (shared/documents.py)
+workspace/
+
