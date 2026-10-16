@@ -56,6 +56,7 @@ nest_asyncio.apply()
 sys.path.insert(0, str(parent_dir))
 from shared import a2a_files, attachments
 from shared.callbacks import WORKER_CALLBACKS
+from shared.company import company_block
 from shared.config import (
     A2A_HEALTHCHECK_TIMEOUT_SECONDS,
     A2A_MAX_RETRIES,
@@ -436,7 +437,7 @@ class OrchestratorAgent:
         return None
 
     def root_instruction(self, context: ReadonlyContext) -> str:
-        return f"""
+        return company_block(for_chief=True) + "\n\n---\n" + f"""
         **Role:** You are the Chief of Staff of a team of AI employees.
         The user is your manager. You take their request, split it into tasks, hand
         each task to the right employee, and return one finished result. You do not

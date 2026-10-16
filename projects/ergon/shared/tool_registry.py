@@ -8,6 +8,7 @@ registering it here - nothing else.
 
 from collections.abc import Callable
 
+from shared.company import read_company_document, search_company_knowledge
 from shared.documents import list_workspace_files, write_pdf_report
 from shared.web_tools import fetch_page, get_weather, web_search
 
@@ -21,6 +22,9 @@ TOOLS: dict[str, Callable] = {
         # documents (shared/documents.py)
         write_pdf_report,
         list_workspace_files,
+        # the company's own knowledge (shared/company.py)
+        search_company_knowledge,
+        read_company_document,
     )
 }
 

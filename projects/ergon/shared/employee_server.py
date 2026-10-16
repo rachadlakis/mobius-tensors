@@ -29,6 +29,7 @@ from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.runners import Runner
 
 from shared.callbacks import FETCH_TOOLS, WEB_INTEL_CALLBACKS, WORKER_CALLBACKS
+from shared.company import CompanyConfigError, company_block
 from shared.config import AGENT_HOST, LLM_PROVIDER, get_llm_model, missing_llm_credentials
 from shared.employees import Employee, EmployeeConfigError, find
 from shared.executor import BaseA2AExecutor
@@ -48,15 +49,30 @@ def build_model(emp: Employee):
     return get_llm_model(emp.model)
 
 
+def compose_instruction(emp: Employee) -> str:
+    """The company profile (shared/company.py), then the employee's own instruction."""
+    return f"{company_block(set(emp.tools))}\n\n---\n\n{emp.instruction}"
+
+
+def instruction_provider(emp: Employee):
+    """Recomposed on every turn, so profile edits apply without a restart. A
+    callable also skips ADK's {placeholder} substitution, which would otherwise
+    trip over braces in a profile or an example."""
+    def provide(_context=None) -> str:
+        return compose_instruction(emp)
+    return provide
+
+
 def build_agent(emp: Employee) -> LlmAgent:
     """The ADK agent for an employee. An employee with web-fetching tools also
     gets the hard fetch budget (shared/callbacks.py)."""
+    compose_instruction(emp)  # fail at startup if the company profile is broken
     callbacks = WEB_INTEL_CALLBACKS if FETCH_TOOLS & set(emp.tools) else WORKER_CALLBACKS
     return LlmAgent(
         model=build_model(emp),
         name=emp.agent_name,
         description=emp.description,
-        instruction=emp.instruction,
+        instruction=instruction_provider(emp),
         tools=resolve_tools(emp.tools),
         **callbacks,
     )
@@ -114,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         emp = find(args.employee)
         app = build_app(emp)
-    except (EmployeeConfigError, KeyError) as e:
+    except (EmployeeConfigError, CompanyConfigError, KeyError) as e:
         logger.error("Could not start %s: %s", args.employee, e)
         return 1
 

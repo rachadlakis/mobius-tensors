@@ -1,0 +1,25 @@
+# A made-up sample company, so Ergon runs out of the box and shows the format.
+# To set up your own company: copy this folder to companies/<your_id>/, edit profile.yaml,
+# put your documents (Markdown or plain text) in knowledge/, and set ERGON_COMPANY=<your_id>
+# in .env. Every employee reads the profile on every turn, so edits apply without a restart.
+#
+# Fields: name and summary are required; about, offer, voice and rules are optional.
+
+name: Example Co.
+summary: A sample small business that sells office furniture online. Replace with your own company.
+
+about: |
+  Example Co. sells desks, chairs and storage to small offices, online and through a showroom.
+  It is a made-up company that shows how to describe yours.
+
+offer:
+  - "Standing desks (three sizes) and office chairs."
+  - "Storage: cabinets and shelving."
+  - "Delivery and assembly in the city."
+
+voice: |
+  Friendly, plain and short. No jargon.
+
+rules:
+  - "Quote only the prices in the price list; never invent a discount."
+  - "We have no public email address yet: write [contact email] as a placeholder."

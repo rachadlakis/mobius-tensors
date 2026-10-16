@@ -17,7 +17,10 @@ def test_data_analyst_has_document_tools():
     agent = build_agent(find("data_analyst"))
     assert isinstance(agent, LlmAgent)
     assert agent.name == "Data_Analyst"
-    assert agent.tools == [TOOLS["write_pdf_report"], TOOLS["list_workspace_files"]]
+    assert agent.tools == [
+        TOOLS["write_pdf_report"], TOOLS["list_workspace_files"],
+        TOOLS["search_company_knowledge"], TOOLS["read_company_document"],
+    ]
     # no web tools -> no fetch budget
     assert agent.before_tool_callback == [cb.log_before_tool]
 
@@ -26,14 +29,20 @@ def test_researcher_has_web_tools_fetch_budget_and_no_mcp():
     agent = build_agent(find("researcher"))
     assert isinstance(agent, LlmAgent)
     assert agent.name == "Researcher"
-    assert agent.tools == [TOOLS["web_search"], TOOLS["fetch_page"], TOOLS["get_weather"]]
+    assert agent.tools == [
+        TOOLS["web_search"], TOOLS["fetch_page"], TOOLS["get_weather"],
+        TOOLS["search_company_knowledge"], TOOLS["read_company_document"],
+    ]
     assert not any(isinstance(t, McpToolset) for t in agent.tools)
     assert agent.before_tool_callback == [cb.enforce_scrape_budget, cb.log_before_tool]
     assert agent.after_agent_callback is cb.clear_scrape_budget
 
 
-def test_instruction_and_description_come_from_the_yaml():
+def test_instruction_is_company_profile_then_the_yaml():
     emp = find("researcher")
     agent = build_agent(emp)
-    assert agent.instruction == emp.instruction
+    text = agent.instruction(None)  # a provider: recomposed every turn
+    assert text.startswith("## Your company: Example Co.")
+    assert text.endswith(emp.instruction)
+    assert "search_company_knowledge" in text
     assert agent.description == emp.description

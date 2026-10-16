@@ -15,8 +15,10 @@ This folder lives inside the `mobius-tensors` git repo; run git commands from he
 - **Never call it "ai-company"**: the name is Ergon.
 - The project started as a client project. **No trace of that client may come back**: no client
   names, their domain concepts, keys or data. Use generic business examples.
-- Company-specific facts (products, prices, tone) go in configuration (`company/`, Phase 2 of
-  `PLAN.md`), never hard-coded in an employee's instructions.
+- Ergon is general: it works for any company. Company-specific facts (products, prices, tone,
+  rules) go in `companies/<id>/` (profile.yaml + knowledge/), never in code or in an employee's
+  YAML. Employees and code must not mention a specific company. `ERGON_COMPANY` picks the
+  company; the tests always use `companies/example` (a made-up sample).
 - Employees draft; they do not send, post, pay or delete. Outward actions will need an approval
   step (Phase 4).
 
@@ -54,6 +56,9 @@ employees at import time.
   and registering it in `shared/tool_registry.py`.
 - An employee with `web_search` or `fetch_page` automatically gets the fetch budget
   (`callbacks.FETCH_TOOLS`).
+- Every instruction (employees and the Chief of Staff) starts with the company profile
+  (`shared/company.py`, `company_block`). It is an instruction *provider*, recomposed every
+  turn, so profile edits apply live and ADK's `{placeholder}` substitution is skipped.
 - The Chief of Staff discovers employees from their cards on the first turn, sends work with
   `send_message`, and turns any failure into a readable tool result instead of an exception.
 - Files: the Chief of Staff keeps a per-session file store (`tool_context.state["session_files"]`).

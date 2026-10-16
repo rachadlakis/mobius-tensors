@@ -35,6 +35,8 @@ os.environ.setdefault("USER_ID", "test_user")
 os.environ.setdefault("TENANT_ID", "test_tenant")
 # Keep the orchestrator module importable without network round trips.
 os.environ["ERGON_ORCHESTRATOR_AUTOINIT"] = "0"
+# Tests run against the made-up sample company, never the real one in .env.
+os.environ["ERGON_COMPANY"] = "example"
 
 
 @pytest.fixture

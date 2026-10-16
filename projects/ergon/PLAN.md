@@ -2,14 +2,14 @@
 
 **Ergon by Mobius Tensors** is a team of AI employees that any company can run. Each employee is a role with a job
 description, tools and permissions. A **Chief of Staff** takes your request, hands the work to the
-right people and gives you back one result. Everything specific to a company lives in one
-`company/` folder, never in code.
+right people and gives you back one result. Everything specific to a company lives in its own
+`companies/<id>/` folder, never in code.
 
 **Rule:** nothing from the client project this started as may come back: no client names, their
 domain concepts, keys, data or docs.
 
-**First company configured:** Mobius Tensors, so we use the team ourselves first. A client is
-then just another `company/` folder.
+**Companies configured:** a made-up sample (`example`) and Mobius Tensors, so we use the team
+ourselves first. A client is just another `companies/<id>/` folder.
 
 ---
 
@@ -24,6 +24,12 @@ caches, and the client's keys in `.env`.
 registry maps tool names to functions, and `run_all.py` and the Chief of Staff both read
 `employees/`. The Researcher and the Data Analyst were moved over unchanged.
 
+**Phase 2 (done):** the company brain, and Ergon stays general. Each company is a folder
+`companies/<id>/` with a `profile.yaml` (put at the top of every instruction, live) and a
+`knowledge/` folder that employees search (`search_company_knowledge`, `read_company_document`).
+`ERGON_COMPANY` picks one: `example` (a made-up sample, the default and the template) or
+`mobius_tensors` (Histor, services, internal pricing).
+
 | Piece | What it is |
 |---|---|
 | `employees/*.yaml` | one file per employee: card, tools, model, instructions |
@@ -31,6 +37,8 @@ registry maps tool names to functions, and `run_all.py` and the Chief of Staff b
 | `shared/tool_registry.py` | every tool an employee can be given, by name |
 | `shared/employee_server.py` | `python -m shared.employee_server <id>` runs any employee |
 | `shared/documents.py` | `write_pdf_report`, `list_workspace_files`; files land in `workspace/` |
+| `shared/company.py` | the selected company: profile, knowledge search (BM25, rebuilt when a file changes) |
+| `companies/<id>/` | one folder per company: `profile.yaml` + `knowledge/` |
 | `orchestrator_agent/` | the **Chief of Staff**; finds the team in `employees/` |
 | `tests/` | offline suite, all green |
 
@@ -40,9 +48,9 @@ registry maps tool names to functions, and `run_all.py` and the Chief of Staff b
 
 ```
 ergon/
-├── company/                 # Phase 2: the ONLY thing you edit per company
-│   ├── profile.yaml         # who we are, what we sell, prices, tone of voice, policies
-│   └── knowledge/           # documents employees read: product docs, FAQs, brochures, price list
+├── companies/               # the ONLY thing you edit per company; ERGON_COMPANY picks one
+│   ├── example/             # made-up sample company: the default and the template
+│   └── mobius_tensors/      # profile.yaml (who we are, offer, voice, rules) + knowledge/
 ├── employees/               # one YAML file per AI employee
 │   ├── researcher.yaml
 │   └── data_analyst.yaml
@@ -74,16 +82,15 @@ instruction: |
   **Role:** You are the Sales Rep. ...
 ```
 
-Still to add as the phases need them: `permission: read | draft | act` (Phase 4) and the
-company profile in every instruction (Phase 2).
+Still to add as the phases need it: `permission: read | draft | act` (Phase 4).
 
 ## 3 · Shared foundations
 
 Every employee depends on these. Build them once, before adding roles.
 
-1. **Company brain.** `profile.yaml` is injected into every employee's instructions;
-   `search_company_knowledge` searches `company/knowledge/`. Start with keyword search on SQLite
-   (no new infrastructure) and add embeddings later.
+1. **Company brain (done).** `profile.yaml` is put at the top of every instruction;
+   `search_company_knowledge` searches `knowledge/` with keyword ranking (BM25, in memory, no
+   database). Add PDF/Word documents and embeddings later if keyword search falls short.
 2. **Document output.** Write Markdown, PDF, Word and Excel (`fpdf2` and `openpyxl` are already
    in; add `python-docx`). Files land in `workspace/` and flow back through A2A as today.
 3. **Permission levels.** `read` looks things up. `draft` produces text and files for a human to
@@ -120,7 +127,7 @@ These cover the daily work of a small company and reuse most of the existing cod
 | **Executive Assistant** | Inbox triage, meeting prep, scheduling, meeting minutes | Gmail / Outlook + Calendar MCP · `act` with approval |
 | **Finance & Admin** | Quotes into invoices, expense sheets, monthly cash summary. Never pays anything | spreadsheets, accounting export |
 | **Recruiter** | Job posts, CV screening against a rubric, interview kits | document input |
-| **Legal Reviewer** | Checks contracts and NDAs against a checklist and flags risks. A human always signs | document input, checklist in `company/` |
+| **Legal Reviewer** | Checks contracts and NDAs against a checklist and flags risks. A human always signs | document input, checklist in `companies/<id>/knowledge/` |
 | **Engineer** | Code review, scripts, technical docs | GitHub MCP, sandbox |
 
 ### Example: one request, several employees
@@ -139,7 +146,7 @@ Chief of Staff → **Researcher** (list with sources) → **Data Analyst** (clea
 |---|---|---|---|
 | 0 | ~~**Remove the client project:** delete its code, data and keys, strip config and web tools, rename the package to `ergon`~~ **done** | 1 day | no client trace left; engine tests pass |
 | 1 | ~~**Employee engine:** YAML employees, generic `employee_server.py`, tool registry, `run_all.py` reads `employees/`. Port Researcher and Data Analyst~~ **done** | 2–3 days | two employees running from YAML, Chief of Staff routes between them |
-| 2 | **Company brain:** `profile.yaml`, `knowledge/`, knowledge search, profile in every prompt. Fill in Mobius Tensors | 2 days | "What does Histor cost for 12 cameras?" is answered correctly from the profile |
+| 2 | ~~**Company brain:** `profile.yaml`, `knowledge/`, knowledge search, profile in every prompt. Fill in Mobius Tensors~~ **done** (general: `companies/<id>/`) | 2 days | "What does Histor cost for 12 cameras?" is answered correctly from the knowledge |
 | 3 | **Core team:** Writer, Sales Rep, Support Agent, document output, Python sandbox for the Analyst | 3–4 days | the UAE example above runs end to end |
 | 4 | **Approvals and work log:** draft/act permissions with pause-and-approve, run records, cost per request | 3–4 days | an `act` tool cannot run without your yes; every request has a cost line |
 | 5 | **Connectors and v2 employees:** one employee at a time via MCP | 2–3 days each | — |
@@ -149,8 +156,8 @@ Phases 0–3 (about two weeks) give a working six-person team.
 
 ## 6 · Open decisions
 
-- **Internal tool or product for clients?** Default: build for one company, keep `company/`
-  separate so a client is a new folder. Multi-company login and billing only if we sell it.
+- **Internal tool or product for clients?** Today one company per running Ergon
+  (`ERGON_COMPANY`); a client is a new `companies/<id>/` folder. Multi-company login and billing only if we sell it.
 - **Default LLM.** Keep LiteLLM's provider switch; pick one default (capable model for the Chief
   of Staff, cheaper for the employees, as today).
 - **Python sandbox for the Analyst.** Local subprocess with limits (simple) or a container (safer).

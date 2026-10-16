@@ -3,7 +3,7 @@ name: Researcher
 port: 10005
 description: "Researcher: web search and page reading for market, competitor, lead and technology questions. Read-only, public pages only, respects robots.txt, cites sources."
 model: worker
-tools: [web_search, fetch_page, get_weather]
+tools: [web_search, fetch_page, get_weather, search_company_knowledge, read_company_document]
 
 skill:
   id: web_research

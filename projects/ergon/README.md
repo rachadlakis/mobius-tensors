@@ -1,7 +1,8 @@
 # Ergon
 
-**Ergon by Mobius Tensors**: a team of AI employees. You talk to a **Chief of Staff**; it splits
-your request into tasks, hands each one to the right employee, and gives you back one result.
+**Ergon by Mobius Tensors**: a team of AI employees for any company. You talk to a **Chief of
+Staff**; it splits your request into tasks, hands each one to the right employee, and gives you
+back one result. Every employee knows the company it works for: its profile and its documents.
 
 Built on Google ADK and the A2A protocol. Every employee is its own small HTTP server, so any
 A2A client can also call one directly.
@@ -13,10 +14,26 @@ The roadmap is in [PLAN.md](PLAN.md).
 | Employee | Defined in | Port | Does | Tools |
 |---|---|---|---|---|
 | **Chief of Staff** | `orchestrator_agent/` | 8000 (`adk web`) | Takes your request, delegates, merges the answers, passes files between employees | `send_message` |
-| **Researcher** | `employees/researcher.yaml` | 10005 | Web research with sources: markets, competitors, leads, technology, news | `web_search`, `fetch_page`, `get_weather` |
-| **Data Analyst** | `employees/data_analyst.yaml` | 10003 | Analyses uploaded spreadsheets/CSVs, KPIs, trends, PDF reports | `write_pdf_report`, `list_workspace_files` |
+| **Researcher** | `employees/researcher.yaml` | 10005 | Web research with sources: markets, competitors, leads, technology, news | `web_search`, `fetch_page`, `get_weather`, company knowledge |
+| **Data Analyst** | `employees/data_analyst.yaml` | 10003 | Analyses uploaded spreadsheets/CSVs, KPIs, trends, prices from the price list, PDF reports | `write_pdf_report`, `list_workspace_files`, company knowledge |
+
+Company knowledge = `search_company_knowledge` and `read_company_document`.
 
 More employees (Writer, Sales Rep, Support Agent, ...) are planned. See [PLAN.md](PLAN.md).
+
+## The company
+
+Ergon works for one company at a time, chosen with `ERGON_COMPANY` in `.env`:
+
+| Folder | What |
+|---|---|
+| `companies/example/` | Example Co., a made-up sample (the default). Copy it to start your own |
+| `companies/mobius_tensors/` | Mobius Tensors: Histor, services, internal pricing |
+| `companies/<id>/profile.yaml` | name, summary, about, offer, voice, rules: put at the top of every employee's instructions |
+| `companies/<id>/knowledge/` | Markdown or text documents employees search (keyword ranking, no database) |
+
+`ERGON_COMPANY` can also be a path to a company folder anywhere. Profile and document edits apply
+on the next turn, without a restart.
 
 ## Adding an employee
 
@@ -65,9 +82,11 @@ RUN_LLM_INTEGRATION=1 python -m pytest tests/test_llm_smoke.py   # hits the conf
 ## Layout
 
 ```
+companies/            one folder per company (profile.yaml + knowledge/)
 employees/            one YAML file per employee
 orchestrator_agent/   Chief of Staff (A2A client + routing + file hand-off)
 shared/
+  company.py          the selected company: profile, knowledge search
   employees.py        loads and validates employees/*.yaml
   employee_server.py  runs any employee as an A2A server
   tool_registry.py    every tool an employee can be given, by name
