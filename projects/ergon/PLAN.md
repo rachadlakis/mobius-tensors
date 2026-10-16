@@ -30,6 +30,12 @@ registry maps tool names to functions, and `run_all.py` and the Chief of Staff b
 `ERGON_COMPANY` picks one: `example` (a made-up sample, the default and the template) or
 `mobius_tensors` (Histor, services, internal pricing).
 
+**Phase 3 (done):** the core team. New employees **Writer**, **Sales Rep** and **Support
+Agent**; the **Data Analyst** now runs Python on the task's files (`run_python`, a local
+subprocess with a time limit and no secrets) and every employee that handles prices has
+`calculate`. Document output: PDF, Word, Excel, Markdown/text/CSV/HTML. The Chief of Staff
+forwards spreadsheets as real files to employees whose card says they take files.
+
 | Piece | What it is |
 |---|---|
 | `employees/*.yaml` | one file per employee: card, tools, model, instructions |
@@ -38,6 +44,7 @@ registry maps tool names to functions, and `run_all.py` and the Chief of Staff b
 | `shared/employee_server.py` | `python -m shared.employee_server <id>` runs any employee |
 | `shared/documents.py` | `write_pdf_report`, `list_workspace_files`; files land in `workspace/` |
 | `shared/company.py` | the selected company: profile, knowledge search (BM25, rebuilt when a file changes) |
+| `shared/sandbox.py`, `shared/calculator.py` | `run_python` for the Data Analyst, `calculate` for prices and totals |
 | `companies/<id>/` | one folder per company: `profile.yaml` + `knowledge/` |
 | `orchestrator_agent/` | the **Chief of Staff**; finds the team in `employees/` |
 | `tests/` | offline suite, all green |
@@ -52,8 +59,8 @@ ergon/
 │   ├── example/             # made-up sample company: the default and the template
 │   └── mobius_tensors/      # profile.yaml (who we are, offer, voice, rules) + knowledge/
 ├── employees/               # one YAML file per AI employee
-│   ├── researcher.yaml
-│   └── data_analyst.yaml
+│   ├── researcher.yaml, data_analyst.yaml
+│   └── writer.yaml, sales_rep.yaml, support_agent.yaml
 ├── orchestrator_agent/      # the Chief of Staff (adk web serves it)
 ├── shared/                  # the engine: employee server, tool registry, tools, A2A plumbing
 ├── workspace/               # files employees produce (gitignored)
@@ -91,8 +98,8 @@ Every employee depends on these. Build them once, before adding roles.
 1. **Company brain (done).** `profile.yaml` is put at the top of every instruction;
    `search_company_knowledge` searches `knowledge/` with keyword ranking (BM25, in memory, no
    database). Add PDF/Word documents and embeddings later if keyword search falls short.
-2. **Document output.** Write Markdown, PDF, Word and Excel (`fpdf2` and `openpyxl` are already
-   in; add `python-docx`). Files land in `workspace/` and flow back through A2A as today.
+2. **Document output (done).** PDF, Word, Excel and Markdown/text/CSV/HTML. Files land in
+   `workspace/` and flow back through A2A.
 3. **Permission levels.** `read` looks things up. `draft` produces text and files for a human to
    use. `act` changes the outside world (send, post, book, pay) and **always pauses for your
    approval** using A2A's `input-required` state. In v1 no employee has `act`: they draft, you
@@ -106,7 +113,7 @@ Every employee depends on these. Build them once, before adding roles.
 
 ## 4 · The employees
 
-### Core team: build first (6)
+### Core team (built in Phases 0-3)
 
 These cover the daily work of a small company and reuse most of the existing code.
 
@@ -115,9 +122,9 @@ These cover the daily work of a small company and reuse most of the existing cod
 | **Chief of Staff** | Your single point of contact. Splits a request, assigns it, chains employees, merges the result, asks you before any `act` step | `send_message`, team roster, work log | — | Orchestrator |
 | **Researcher** | Market, competitor, lead and technology research, always with sources | web search, news, page reading, knowledge | read | Web Intelligence |
 | **Data Analyst** | Analyses uploaded Excel/CSV, KPIs, charts, Excel/PDF reports | Python sandbox (pandas, matplotlib), file tools | read + files | Data agent |
-| **Writer** (marketing and content) | Posts, blog articles, website copy, brochure text, newsletters in the company's voice | knowledge, document output | draft | new |
-| **Sales Rep** | Prospect lists (via Researcher), outreach emails, proposals, quotes from the price list | knowledge, price calculator, document output | draft | new |
-| **Support Agent** | Answers customer questions from the knowledge base, drafts replies, flags what the docs don't cover | knowledge | draft | new |
+| **Writer** (marketing and content) | Posts, blog articles, website copy, brochure text, newsletters in the company's voice | knowledge, document output | draft | built |
+| **Sales Rep** | Prospect lists (via Researcher), outreach emails, proposals, quotes from the price list | knowledge, price calculator, document output | draft | built |
+| **Support Agent** | Answers customer questions from the knowledge base, drafts replies, flags what the docs don't cover | knowledge | draft | built |
 
 ### Next wave (v2): one at a time, each needs a connector
 
@@ -147,7 +154,7 @@ Chief of Staff → **Researcher** (list with sources) → **Data Analyst** (clea
 | 0 | ~~**Remove the client project:** delete its code, data and keys, strip config and web tools, rename the package to `ergon`~~ **done** | 1 day | no client trace left; engine tests pass |
 | 1 | ~~**Employee engine:** YAML employees, generic `employee_server.py`, tool registry, `run_all.py` reads `employees/`. Port Researcher and Data Analyst~~ **done** | 2–3 days | two employees running from YAML, Chief of Staff routes between them |
 | 2 | ~~**Company brain:** `profile.yaml`, `knowledge/`, knowledge search, profile in every prompt. Fill in Mobius Tensors~~ **done** (general: `companies/<id>/`) | 2 days | "What does Histor cost for 12 cameras?" is answered correctly from the knowledge |
-| 3 | **Core team:** Writer, Sales Rep, Support Agent, document output, Python sandbox for the Analyst | 3–4 days | the UAE example above runs end to end |
+| 3 | ~~**Core team:** Writer, Sales Rep, Support Agent, document output, Python sandbox for the Analyst~~ **done** (live run of the UAE example still to do) | 3–4 days | the UAE example above runs end to end |
 | 4 | **Approvals and work log:** draft/act permissions with pause-and-approve, run records, cost per request | 3–4 days | an `act` tool cannot run without your yes; every request has a cost line |
 | 5 | **Connectors and v2 employees:** one employee at a time via MCP | 2–3 days each | — |
 | 6 | **Team UI:** a new "your team" screen to hire, configure and watch employees | 1–2 weeks | — |

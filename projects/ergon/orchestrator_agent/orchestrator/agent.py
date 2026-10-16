@@ -154,9 +154,18 @@ def _remember_uploads(tool_context: ToolContext) -> None:
         )
 
 
-def _delegation_parts(agent_name: str, task: str, tool_context: ToolContext) -> list[dict]:
-    """The A2A message parts to send a worker: the task text + every session file
-    (spreadsheets/CSVs rendered as CSV text, everything else as a raw file part)."""
+_PREVIEW_LINES = 15
+
+
+def _delegation_parts(
+    agent_name: str, task: str, tool_context: ToolContext, wants_files: bool = False
+) -> list[dict]:
+    """The A2A message parts to send a worker: the task text + every session file.
+
+    Spreadsheets/CSVs go as CSV text, everything else as a raw file part. An
+    employee whose card says it takes files (`wants_files`, e.g. one with
+    run_python) gets spreadsheets as raw files too, plus a short preview, so its
+    code reads every row instead of the model copying them."""
     parts: list[dict] = [{"kind": "text", "text": task}]
     total = 0
     for f in _session_files(tool_context):
@@ -168,6 +177,24 @@ def _delegation_parts(agent_name: str, task: str, tool_context: ToolContext) -> 
             print("send_message: hit the forwarded-file size cap, skipping the rest")
             break
         name, mime = f["name"], f["mime"]
+        if attachments.looks_tabular(mime, name) and wants_files:
+            parts.append(a2a_files.file_part_dict(name, raw, mime))
+            preview = ""
+            try:
+                lines = (attachments.to_text(raw, mime, name) or "").splitlines()
+                preview = "\n".join(lines[:_PREVIEW_LINES])
+                if len(lines) > _PREVIEW_LINES:
+                    preview += f"\n... ({len(lines) - 1} rows in total)"
+            except Exception as e:  # a bad file must not kill the delegation
+                print(f"send_message: could not preview {name!r}: {e}")
+            parts.append({
+                "kind": "text",
+                "text": (
+                    f"\n\n--- file: {name} ({mime}) is attached as a file: open it by "
+                    f"that name with run_python. First lines: ---\n{preview}\n--- end of preview ---"
+                ),
+            })
+            continue
         if attachments.looks_tabular(mime, name):
             text = None
             try:
@@ -585,7 +612,9 @@ class OrchestratorAgent:
         # whole session file set (user uploads + files earlier workers produced)
         # to this worker alongside the task text.
         _remember_uploads(tool_context)
-        parts = _delegation_parts(agent_name, task, tool_context)
+        card = self.cards.get(agent_name)
+        wants_files = a2a_files.FILE_INPUT_MODE in (getattr(card, "default_input_modes", None) or [])
+        parts = _delegation_parts(agent_name, task, tool_context, wants_files)
         if len(parts) > 1:
             print(f"send_message: forwarding {len(parts) - 1} file part(s) to {agent_name}")
 

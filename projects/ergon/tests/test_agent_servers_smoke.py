@@ -27,7 +27,18 @@ def test_the_team_is_what_we_expect():
     assert {e.id: (e.name, e.skill.id, e.port) for e in EMPLOYEES} == {
         "data_analyst": ("Data Analyst", "data_analysis", 10003),
         "researcher": ("Researcher", "web_research", 10005),
+        "writer": ("Writer", "content_writing", 10006),
+        "sales_rep": ("Sales Rep", "sales", 10007),
+        "support_agent": ("Support Agent", "customer_support", 10008),
     }
+
+
+def test_only_file_tool_employees_take_files():
+    from shared.a2a_files import FILE_INPUT_MODE
+
+    takes_files = {e.id for e in EMPLOYEES
+                   if FILE_INPUT_MODE in employee_server.build_card(e).default_input_modes}
+    assert takes_files == {"data_analyst"}
 
 
 @pytest.mark.parametrize("emp", EMPLOYEES, ids=IDS)
@@ -40,7 +51,7 @@ def test_server_serves_agent_card(emp):
     assert card["name"] == emp.name
     assert card["description"] == emp.description
     assert card["capabilities"]["streaming"] is True
-    assert card["defaultInputModes"] == ["text/plain"]
+    assert card["defaultInputModes"][0] == "text/plain"
     assert [s["id"] for s in card["skills"]] == [emp.skill.id]
     assert card["skills"][0]["examples"]  # examples are populated
     assert card["url"] == f"http://{AGENT_HOST}:{emp.port}/"

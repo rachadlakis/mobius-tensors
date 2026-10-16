@@ -14,12 +14,19 @@ The roadmap is in [PLAN.md](PLAN.md).
 | Employee | Defined in | Port | Does | Tools |
 |---|---|---|---|---|
 | **Chief of Staff** | `orchestrator_agent/` | 8000 (`adk web`) | Takes your request, delegates, merges the answers, passes files between employees | `send_message` |
-| **Researcher** | `employees/researcher.yaml` | 10005 | Web research with sources: markets, competitors, leads, technology, news | `web_search`, `fetch_page`, `get_weather`, company knowledge |
-| **Data Analyst** | `employees/data_analyst.yaml` | 10003 | Analyses uploaded spreadsheets/CSVs, KPIs, trends, prices from the price list, PDF reports | `write_pdf_report`, `list_workspace_files`, company knowledge |
+| **Researcher** | `employees/researcher.yaml` | 10005 | Web research with sources: markets, competitors, leads, technology, news | `web_search`, `fetch_page`, `get_weather`, knowledge |
+| **Data Analyst** | `employees/data_analyst.yaml` | 10003 | Runs Python on uploaded spreadsheets: KPIs, trends, charts, cleaned tables; prices from the price list | `run_python`, `calculate`, Excel, PDF, knowledge |
+| **Writer** | `employees/writer.yaml` | 10006 | Posts, articles, website and brochure copy, newsletters, emails in the company's voice | Word, text files, PDF, knowledge |
+| **Sales Rep** | `employees/sales_rep.yaml` | 10007 | Outreach emails, proposals and quotes from the price list | `calculate`, Word, Excel, PDF, text files, knowledge |
+| **Support Agent** | `employees/support_agent.yaml` | 10008 | Answers customers from the company documents, drafts replies, flags gaps | `calculate`, text files, knowledge |
 
-Company knowledge = `search_company_knowledge` and `read_company_document`.
+Knowledge = `search_company_knowledge` and `read_company_document`. Employees **draft**; none of
+them sends, posts or pays. More employees (Project Manager, Executive Assistant, Finance, ...)
+come with connectors. See [PLAN.md](PLAN.md).
 
-More employees (Writer, Sales Rep, Support Agent, ...) are planned. See [PLAN.md](PLAN.md).
+`run_python` runs the Data Analyst's scripts in a separate Python process with a time limit and
+no API keys, in its own folder under `workspace/runs/`. It is **not a security sandbox**: keep it
+for internal use until it runs in a container.
 
 ## The company
 
@@ -97,7 +104,9 @@ shared/
   callbacks.py        tool/token logging, Researcher fetch budget
   persistence.py      in-memory or database sessions
   web_tools.py        search, page reading, weather (SSRF guard, robots.txt)
-  documents.py        PDF reports into workspace/
+  documents.py        PDF, Word, Excel and text files into workspace/
+  calculator.py       safe arithmetic (calculate)
+  sandbox.py          run_python for the Data Analyst
 tests/                offline pytest suite
 run_all.py            starts every employee in employees/
 ```

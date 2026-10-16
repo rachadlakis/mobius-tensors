@@ -19,6 +19,9 @@ dependencies = [
     "trafilatura",  # main-content extraction for scraped pages
     "openpyxl",     # read user-uploaded .xlsx and convert to CSV text (shared/attachments.py)
     "pyyaml",       # employees/*.yaml (shared/employees.py)
+    "python-docx",  # Word documents (shared/documents.py)
+    "pandas",       # run_python: the Data Analyst's scripts (shared/sandbox.py)
+    "matplotlib",   # run_python: charts
 ]
 
 [project.optional-dependencies]

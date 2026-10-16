@@ -23,6 +23,10 @@ from google.genai import types
 
 DEFAULT_MIME = "application/octet-stream"
 
+# Listed in an employee's card defaultInputModes when its tools open files by
+# name: the Chief of Staff then forwards spreadsheets as real files, not text.
+FILE_INPUT_MODE = "application/octet-stream"
+
 
 # --------------------------------------------------------------------------- #
 # A2A  ->  Google GenAI

@@ -10,9 +10,9 @@ Responsibilities:
 * harvest any files the agent's tools saved as artifacts *during this turn*
   (diffed against a pre-run snapshot) and staple them to the A2A task, so the
   Chief of Staff actually receives them;
-* ``_prepare`` hook - a no-op by default; an employee whose tools read files
-  overrides it with ``_save_incoming_files`` to persist forwarded uploads as
-  named artifacts its tools can load by name.
+* ``_prepare`` hook - with ``save_incoming_files=True`` (employees with
+  ``run_python``) it persists forwarded uploads as named artifacts the tools can
+  load by name; otherwise a no-op.
 """
 
 from __future__ import annotations
@@ -46,15 +46,21 @@ class BaseA2AExecutor(AgentExecutor):
     """Runs an ADK agent behind the A2A protocol. Subclass and (optionally)
     override ``_prepare``."""
 
-    def __init__(self, runner: Runner):
+    def __init__(self, runner: Runner, save_incoming_files: bool = False):
         self.runner = runner
         self._running_sessions: dict = {}
+        # Employees whose tools open files by name (run_python) need the files
+        # the Chief of Staff forwarded saved as artifacts before the turn runs.
+        self._save_incoming = save_incoming_files
 
     # ------------------------------------------------------------------ #
     # Hook
     # ------------------------------------------------------------------ #
     async def _prepare(self, new_message: types.Content, session_id: str) -> None:
-        """Runs once the session exists, before the agent runs. Default: no-op."""
+        """Runs once the session exists, before the agent runs: saves forwarded
+        files as artifacts when the employee asked for it, otherwise a no-op."""
+        if self._save_incoming:
+            await self._save_incoming_files(new_message, session_id)
 
     # ------------------------------------------------------------------ #
     # A2A entry points

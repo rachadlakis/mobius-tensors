@@ -121,8 +121,8 @@ async def write_pdf_report(
         title: the report title, shown at the top of every page.
         sections: the report body, in order. Each section is a dict with any of:
             "heading" (str), "text" (str, paragraphs separated by blank lines),
-            "table" ({"headers": [str, ...], "rows": [[value, ...], ...]}).
-            Tables show at most 200 rows.
+            "bullets" ([str, ...]), "table" ({"headers": [str, ...],
+            "rows": [[value, ...], ...]}). Tables show at most 200 rows.
         file_name: optional base name (no extension). Defaults to the title.
 
     Returns:
@@ -141,6 +141,8 @@ async def write_pdf_report(
                 pdf.add_heading(section["heading"])
             if section.get("text"):
                 pdf.add_text(section["text"])
+            for item in section.get("bullets") or []:
+                pdf.add_text(f"- {item}")
             table = section.get("table")
             if isinstance(table, dict):
                 pdf.add_table(table.get("headers") or [], table.get("rows") or [])
@@ -156,6 +158,169 @@ async def write_pdf_report(
             "file_path": filepath,
             "sections": len(sections),
         }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def _stamped(base: str, ext: str) -> str:
+    return f"{_safe_stem(base)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{ext}"
+
+
+_DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+async def write_word_document(
+    title: str,
+    sections: list[dict],
+    file_name: str | None = None,
+    tool_context: ToolContext | None = None,
+) -> dict:
+    """
+    Write a Word document (.docx) - a proposal, letter, article or brief - and
+    return it to the user as a downloadable file they can edit.
+
+    Args:
+        title: the document title.
+        sections: the body, in order. Each section is a dict with any of:
+            "heading" (str), "text" (str, paragraphs separated by blank lines),
+            "bullets" ([str, ...]), "table" ({"headers": [...], "rows": [[...], ...]}).
+        file_name: optional base name (no extension). Defaults to the title.
+
+    Returns:
+        dict: success, file_name, file_path, sections; on failure success=False
+            and an error.
+    """
+    try:
+        import io
+
+        from docx import Document
+
+        if not isinstance(sections, list) or not sections:
+            return {"success": False, "error": "sections must be a non-empty list."}
+        doc = Document()
+        doc.add_heading(str(title), level=0)
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+            if section.get("heading"):
+                doc.add_heading(str(section["heading"]), level=1)
+            for para in str(section.get("text") or "").split("\n\n"):
+                if para.strip():
+                    doc.add_paragraph(para.strip())
+            for item in section.get("bullets") or []:
+                doc.add_paragraph(str(item), style="List Bullet")
+            table = section.get("table")
+            if isinstance(table, dict) and table.get("headers"):
+                headers = [str(h) for h in table["headers"]]
+                grid = doc.add_table(rows=1, cols=len(headers))
+                grid.style = "Table Grid"
+                for cell, h in zip(grid.rows[0].cells, headers):
+                    cell.text = h
+                for row in (table.get("rows") or [])[:_MAX_TABLE_ROWS]:
+                    cells = grid.add_row().cells
+                    for i in range(len(headers)):
+                        cells[i].text = str(row[i]) if i < len(row) else ""
+        buf = io.BytesIO()
+        doc.save(buf)
+        filename = _stamped(file_name or title, "docx")
+        filepath = await _save_file(buf.getvalue(), filename, _DOCX_MIME, tool_context)
+        return {"success": True, "file_name": filename, "file_path": filepath,
+                "sections": len(sections)}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+async def write_spreadsheet(
+    sheets: list[dict],
+    file_name: str,
+    tool_context: ToolContext | None = None,
+) -> dict:
+    """
+    Write an Excel workbook (.xlsx) - a lead list, a price table, a cleaned
+    dataset - and return it to the user as a downloadable file.
+
+    Args:
+        sheets: one dict per sheet: {"name": str, "headers": [str, ...],
+            "rows": [[value, ...], ...]}. Numbers stay numbers. At most 10,000
+            rows per sheet.
+        file_name: base name (no extension), e.g. "uae_integrators".
+
+    Returns:
+        dict: success, file_name, file_path, sheets (name and row count);
+            on failure success=False and an error.
+    """
+    try:
+        import io
+
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
+        if not isinstance(sheets, list) or not sheets:
+            return {"success": False, "error": "sheets must be a non-empty list."}
+        wb = Workbook()
+        wb.remove(wb.active)
+        summary = []
+        for i, sheet in enumerate(sheets):
+            if not isinstance(sheet, dict):
+                continue
+            name = re.sub(r"[\[\]:*?/\\]", "_", str(sheet.get("name") or f"Sheet{i + 1}"))[:31]
+            ws = wb.create_sheet(name)
+            headers = list(sheet.get("headers") or [])
+            if headers:
+                ws.append([str(h) for h in headers])
+                for cell in ws[1]:
+                    cell.font = Font(bold=True)
+            rows = (sheet.get("rows") or [])[:10_000]
+            for row in rows:
+                ws.append([v if isinstance(v, (int, float)) or v is None else str(v)
+                           for v in row])
+            summary.append({"name": name, "rows": len(rows)})
+        if not summary:
+            return {"success": False, "error": "no valid sheets."}
+        buf = io.BytesIO()
+        wb.save(buf)
+        filename = _stamped(file_name, "xlsx")
+        filepath = await _save_file(buf.getvalue(), filename, _XLSX_MIME, tool_context)
+        return {"success": True, "file_name": filename, "file_path": filepath, "sheets": summary}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+_TEXT_TYPES = {"md": "text/markdown", "txt": "text/plain", "csv": "text/csv", "html": "text/html"}
+
+
+async def write_text_file(
+    file_name: str,
+    content: str,
+    file_type: str = "md",
+    tool_context: ToolContext | None = None,
+) -> dict:
+    """
+    Save text as a downloadable file: Markdown, plain text, CSV or HTML (for
+    example a blog post, an email draft or a social media post).
+
+    Args:
+        file_name: base name (no extension).
+        content: the full text of the file.
+        file_type: "md" (default), "txt", "csv" or "html".
+
+    Returns:
+        dict: success, file_name, file_path, characters; on failure success=False
+            and an error.
+    """
+    try:
+        ext = (file_type or "md").lower().lstrip(".")
+        if ext not in _TEXT_TYPES:
+            return {"success": False,
+                    "error": f"file_type must be one of: {', '.join(_TEXT_TYPES)}."}
+        if not isinstance(content, str) or not content.strip():
+            return {"success": False, "error": "content is empty."}
+        filename = _stamped(file_name, ext)
+        filepath = await _save_file(content.encode("utf-8"), filename, _TEXT_TYPES[ext],
+                                    tool_context)
+        return {"success": True, "file_name": filename, "file_path": filepath,
+                "characters": len(content)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -184,4 +349,10 @@ def list_workspace_files() -> dict:
         return {"success": False, "error": str(e)}
 
 
-DOCUMENT_TOOLS: list[ToolUnion] = [write_pdf_report, list_workspace_files]
+DOCUMENT_TOOLS: list[ToolUnion] = [
+    write_pdf_report,
+    write_word_document,
+    write_spreadsheet,
+    write_text_file,
+    list_workspace_files,
+]

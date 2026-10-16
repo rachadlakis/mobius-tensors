@@ -88,7 +88,7 @@ def test_construction_does_no_network(orch):
     # are fetched lazily on the first turn (see test_lazy_connect_* below).
     assert orch.remote_agent_connections == {}
     assert orch._connected_addresses == set()
-    assert len(orch._addresses) == 2  # the two employees, not yet connected
+    assert len(orch._addresses) == 5  # every employee in employees/, not yet connected
 
 
 def test_create_agent_shape(orch):

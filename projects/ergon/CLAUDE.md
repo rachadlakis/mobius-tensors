@@ -21,6 +21,10 @@ This folder lives inside the `mobius-tensors` git repo; run git commands from he
   company; the tests always use `companies/example` (a made-up sample).
 - Employees draft; they do not send, post, pay or delete. Outward actions will need an approval
   step (Phase 4).
+- Employees never do arithmetic in their heads: prices and totals go through `calculate`, data
+  through `run_python`.
+- `run_python` (`shared/sandbox.py`) is a local subprocess with limits, not a security sandbox. It
+  must never inherit `.env` secrets (`_child_env`); keep it internal until it runs in a container.
 
 ## Environment
 
@@ -56,6 +60,9 @@ employees at import time.
   and registering it in `shared/tool_registry.py`.
 - An employee with `web_search` or `fetch_page` automatically gets the fetch budget
   (`callbacks.FETCH_TOOLS`).
+- An employee with a file tool (`tool_registry.FILE_TOOLS`, today `run_python`) advertises
+  `FILE_INPUT_MODE` on its card and saves incoming files as artifacts; the Chief of Staff then
+  sends it spreadsheets as real files plus a preview instead of pasted CSV text.
 - Every instruction (employees and the Chief of Staff) starts with the company profile
   (`shared/company.py`, `company_block`). It is an instruction *provider*, recomposed every
   turn, so profile edits apply live and ADK's `{placeholder}` substitution is skipped.

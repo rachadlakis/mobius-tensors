@@ -8,8 +8,16 @@ registering it here - nothing else.
 
 from collections.abc import Callable
 
+from shared.calculator import calculate
 from shared.company import read_company_document, search_company_knowledge
-from shared.documents import list_workspace_files, write_pdf_report
+from shared.documents import (
+    list_workspace_files,
+    write_pdf_report,
+    write_spreadsheet,
+    write_text_file,
+    write_word_document,
+)
+from shared.sandbox import run_python
 from shared.web_tools import fetch_page, get_weather, web_search
 
 TOOLS: dict[str, Callable] = {
@@ -21,7 +29,13 @@ TOOLS: dict[str, Callable] = {
         get_weather,
         # documents (shared/documents.py)
         write_pdf_report,
+        write_word_document,
+        write_spreadsheet,
+        write_text_file,
         list_workspace_files,
+        # numbers (shared/calculator.py) and code (shared/sandbox.py)
+        calculate,
+        run_python,
         # the company's own knowledge (shared/company.py)
         search_company_knowledge,
         read_company_document,
@@ -38,3 +52,8 @@ def resolve_tools(names: list[str]) -> list[Callable]:
             f"Unknown tool(s): {', '.join(unknown)}. Available: {', '.join(sorted(TOOLS))}."
         )
     return [TOOLS[n] for n in names]
+
+
+# Tools that open the task's files by name. An employee with one of them gets
+# forwarded files as real files (not pasted text) and saves them on arrival.
+FILE_TOOLS = frozenset({"run_python"})

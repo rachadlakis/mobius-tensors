@@ -256,3 +256,63 @@ async def test_upload_and_produced_file_both_forwarded_on_next_hop():
     assert "leads.csv" in texts
     assert "leads_enriched.csv" in texts
     assert "Acme,Dubai,acme.example" in texts
+
+
+
+# --------------------------------------------------------------------------- #
+# 4. An employee whose card says it takes files (run_python) gets a spreadsheet
+#    as a real file plus a short preview, not the rows pasted as text.
+# --------------------------------------------------------------------------- #
+def test_spreadsheet_goes_as_a_file_with_a_preview_to_a_file_taker():
+    rows = "\n".join(f"Co{i},{i}" for i in range(40))
+    upload = f"company,size\n{rows}\n".encode("utf-8")
+    ctx = FakeToolContext(user_content=turn_with_upload(upload, "text/csv", "leads.csv"))
+    agent_mod._remember_uploads(ctx)
+
+    parts = agent_mod._delegation_parts(DATA_ANALYST, "Count them.", ctx, wants_files=True)
+
+    file_parts = [p for p in parts if p.get("kind") == "file"]
+    assert [p["file"]["name"] for p in file_parts] == ["leads.csv"]
+    assert base64.b64decode(file_parts[0]["file"]["bytes"]) == upload
+    note = parts[-1]["text"]
+    assert "open it by that name with run_python" in note
+    assert "Co3,3" in note        # preview
+    assert "Co39,39" not in note  # ...not the whole file
+    assert "40 rows in total" in note
+
+
+def test_spreadsheet_goes_as_text_to_everyone_else():
+    upload = b"company,size\nAcme,3\n"
+    ctx = FakeToolContext(user_content=turn_with_upload(upload, "text/csv", "leads.csv"))
+    agent_mod._remember_uploads(ctx)
+    parts = agent_mod._delegation_parts(RESEARCHER, "Look them up.", ctx)
+    assert not [p for p in parts if p.get("kind") == "file"]
+    assert "Acme,3" in parts[-1]["text"]
+
+
+async def test_send_message_reads_file_taking_from_the_card():
+    from a2a.types import AgentCapabilities, AgentCard
+
+    from shared.a2a_files import FILE_INPUT_MODE
+
+    orch = agent_mod.OrchestratorAgent()
+    conn = FakeConn(_success(_task()))
+    orch.remote_agent_connections[DATA_ANALYST] = conn
+    orch.cards[DATA_ANALYST] = AgentCard(
+        name=DATA_ANALYST, description="d", url="http://x/", version="1",
+        default_input_modes=["text/plain", FILE_INPUT_MODE], default_output_modes=["text/plain"],
+        capabilities=AgentCapabilities(), skills=[],
+    )
+    ctx = RecordingCtx(user_content=turn_with_upload(b"a,b\n1,2\n", "text/csv", "t.csv"))
+    await orch.send_message(DATA_ANALYST, "Sum it.", ctx)
+    kinds = [p.root.kind for p in conn.requests[0].params.message.parts]
+    assert "file" in kinds
+
+
+async def test_executor_saves_incoming_files_only_when_asked():
+    content = turn_with_upload(b"a,b\n", "text/csv", "t.csv")
+    for flag, expected in ((True, {"t.csv"}), (False, set())):
+        svc = InMemoryArtifactService()
+        ex = BaseA2AExecutor(FakeRunner(svc), save_incoming_files=flag)
+        await ex._prepare(content, SESSION_ID)
+        assert await ex._artifact_keys(SESSION_ID) == expected

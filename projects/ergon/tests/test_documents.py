@@ -117,3 +117,71 @@ class TestListWorkspaceFiles:
     def test_missing_dir(self, monkeypatch, tmp_path):
         monkeypatch.setattr(documents, "WORKSPACE_DIR", tmp_path / "nope")
         assert documents.list_workspace_files() == {"success": True, "files": [], "total": 0}
+
+
+class TestWordDocument:
+    async def test_writes_docx_with_all_section_kinds(self, workspace):
+        from docx import Document
+
+        result = await documents.write_word_document("Proposal for Acme", [
+            {"heading": "Offer", "text": "Para one.\n\nPara two.", "bullets": ["fast", "cheap"]},
+            {"table": {"headers": ["Item", "Price"], "rows": [["Desk", 420], ["Chair"]]}},
+        ])
+        assert result["success"] is True
+        assert result["file_name"].endswith(".docx")
+        doc = Document(str(workspace / result["file_name"]))
+        texts = [p.text for p in doc.paragraphs]
+        assert "Proposal for Acme" in texts
+        assert "Para two." in texts
+        assert "cheap" in texts
+        assert doc.tables[0].rows[2].cells[0].text == "Chair"
+
+    async def test_empty_sections(self, workspace):
+        assert (await documents.write_word_document("T", []))["success"] is False
+
+
+class TestSpreadsheet:
+    async def test_writes_sheets_keeping_numbers(self, workspace):
+        from openpyxl import load_workbook
+
+        result = await documents.write_spreadsheet([
+            {"name": "Leads: UAE", "headers": ["company", "size"],
+             "rows": [["Acme", 12], ["Globex", None]]},
+            {"headers": ["x"], "rows": [[1.5]]},
+        ], "leads")
+        assert result["success"] is True
+        assert result["sheets"] == [{"name": "Leads_ UAE", "rows": 2}, {"name": "Sheet2", "rows": 1}]
+        wb = load_workbook(workspace / result["file_name"])
+        ws = wb["Leads_ UAE"]
+        assert ws["A1"].value == "company"
+        assert ws["B2"].value == 12
+        assert wb["Sheet2"]["A2"].value == 1.5
+
+    async def test_saved_as_artifact(self, workspace):
+        saved = {}
+
+        class Ctx:
+            def save_artifact(self, name, part):
+                saved[name] = part.inline_data.mime_type
+
+        result = await documents.write_spreadsheet(
+            [{"headers": ["a"], "rows": [[1]]}], "t", tool_context=Ctx())
+        assert saved[result["file_name"]].endswith("spreadsheetml.sheet")
+
+    async def test_no_sheets(self, workspace):
+        assert (await documents.write_spreadsheet([], "t"))["success"] is False
+
+
+class TestTextFile:
+    @pytest.mark.parametrize("kind", ["md", "txt", "csv", "html"])
+    async def test_types(self, workspace, kind):
+        result = await documents.write_text_file("post", "# Hello\nمرحبا", kind)
+        assert result["success"] is True
+        assert result["file_name"].endswith(f".{kind}")
+        assert (workspace / result["file_name"]).read_text(encoding="utf-8").endswith("مرحبا")
+
+    async def test_unknown_type(self, workspace):
+        assert (await documents.write_text_file("x", "y", "exe"))["success"] is False
+
+    async def test_empty_content(self, workspace):
+        assert (await documents.write_text_file("x", "  "))["success"] is False

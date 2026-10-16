@@ -28,13 +28,14 @@ from google.adk.artifacts import InMemoryArtifactService
 from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.runners import Runner
 
+from shared.a2a_files import FILE_INPUT_MODE
 from shared.callbacks import FETCH_TOOLS, WEB_INTEL_CALLBACKS, WORKER_CALLBACKS
 from shared.company import CompanyConfigError, company_block
 from shared.config import AGENT_HOST, LLM_PROVIDER, get_llm_model, missing_llm_credentials
 from shared.employees import Employee, EmployeeConfigError, find
 from shared.executor import BaseA2AExecutor
 from shared.persistence import get_session_service
-from shared.tool_registry import resolve_tools
+from shared.tool_registry import FILE_TOOLS, resolve_tools
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +79,19 @@ def build_agent(emp: Employee) -> LlmAgent:
     )
 
 
+def wants_files(emp: Employee) -> bool:
+    """Whether the employee's tools open the task's files by name."""
+    return bool(FILE_TOOLS & set(emp.tools))
+
+
 def build_card(emp: Employee, host: str = AGENT_HOST) -> AgentCard:
+    input_modes = ["text/plain", FILE_INPUT_MODE] if wants_files(emp) else ["text/plain"]
     return AgentCard(
         name=emp.name,
         description=emp.description,
         url=f"http://{host}:{emp.port}/",
         version="1.0.0",
-        default_input_modes=["text/plain"],
+        default_input_modes=input_modes,
         default_output_modes=["text/plain"],
         capabilities=AgentCapabilities(streaming=True),
         skills=[AgentSkill(
@@ -108,7 +115,7 @@ def build_app(emp: Employee, host: str = AGENT_HOST):
         memory_service=InMemoryMemoryService(),
     )
     handler = DefaultRequestHandler(
-        agent_executor=BaseA2AExecutor(runner),
+        agent_executor=BaseA2AExecutor(runner, save_incoming_files=wants_files(emp)),
         task_store=InMemoryTaskStore(),
     )
     return A2AStarletteApplication(agent_card=card, http_handler=handler).build()
