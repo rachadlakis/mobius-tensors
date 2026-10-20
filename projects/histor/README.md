@@ -259,7 +259,7 @@ More event types, each in its own config section and through the same channels:
 | ------------- | -------------------------------------------------------------------------------------------------- | ------------------- | ---------------------------- |
 | `crowd`     | the area's name:`max_count` objects inside for `count_seconds` (queues, crowds)                | a zone in`zones:` | —                           |
 | `abandoned` | `abandoned_object`: a backpack, handbag or suitcase still and unattended for 60 s                | `abandoned:`      | off                          |
-| `tamper`    | `blocked` / `dark` / `blurred` / `moved` / `frozen`: the camera's own picture, for 20 s  | `tamper:`         | on                           |
+| `tamper`    | `blocked` / `dark` / `blurred` / `moved` / `frozen`: the camera's own picture, for 20 s; `obstructed`: half the view hidden for 5 min (see [Camera tampering](#camera-tampering)) | `tamper:`         | on                           |
 | `plate`     | the watchlist entry's name: a listed plate read twice on a vehicle                                 | `plates:`         | off                          |
 | `sound`     | `smoke_alarm`, `glass_break`, `gunshot`, `explosion`, `scream`, `car_alarm`, `siren` | `sounds:`         | off                          |
 
@@ -267,17 +267,74 @@ A one-way line (`direction: in`) is a wrong-way alarm. Sounds need ffmpeg and a 
 microphone.
 
 Object rules work on the detector's classes. Fire and smoke have their own model (see
-[Models](#models-and-licences)) and their own section, `fire:`. It raises a `fire` alert when flames or
-smoke are seen 3 times over 0.4 s: a check every 0.5 s, and about every frame as soon as fire
-or smoke is seen once, so the alert comes ~0.4 s after the first sighting. Install the model with
-`uv run -m histor.engine.download_model fire_smoke`; the repo is private, so it needs
-`HF_TOKEN`. It adds early warning to certified smoke and heat detectors; it does not replace
-them. Other new things to detect (objects a customer names) need a model trained for them; the
-rules and channels then apply unchanged.
+[Fire and smoke](#fire-and-smoke)). Other new things to detect (objects a customer names) need a
+model trained for them; the rules and channels then apply unchanged.
 
 Body poses add two event types: `down` (rule `person_down`: a person lying for 10 s) and
 `hands_up` (both hands above the head for 3 s). Enable them in the `pose:` section
 (`alerts: [down]` by default); they reach the same channels and the same `alerts` tool.
+
+### Fire and smoke
+
+Our own YOLOv9 model (see [Models](#models-and-licences)), in its own section, `fire:`. A missed
+fire is the costly mistake, so every choice favours catching it early. Install the model with
+`uv run -m histor.engine.download_model fire_smoke`; the repo is private, so it needs `HF_TOKEN`.
+It adds early warning to certified smoke and heat detectors; it does not replace them.
+
+A box needs no more than a low score (0.25) to count as *seen*. One frame is never enough: a
+lamp, a reflection or a headlight's glint can look like a flame for a moment. But nothing waits
+either: the model checks a frame every 0.5 s, and **as soon as fire or smoke is seen once, the
+next frames are checked at once** (every 0.1 s, about every frame on a CPU) until it is
+confirmed or gone. The alert comes when it is seen at least 3 times over at least 0.4 s, on 60%
+of the checks since the first sighting. A glint is gone sooner; real flames flicker and smoke
+drifts, but both keep being seen.
+
+<img src="docs/images/fire-fast-checks.svg" alt="Before: a check every 0.5 s, alert 1 s after the first sighting. Now: the next frames at once, alert 0.4 s after it" width="680" />
+
+The faster checks cost ~10% more CPU, and only while fire is suspected; the rest of the time
+the model runs twice a second as before. One alert per episode and class (fire, smoke); a new
+one once it has been gone for 60 s.
+
+**Next: evidence per spot, from the score and the motion** (planned, to be tuned on real fire
+videos first). Each sighting will add its *score* as evidence, so a confident box alerts sooner
+than a doubtful one. Sightings will count per *spot* (boxes that overlap from one check to the
+next, loosely, as flames change shape and smoke drifts), so stray boxes in different places
+never add up. And a spot must *move*: flames flicker and smoke drifts, while a lamp, a poster or
+a sunset stays still.
+
+<img src="docs/images/fire-evidence-plan.svg" alt="Planned: a strong flame reaches the alert line in 0.3 s, a weak one in 0.4 s, a still lamp adds nothing" width="680" />
+
+Stillness will delay an alert, never drop it: a fire far away, a slow stream or heavy
+compression can make real flames look still, so a still spot that is still seen after 20 s
+alerts anyway, marked as possibly a lamp or a poster.
+
+### Camera tampering
+
+The `tamper:` section watches each camera's own picture (no model, ~5 ms every 2 s): covered
+(`blocked`), `dark`, `blurred`, `frozen`, turned (`moved`) or partly hidden (`obstructed`).
+
+The hard case is a truck parking in front of the camera: half the picture changes, just as when
+the camera is turned. Histor tells them apart by the **landmarks** of the usual view, corners
+such as window frames, kerbs and signs (ORB features). If the ones still visible are exactly
+where they were, the camera has not moved, whatever covers the rest. If they have all shifted
+together, it was turned, even by a small pan. If none can be seen, the detector decides: a
+truck filling the picture is an obstruction, not a turned camera.
+
+<img src="docs/images/tamper-moved-or-blocked.svg" alt="Usual view: normal. Truck parks: obstructed. Camera turned: moved. Fully covered by a truck: obstructed" width="680" />
+
+- **`obstructed`**: something still hides at least half of the usual view for 5 minutes. The
+  alert says what, when the detector saw it ("truck"). A crowd walking past changes all the
+  time, so it never counts.
+- **The usual view is never forgotten**: Histor keeps up to 4 references (day, night or
+  infrared, the view before a move), so when the truck drives away the view is known again and
+  nothing more is raised.
+- **On-screen text** (a clock, the camera's name burnt into the picture) stays in place when
+  the camera turns, so it is learned in the first minute and never counts as a landmark.
+- **A plain truck side is not a blur**: it has little detail but crisp edges, unlike a lens out
+  of focus.
+- **Limit**: a sudden plain cover over the whole view, with nothing detected and no partial
+  cover before it, looks the same as a turned camera. It raises one alert (`moved` or
+  `blurred`), and nothing more when it goes away.
 
 ### Alert checking
 
@@ -432,7 +489,12 @@ tests/smoke/           uv run pytest -m smoke: every entry point with the real m
 - [ ] More alert channels: WhatsApp, SMS, on-site siren / relay.
 - [ ] Logins per person (today one shared token per site); the chat in the dashboard.
 - [ ] Reports set up from the UI; "what did last night's report say" in the chat.
+- [ ] Fire: evidence per spot from the box scores and their motion (see
+  [Fire and smoke](#fire-and-smoke)), measured on real fire videos and look-alikes (sunsets,
+  lamps, red clothes, headlights) before it ships.
 - [ ] Fire: a CLIP score for fires that fill the frame.
+- [ ] Tamper and alert checking: let the local vision model confirm a sudden full cover
+  ("a truck's side fills the picture") instead of raising `moved`.
 - [ ] A smaller COCO-only pose model.
 - [ ] Detectors trained per customer (customer-specific objects).
 - [ ] Captions per scene (small VLM) stored next to the vectors, for questions CLIP handles badly

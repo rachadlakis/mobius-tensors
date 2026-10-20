@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="340" viewBox="0 0 680 340" role="img" aria-label="Cameras on their own network, cabled to the server only; the server has a second port on the office network and routes nothing between them; no port is opened to the internet; staff reach the dashboard through a tunnel or VPN">
+<style>
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.tx { font-size: 10px; fill: #5F5E5A; }
+.box { fill: #FAF9F5; stroke: #B4B2A9; }
+.wire { stroke: #888780; stroke-width: 1.5; fill: none; }
+.no { stroke: #993C1D; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+.cam { fill: #FAF9F5; stroke: #2C2C2A; stroke-width: 1.2; }
+.c-teal > rect { fill: #E1F5EE; stroke: #0F6E56; } .c-teal > .th { fill: #085041; } .c-teal > .ts { fill: #0F6E56; }
+.c-purple > rect { fill: #EEEDFE; stroke: #534AB7; } .c-purple > .th { fill: #3C3489; } .c-purple > .ts { fill: #534AB7; }
+.c-gray > rect { fill: #F1EFE8; stroke: #5F5E5A; } .c-gray > .th { fill: #444441; } .c-gray > .ts { fill: #5F5E5A; }
+</style>
+<defs><g id="camera"><rect class="cam" x="-14" y="-8" width="24" height="14" rx="3"/><polygon class="cam" points="10,-5 18,-9 18,7 10,3"/><line x1="-4" y1="6" x2="-4" y2="14" stroke="#2C2C2A" stroke-width="1.2"/></g></defs>
+<rect width="680" height="340" fill="#ffffff"/>
+
+<!-- camera network -->
+<rect x="20" y="40" width="250" height="230" rx="12" fill="#F4FBF8" stroke="#0F6E56" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text class="th" x="36" y="62" fill="#085041">Camera network</text>
+<text class="ts" x="36" y="80" fill="#0F6E56">10.50.0.0/24, no gateway</text>
+<g transform="translate(60,120)"><use href="#camera"/></g><g transform="translate(60,170)"><use href="#camera"/></g><g transform="translate(60,220)"><use href="#camera"/></g>
+<text class="tx" x="44" y="146">gate</text><text class="tx" x="44" y="196">yard</text><text class="tx" x="44" y="246">lobby</text>
+<g class="c-teal"><rect x="130" y="146" width="110" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="185" y="164" text-anchor="middle" dominant-baseline="central">PoE switch</text>
+<text class="ts" x="185" y="182" text-anchor="middle" dominant-baseline="central">power + video</text></g>
+<path class="wire" d="M80 120 L105 120 L105 162 L130 162"/><path class="wire" d="M80 170 L130 170"/><path class="wire" d="M80 220 L105 220 L105 178 L130 178"/>
+
+<!-- server -->
+<path class="wire" d="M240 170 L300 170"/><text class="tx" x="270" y="162" text-anchor="middle">port 1</text>
+<rect class="box" x="300" y="110" width="120" height="120" rx="10" stroke-width="0.5"/>
+<text class="th" x="360" y="140" text-anchor="middle" dominant-baseline="central">Histor server</text>
+<text class="ts" x="360" y="160" text-anchor="middle" dominant-baseline="central">models, store,</text>
+<text class="ts" x="360" y="176" text-anchor="middle" dominant-baseline="central">recordings</text>
+<text class="tx" x="360" y="204" text-anchor="middle" fill="#993C1D">routes nothing</text>
+<text class="tx" x="360" y="216" text-anchor="middle" fill="#993C1D">between its ports</text>
+
+<!-- office -->
+<path class="wire" d="M420 170 L480 170"/><text class="tx" x="450" y="162" text-anchor="middle">port 2</text>
+<rect x="480" y="40" width="180" height="230" rx="12" fill="#F7F6FE" stroke="#534AB7" stroke-width="0.8" stroke-dasharray="4 3"/>
+<text class="th" x="496" y="62" fill="#3C3489">Office network</text>
+<g class="c-purple"><rect x="500" y="146" width="140" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="570" y="164" text-anchor="middle" dominant-baseline="central">Dashboard, chat</text>
+<text class="ts" x="570" y="182" text-anchor="middle" dominant-baseline="central">127.0.0.1 + token</text></g>
+<text class="tx" x="570" y="216" text-anchor="middle">reached through an SSH tunnel,</text>
+<text class="tx" x="570" y="228" text-anchor="middle">a VPN or an HTTPS proxy</text>
+
+<!-- internet -->
+<g class="c-gray"><rect x="300" y="286" width="120" height="40" rx="8" stroke-width="0.5"/>
+<text class="th" x="360" y="306" text-anchor="middle" dominant-baseline="central">Internet</text></g>
+<path class="no" d="M360 230 L360 286"/>
+<g stroke="#993C1D" stroke-width="1.8"><line x1="352" y1="250" x2="368" y2="266"/><line x1="368" y1="250" x2="352" y2="266"/></g>
+<text class="tx" x="376" y="256" fill="#993C1D">no port forwarding:</text>
+<text class="tx" x="376" y="268" fill="#993C1D">footage never leaves the building</text>
+</svg>

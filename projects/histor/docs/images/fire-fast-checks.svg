@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="400" viewBox="0 0 680 400" role="img" aria-label="Fire checks before and now: before, a check every 0.5 seconds and an alert 1 second after the first sighting; now, the next frames are checked at once and the alert comes 0.4 seconds after it. Below, alert times measured on the test video.">
+<style>
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.tx { font-size: 10px; fill: #5F5E5A; }
+.axis { stroke: #B4B2A9; stroke-width: 1; }
+.grid { stroke: #E5E3DC; stroke-width: 1; }
+.miss { fill: #ffffff; stroke: #888780; stroke-width: 1.2; }
+.hit { fill: #D85A30; }
+.flag { stroke: #993C1D; stroke-width: 1.5; }
+.wait { fill: #F1EFE8; }
+.old { fill: #B4B2A9; }
+.new { fill: #D85A30; }
+</style>
+<rect width="680" height="400" fill="#ffffff"/>
+
+<!-- timeline: x = 245 + 150 * seconds after the first sighting -->
+<text class="th" x="40" y="24">When a flame comes into view</text>
+<g class="grid"><line x1="245" y1="44" x2="245" y2="196"/><line x1="320" y1="44" x2="320" y2="196"/><line x1="395" y1="44" x2="395" y2="196"/><line x1="470" y1="44" x2="470" y2="196"/><line x1="545" y1="44" x2="545" y2="196"/><line x1="620" y1="44" x2="620" y2="196"/></g>
+
+<text class="th" x="40" y="82" dominant-baseline="central">Before</text>
+<text class="ts" x="40" y="100" dominant-baseline="central">every 0.5 s, 3 of 5</text>
+<rect class="wait" x="395" y="83" width="225" height="12" rx="3"/>
+<text class="tx" x="507" y="108" text-anchor="middle" dominant-baseline="central">up to 2.5 s if it flickers</text>
+<line class="axis" x1="170" y1="89" x2="630" y2="89"/>
+<circle class="miss" cx="170" cy="89" r="5"/><circle class="hit" cx="245" cy="89" r="5"/><circle class="hit" cx="320" cy="89" r="5"/><circle class="hit" cx="395" cy="89" r="5"/>
+<line class="flag" x1="395" y1="58" x2="395" y2="82"/><text class="ts" x="401" y="62" fill="#993C1D">alert +1.0 s</text>
+
+<text class="th" x="40" y="152" dominant-baseline="central">Now</text>
+<text class="ts" x="40" y="170" dominant-baseline="central">next frames at once</text>
+<line class="axis" x1="170" y1="160" x2="630" y2="160"/>
+<circle class="miss" cx="170" cy="160" r="5"/><circle class="hit" cx="245" cy="160" r="5"/><circle class="hit" cx="260" cy="160" r="4"/><circle class="hit" cx="275" cy="160" r="4"/><circle class="hit" cx="290" cy="160" r="4"/><circle class="hit" cx="305" cy="160" r="4"/>
+<line class="flag" x1="305" y1="128" x2="305" y2="153"/><text class="ts" x="311" y="132" fill="#993C1D">alert +0.4 s</text>
+<text class="tx" x="275" y="180" text-anchor="middle">every 0.1 s</text>
+<circle class="miss" cx="545" cy="160" r="5"/><text class="tx" x="545" y="180" text-anchor="middle">calm again: every 0.5 s</text>
+
+<line class="axis" x1="170" y1="204" x2="630" y2="204"/>
+<g class="tx" text-anchor="middle"><text x="245" y="220">0</text><text x="320" y="220">0.5</text><text x="395" y="220">1.0</text><text x="470" y="220">1.5</text><text x="545" y="220">2.0</text><text x="620" y="220">2.5 s</text></g>
+<text class="tx" x="170" y="220" text-anchor="middle">−0.5</text>
+<text class="ts" x="432" y="238" text-anchor="middle">seconds after the first check that sees it</text>
+<g transform="translate(40,232)"><circle class="miss" cx="4" cy="0" r="4"/><text class="tx" x="12" y="0" dominant-baseline="central">check, nothing</text>
+<circle class="hit" cx="4" cy="16" r="4"/><text class="tx" x="12" y="16" dominant-baseline="central">check, fire seen</text></g>
+
+<!-- measured: bars, x = 170 + 300 * seconds -->
+<text class="th" x="40" y="292">Measured on the test video (alert after it comes into view)</text>
+<text class="th" x="40" y="322" dominant-baseline="central">Fire</text>
+<rect class="old" x="170" y="310" width="300" height="10" rx="2"/><text class="tx" x="476" y="315" dominant-baseline="central">1.0 s before</text>
+<rect class="new" x="170" y="324" width="120" height="10" rx="2"/><text class="tx" x="296" y="329" dominant-baseline="central">0.4 s now</text>
+<text class="th" x="40" y="362" dominant-baseline="central">Smoke</text>
+<rect class="old" x="170" y="350" width="300" height="10" rx="2"/><text class="tx" x="476" y="355" dominant-baseline="central">1.0 s before</text>
+<rect class="new" x="170" y="364" width="240" height="10" rx="2"/><text class="tx" x="416" y="369" dominant-baseline="central">0.8 s now</text>
+<text class="tx" x="40" y="392">Both models (s, t): same times, no false alerts on the clean stretches, ~10% more CPU while fire is suspected.</text>
+</svg>

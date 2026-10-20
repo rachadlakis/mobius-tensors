@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="420" viewBox="0 0 680 420" role="img" aria-label="An alert is stored at once; the local vision model looks at the snapshot and a close-up and answers yes, no or unsure; a no holds the alert back in veto mode; a model that is down or late never stops an alert; fire is never held back">
+<style>
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.tx { font-size: 10px; fill: #5F5E5A; }
+.box { fill: #FAF9F5; stroke: #B4B2A9; }
+.arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+.c-gray > rect { fill: #F1EFE8; stroke: #5F5E5A; } .c-gray > .th { fill: #444441; } .c-gray > .ts { fill: #5F5E5A; }
+.c-teal > rect { fill: #E1F5EE; stroke: #0F6E56; } .c-teal > .th { fill: #085041; } .c-teal > .ts { fill: #0F6E56; }
+.c-amber > rect { fill: #FAEEDA; stroke: #854F0B; } .c-amber > .th { fill: #633806; } .c-amber > .ts { fill: #854F0B; }
+.c-purple > rect { fill: #EEEDFE; stroke: #534AB7; } .c-purple > .th { fill: #3C3489; } .c-purple > .ts { fill: #534AB7; }
+.c-coral > rect { fill: #FAECE7; stroke: #993C1D; } .c-coral > .th { fill: #712B13; } .c-coral > .ts { fill: #993C1D; }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="680" height="420" fill="#ffffff"/>
+
+<g class="c-coral"><rect x="40" y="30" width="190" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="135" y="48" text-anchor="middle" dominant-baseline="central">A rule fires</text>
+<text class="ts" x="135" y="68" text-anchor="middle" dominant-baseline="central">person down, bag left...</text></g>
+<line class="arr" x1="230" y1="58" x2="268" y2="58" marker-end="url(#arrow)"/>
+<rect class="box" x="270" y="30" width="190" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="365" y="48" text-anchor="middle" dominant-baseline="central">Stored at once</text>
+<text class="ts" x="365" y="68" text-anchor="middle" dominant-baseline="central">with its snapshot</text>
+<line class="arr" x1="365" y1="86" x2="365" y2="114" marker-end="url(#arrow)"/>
+
+<!-- what the model gets -->
+<g transform="translate(40,118)">
+<rect class="box" width="190" height="108" rx="8" stroke-width="0.5"/>
+<text class="tx" x="10" y="16">image 1: the snapshot</text>
+<rect x="10" y="22" width="96" height="54" rx="2" fill="#ffffff" stroke="#B4B2A9" stroke-width="0.5"/>
+<line x1="12" y1="66" x2="104" y2="66" stroke="#888780" stroke-width="0.8"/>
+<g stroke="#5F5E5A" stroke-width="1.2" stroke-linecap="round"><line x1="52" y1="63" x2="76" y2="63"/><circle cx="80" cy="61" r="3" fill="none"/></g>
+<rect x="46" y="52" width="40" height="16" fill="none" stroke="#D85A30" stroke-width="1.2"/>
+<text class="tx" x="118" y="16">image 2: close-up</text>
+<rect x="118" y="22" width="62" height="54" rx="2" fill="#ffffff" stroke="#D85A30" stroke-width="1"/>
+<g stroke="#5F5E5A" stroke-width="1.6" stroke-linecap="round"><line x1="126" y1="56" x2="164" y2="56"/><circle cx="170" cy="52" r="5" fill="none"/><line x1="140" y1="56" x2="134" y2="44"/></g>
+<text class="tx" x="10" y="92">"Is the person in the red box</text>
+<text class="tx" x="10" y="104">lying or fallen on the ground?"</text></g>
+<line class="arr" x1="230" y1="172" x2="268" y2="172" marker-end="url(#arrow)"/>
+
+<g class="c-purple"><rect x="270" y="116" width="190" height="112" rx="8" stroke-width="0.5"/>
+<text class="th" x="365" y="140" text-anchor="middle" dominant-baseline="central">Local vision model</text>
+<text class="ts" x="365" y="160" text-anchor="middle" dominant-baseline="central">qwen3.5:4b, on the server</text>
+<text class="ts" x="365" y="186" text-anchor="middle" dominant-baseline="central">YES, NO or UNSURE</text>
+<text class="ts" x="365" y="204" text-anchor="middle" dominant-baseline="central">+ one reason</text></g>
+
+<path class="arr" d="M365 228 L365 252 L135 252 L135 274" marker-end="url(#arrow)"/>
+<path class="arr" d="M365 252 L365 274" marker-end="url(#arrow)"/>
+<path class="arr" d="M365 252 L595 252 L595 274" marker-end="url(#arrow)"/>
+<text class="tx" x="250" y="246" text-anchor="middle">yes / unsure</text>
+<text class="tx" x="376" y="268">no</text>
+<text class="tx" x="480" y="246" text-anchor="middle">down, late, queue full</text>
+
+<g class="c-teal"><rect x="40" y="276" width="190" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="135" y="294" text-anchor="middle" dominant-baseline="central">Sent</text>
+<text class="ts" x="135" y="314" text-anchor="middle" dominant-baseline="central">with the verdict</text></g>
+<g class="c-amber"><rect x="270" y="276" width="190" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="365" y="294" text-anchor="middle" dominant-baseline="central">Held back</text>
+<text class="ts" x="365" y="314" text-anchor="middle" dominant-baseline="central">veto mode; still stored</text></g>
+<g class="c-gray"><rect x="500" y="276" width="140" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="570" y="294" text-anchor="middle" dominant-baseline="central">Sent unchecked</text>
+<text class="ts" x="570" y="314" text-anchor="middle" dominant-baseline="central">never lost</text></g>
+
+<g transform="translate(40,352)"><rect class="box" width="600" height="52" rx="8" stroke-width="0.5"/>
+<text class="ts" x="300" y="18" text-anchor="middle" dominant-baseline="central">Fire is never held back: a model saying NO to a real fire is the one mistake not worth the risk.</text>
+<text class="ts" x="300" y="36" text-anchor="middle" dominant-baseline="central">The model can veto an alert, it never raises one. Tag mode sends everything, to measure it first.</text></g>
+</svg>

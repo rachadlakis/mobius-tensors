@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="400" viewBox="0 0 680 400" role="img" aria-label="Cameras feed one recorder per camera, which detects, embeds and runs the rules; everything goes into one store per site, which answers search, chat and reports; alerts go out live">
+<style>
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.tx { font-size: 10px; fill: #5F5E5A; }
+.box { fill: #FAF9F5; stroke: #B4B2A9; }
+.arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+.dash { stroke: #993C1D; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+.c-teal > rect { fill: #E1F5EE; stroke: #0F6E56; } .c-teal > .th { fill: #085041; } .c-teal > .ts { fill: #0F6E56; }
+.c-purple > rect { fill: #EEEDFE; stroke: #534AB7; } .c-purple > .th { fill: #3C3489; } .c-purple > .ts { fill: #534AB7; }
+.c-coral > rect { fill: #FAECE7; stroke: #993C1D; } .c-coral > .th { fill: #712B13; } .c-coral > .ts { fill: #993C1D; }
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="arrow-c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#993C1D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect width="680" height="400" fill="#ffffff"/>
+
+<!-- cameras -->
+<rect class="box" x="20" y="184" width="110" height="56" rx="8" stroke-width="0.5"/>
+<text class="th" x="75" y="202" text-anchor="middle" dominant-baseline="central">Cameras</text>
+<text class="ts" x="75" y="222" text-anchor="middle" dominant-baseline="central">RTSP or a file</text>
+<line class="arr" x1="130" y1="212" x2="158" y2="212" marker-end="url(#arrow)"/>
+
+<!-- recorder -->
+<rect class="box" x="160" y="20" width="210" height="370" rx="10" stroke-width="0.5"/>
+<text class="th" x="265" y="42" text-anchor="middle" dominant-baseline="central">Record</text>
+<text class="ts" x="265" y="60" text-anchor="middle" dominant-baseline="central">one process per camera</text>
+<g class="c-teal"><rect x="174" y="76" width="182" height="42" rx="6" stroke-width="0.5"/>
+<text class="th" x="265" y="91" text-anchor="middle" dominant-baseline="central">Detect and track</text>
+<text class="ts" x="265" y="107" text-anchor="middle" dominant-baseline="central">80 classes, one id each</text></g>
+<g class="c-teal"><rect x="174" y="126" width="182" height="42" rx="6" stroke-width="0.5"/>
+<text class="th" x="265" y="141" text-anchor="middle" dominant-baseline="central">CLIP vectors</text>
+<text class="ts" x="265" y="157" text-anchor="middle" dominant-baseline="central">objects, scenes, tiles</text></g>
+<g class="c-teal"><rect x="174" y="176" width="182" height="42" rx="6" stroke-width="0.5"/>
+<text class="th" x="265" y="191" text-anchor="middle" dominant-baseline="central">Motion</text>
+<text class="ts" x="265" y="207" text-anchor="middle" dominant-baseline="central">what no class covers</text></g>
+<g class="c-teal"><rect x="174" y="226" width="182" height="42" rx="6" stroke-width="0.5"/>
+<text class="th" x="265" y="241" text-anchor="middle" dominant-baseline="central">Pose facts</text>
+<text class="ts" x="265" y="257" text-anchor="middle" dominant-baseline="central">lying, hands up, colours</text></g>
+<g class="c-teal"><rect x="174" y="276" width="182" height="42" rx="6" stroke-width="0.5"/>
+<text class="th" x="265" y="291" text-anchor="middle" dominant-baseline="central">Faces, plates, sounds</text>
+<text class="ts" x="265" y="307" text-anchor="middle" dominant-baseline="central">opt-in</text></g>
+<g class="c-coral"><rect x="174" y="326" width="182" height="42" rx="6" stroke-width="0.5"/>
+<text class="th" x="265" y="341" text-anchor="middle" dominant-baseline="central">Rules</text>
+<text class="ts" x="265" y="357" text-anchor="middle" dominant-baseline="central">areas, lines, tamper, fire</text></g>
+
+<!-- store -->
+<line class="arr" x1="370" y1="212" x2="398" y2="212" marker-end="url(#arrow)"/>
+<path d="M400 180 a50 10 0 0 1 100 0 v64 a50 10 0 0 1 -100 0 z" fill="#FAF9F5" stroke="#B4B2A9" stroke-width="0.8"/>
+<path d="M400 180 a50 10 0 0 0 100 0" fill="none" stroke="#B4B2A9" stroke-width="0.8"/>
+<text class="th" x="450" y="210" text-anchor="middle" dominant-baseline="central">Store</text>
+<text class="tx" x="450" y="228" text-anchor="middle" dominant-baseline="central">SQLite, one per site</text>
+<text class="tx" x="450" y="268" text-anchor="middle">vectors, events,</text>
+<text class="tx" x="450" y="281" text-anchor="middle">thumbnails, facts</text>
+
+<!-- answers -->
+<path class="arr" d="M500 212 L514 212 L514 54 L528 54" marker-end="url(#arrow)"/>
+<path class="arr" d="M514 132 L528 132" marker-end="url(#arrow)"/>
+<path class="arr" d="M514 212 L528 212" marker-end="url(#arrow)"/>
+<g class="c-purple"><rect x="530" y="30" width="135" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="597" y="46" text-anchor="middle" dominant-baseline="central">Ask</text>
+<text class="ts" x="597" y="64" text-anchor="middle" dominant-baseline="central">words → CLIP</text></g>
+<g class="c-purple"><rect x="530" y="108" width="135" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="597" y="124" text-anchor="middle" dominant-baseline="central">Chat</text>
+<text class="ts" x="597" y="142" text-anchor="middle" dominant-baseline="central">LLM + tools</text></g>
+<g class="c-purple"><rect x="530" y="188" width="135" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="597" y="204" text-anchor="middle" dominant-baseline="central">Reports</text>
+<text class="ts" x="597" y="222" text-anchor="middle" dominant-baseline="central">hourly to monthly</text></g>
+
+<!-- live alerts -->
+<path class="dash" d="M356 347 L528 347" marker-end="url(#arrow-c)"/>
+<text class="tx" x="442" y="340" text-anchor="middle" fill="#993C1D">live, as they happen</text>
+<g class="c-coral"><rect x="530" y="323" width="135" height="48" rx="8" stroke-width="0.5"/>
+<text class="th" x="597" y="339" text-anchor="middle" dominant-baseline="central">Alerts</text>
+<text class="ts" x="597" y="357" text-anchor="middle" dominant-baseline="central">webhook, email, Telegram</text></g>
+</svg>

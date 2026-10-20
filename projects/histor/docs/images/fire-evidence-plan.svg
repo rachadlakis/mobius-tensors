@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="330" viewBox="0 0 680 330" role="img" aria-label="Planned fire rule: evidence adds up per spot from the boxes' scores; a strong flame reaches the alert line in 0.3 seconds, a weak one in 0.4, a still lamp adds nothing and only alerts after 20 seconds, marked not moving.">
+<style>
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.tx { font-size: 10px; fill: #5F5E5A; }
+.axis { stroke: #B4B2A9; stroke-width: 1; }
+.grid { stroke: #E5E3DC; stroke-width: 1; }
+.limit { stroke: #993C1D; stroke-width: 1; stroke-dasharray: 5 4; }
+.strong { stroke: #D85A30; stroke-width: 2; fill: none; }
+.weak { stroke: #BA7517; stroke-width: 2; fill: none; }
+.still { stroke: #534AB7; stroke-width: 2; fill: none; }
+</style>
+<defs><clipPath id="plot"><rect x="90" y="56" width="500" height="196"/></clipPath></defs>
+<rect width="680" height="330" fill="#ffffff"/>
+<text class="th" x="40" y="24">Planned: evidence per spot, from the boxes' scores and their motion</text>
+<text class="ts" x="40" y="42">Each check adds the box's score if the spot moves · checks every 0.1 s once seen</text>
+
+<!-- y = 250 - 63.3 × evidence -->
+<g class="grid"><line x1="90" y1="186.7" x2="590" y2="186.7"/><line x1="90" y1="123.4" x2="590" y2="123.4"/><line x1="90" y1="60" x2="590" y2="60"/></g>
+<line class="axis" x1="90" y1="250" x2="590" y2="250"/><line class="axis" x1="90" y1="56" x2="90" y2="250"/>
+<g class="tx" text-anchor="end"><text x="84" y="253">0</text><text x="84" y="190">1</text><text x="84" y="127">2</text><text x="84" y="63">3</text></g>
+<text class="ts" x="40" y="150" transform="rotate(-90 40 150)" text-anchor="middle">evidence</text>
+<g class="tx" text-anchor="middle"><text x="90" y="266">0</text><text x="190" y="266">0.2</text><text x="290" y="266">0.4</text><text x="390" y="266">0.6</text><text x="490" y="266">0.8</text><text x="590" y="266">1.0 s</text></g>
+
+<line class="limit" x1="90" y1="155" x2="590" y2="155"/><text class="tx" x="594" y="158" fill="#993C1D">alert</text>
+<text class="tx" x="594" y="170" fill="#993C1D">at 1.5</text>
+
+<g clip-path="url(#plot)">
+<!-- strong flame: 0.8 a check, moving -->
+<polyline class="strong" points="90,250 90,199.3 140,199.3 140,148.7 190,148.7 190,98 240,98 240,47"/>
+<!-- weak flame: 0.3 a check, moving -->
+<polyline class="weak" points="90,250 90,231 140,231 140,212 190,212 190,193 240,193 240,174 290,174 290,155"/>
+<!-- still lamp: 0.8 a check, not moving: adds nothing -->
+<polyline class="still" points="90,247 590,247"/>
+</g>
+<circle cx="240" cy="98" r="4" fill="#D85A30"/><text class="ts" x="248" y="94" fill="#D85A30">strong flame (0.8): alert +0.3 s</text>
+<text class="tx" x="248" y="108">reached 1.5 at 0.1 s, but waits for 0.3 s of sightings</text>
+<circle cx="290" cy="155" r="4" fill="#BA7517"/><text class="ts" x="298" y="148" fill="#BA7517">weak flame (0.3): alert +0.4 s</text>
+<text class="ts" x="330" y="236" fill="#534AB7">still lamp (0.8, not moving): nothing yet</text>
+
+<text class="ts" x="40" y="296">A box in another spot starts its own count: stray boxes in different places never add up.</text>
+<text class="ts" x="40" y="314">Safety: a spot still seen after 20 s alerts anyway, marked "not moving: lamp or poster?"</text>
+</svg>

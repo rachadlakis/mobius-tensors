@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="300" viewBox="0 0 680 300" role="img" aria-label="A cart crosses the picture in under a second, between two scene samples; the detector has no class for it; motion indexing embeds it after two frames and again when it shows bigger">
+<style>
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.tx { font-size: 10px; fill: #5F5E5A; }
+.axis { stroke: #B4B2A9; stroke-width: 1; }
+.grid { stroke: #E5E3DC; stroke-width: 1; }
+.inview { fill: #FAEEDA; stroke: #BA7517; stroke-width: 0.8; }
+.sample { fill: #ffffff; stroke: #888780; stroke-width: 1.2; }
+.emb { fill: #1D9E75; }
+.none { stroke: #B4B2A9; stroke-width: 1.2; }
+</style>
+<rect width="680" height="300" fill="#ffffff"/>
+<!-- x = 170 + 30 * seconds (0..15 s) -->
+<text class="th" x="40" y="26">A cart crosses in 0.8 s (no detector class for it)</text>
+<rect class="inview" x="356" y="40" width="24" height="196" rx="2"/>
+<text class="tx" x="386" y="56" fill="#854F0B">cart in view 6.2–7.0 s</text>
+<g class="grid"><line x1="170" y1="70" x2="170" y2="236"/><line x1="320" y1="70" x2="320" y2="236"/><line x1="470" y1="70" x2="470" y2="236"/><line x1="620" y1="70" x2="620" y2="236"/></g>
+
+<text class="th" x="40" y="96" dominant-baseline="central">Scenes</text>
+<text class="ts" x="40" y="114" dominant-baseline="central">frame + tiles, every 5 s</text>
+<line class="axis" x1="170" y1="105" x2="630" y2="105"/>
+<circle class="sample" cx="170" cy="105" r="5"/><circle class="sample" cx="320" cy="105" r="5"/><circle class="sample" cx="470" cy="105" r="5"/><circle class="sample" cx="620" cy="105" r="5"/>
+<text class="ts" x="388" y="128" fill="#993C1D">missed: between two samples</text>
+
+<text class="th" x="40" y="156" dominant-baseline="central">Detector</text>
+<text class="ts" x="40" y="174" dominant-baseline="central">80 classes</text>
+<line class="axis" x1="170" y1="165" x2="630" y2="165"/>
+<g class="none"><line x1="362" y1="159" x2="374" y2="171"/><line x1="374" y1="159" x2="362" y2="171"/></g>
+<text class="ts" x="395" y="188" dominant-baseline="central" fill="#993C1D">no class: nothing tracked</text>
+
+<text class="th" x="40" y="216" dominant-baseline="central">Motion</text>
+<text class="ts" x="40" y="234" dominant-baseline="central">every frame, ~4 ms</text>
+<line class="axis" x1="170" y1="225" x2="630" y2="225"/>
+<circle class="emb" cx="362" cy="225" r="5"/><circle class="emb" cx="374" cy="225" r="5"/>
+<text class="ts" x="395" y="221" dominant-baseline="central" fill="#0F6E56">embedded after 2 frames,</text>
+<text class="ts" x="395" y="237" dominant-baseline="central" fill="#0F6E56">again when it shows bigger</text>
+
+<line class="axis" x1="170" y1="252" x2="630" y2="252"/>
+<g class="tx" text-anchor="middle"><text x="170" y="268">0</text><text x="320" y="268">5</text><text x="470" y="268">10</text><text x="620" y="268">15 s</text></g>
+<text class="tx" x="40" y="290">Shake, swaying leaves, light changes and tracked objects are filtered out first; at most 4 crops a second.</text>
+</svg>

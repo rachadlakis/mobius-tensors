@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="330" viewBox="0 0 680 330" role="img" aria-label="Four camera pictures: the usual view, a truck parked in front, the camera turned, and the view fully covered, with the landmarks found in each and the verdict">
+<style>
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.tx { font-size: 10px; fill: #5F5E5A; }
+.box { fill: #FAF9F5; stroke: #B4B2A9; }
+.scene { stroke: #888780; stroke-width: 1; fill: none; }
+.in { fill: #1D9E75; }
+.gone { fill: none; stroke: #B4B2A9; stroke-width: 1; }
+.moved { fill: #BA7517; }
+.truck { fill: #E7E3F4; stroke: #534AB7; stroke-width: 1; }
+.c-gray > rect { fill: #F1EFE8; stroke: #5F5E5A; } .c-gray > .th { fill: #444441; } .c-gray > .ts { fill: #5F5E5A; }
+.c-amber > rect { fill: #FAEEDA; stroke: #854F0B; } .c-amber > .th { fill: #633806; } .c-amber > .ts { fill: #854F0B; }
+.c-coral > rect { fill: #FAECE7; stroke: #993C1D; } .c-coral > .th { fill: #712B13; } .c-coral > .ts { fill: #993C1D; }
+</style>
+<defs>
+  <clipPath id="panel"><rect width="105" height="70" rx="4"/></clipPath>
+  <g id="street">
+    <line x1="0" y1="58" x2="105" y2="58"/>
+    <rect x="10" y="14" width="30" height="44"/><rect x="16" y="20" width="8" height="8"/><rect x="28" y="20" width="8" height="8"/>
+    <line x1="58" y1="58" x2="58" y2="12"/><rect x="52" y="12" width="12" height="7"/>
+    <rect x="72" y="28" width="26" height="30"/><polyline points="72,28 85,18 98,28"/>
+  </g>
+  <g id="truck">
+    <rect class="truck" x="-2" y="18" width="60" height="38" rx="2"/>
+    <rect class="truck" x="58" y="30" width="16" height="26" rx="2"/>
+    <circle class="truck" cx="12" cy="58" r="5"/><circle class="truck" cx="46" cy="58" r="5"/><circle class="truck" cx="66" cy="58" r="5"/>
+  </g>
+</defs>
+<rect width="680" height="330" fill="#ffffff"/>
+
+<text class="ts" x="222" y="48" text-anchor="middle">Usual view</text>
+<text class="ts" x="337" y="48" text-anchor="middle">Truck parks</text>
+<text class="ts" x="452" y="48" text-anchor="middle">Camera turned</text>
+<text class="ts" x="567" y="48" text-anchor="middle">Fully covered</text>
+<text class="th" x="40" y="92" dominant-baseline="central">Camera</text>
+<text class="ts" x="40" y="110" dominant-baseline="central">this frame</text>
+<text class="th" x="40" y="168" dominant-baseline="central">Landmarks</text>
+<text class="ts" x="40" y="186" dominant-baseline="central">corners of the</text>
+<text class="ts" x="40" y="202" dominant-baseline="central">usual view</text>
+<text class="th" x="40" y="270" dominant-baseline="central">Verdict</text>
+
+<!-- usual view: every landmark found in place -->
+<g transform="translate(170,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/>
+<g clip-path="url(#panel)"><use href="#street" class="scene"/>
+<circle class="in" cx="10" cy="14" r="2.5"/><circle class="in" cx="40" cy="14" r="2.5"/><circle class="in" cx="24" cy="28" r="2.5"/><circle class="in" cx="52" cy="12" r="2.5"/><circle class="in" cx="64" cy="19" r="2.5"/><circle class="in" cx="85" cy="18" r="2.5"/><circle class="in" cx="98" cy="28" r="2.5"/><circle class="in" cx="72" cy="58" r="2.5"/></g></g>
+
+<!-- truck parks: left landmarks hidden, right ones still in place -->
+<g transform="translate(285,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/>
+<g clip-path="url(#panel)"><use href="#street" class="scene"/><use href="#truck"/>
+<circle class="gone" cx="10" cy="14" r="2.5"/><circle class="gone" cx="40" cy="14" r="2.5"/><circle class="gone" cx="24" cy="28" r="2.5"/><circle class="gone" cx="52" cy="12" r="2.5"/>
+<circle class="in" cx="85" cy="18" r="2.5"/><circle class="in" cx="98" cy="28" r="2.5"/><circle class="in" cx="72" cy="58" r="2.5"/><circle class="in" cx="64" cy="19" r="2.5"/></g></g>
+
+<!-- camera turned: everything shifted together -->
+<g transform="translate(400,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/>
+<g clip-path="url(#panel)"><g transform="translate(-16,4)"><use href="#street" class="scene"/></g>
+<circle class="gone" cx="40" cy="14" r="2.5"/><circle class="gone" cx="52" cy="12" r="2.5"/><circle class="gone" cx="85" cy="18" r="2.5"/><circle class="gone" cx="98" cy="28" r="2.5"/>
+<circle class="moved" cx="24" cy="18" r="2.5"/><circle class="moved" cx="36" cy="16" r="2.5"/><circle class="moved" cx="69" cy="22" r="2.5"/><circle class="moved" cx="82" cy="32" r="2.5"/>
+<g stroke="#BA7517" stroke-width="0.8"><line x1="37" y1="14" x2="28" y2="17"/><line x1="49" y1="12" x2="40" y2="15"/><line x1="82" y1="18" x2="73" y2="21"/><line x1="95" y1="28" x2="86" y2="31"/></g></g></g>
+
+<!-- fully covered: nothing known in sight, the detector's box decides -->
+<g transform="translate(515,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/>
+<g clip-path="url(#panel)"><rect class="truck" x="-2" y="-2" width="109" height="62"/><circle class="truck" cx="20" cy="62" r="6"/><circle class="truck" cx="84" cy="62" r="6"/>
+<rect x="5" y="5" width="95" height="60" rx="3" fill="none" stroke="#534AB7" stroke-width="0.8" stroke-dasharray="3 3"/>
+<text class="tx" x="10" y="17" fill="#534AB7">truck 0.91</text></g></g>
+
+<text class="ts" x="222" y="168" text-anchor="middle" dominant-baseline="central">all in place</text>
+<text class="ts" x="337" y="168" text-anchor="middle" dominant-baseline="central">half hidden,</text>
+<text class="ts" x="337" y="186" text-anchor="middle" dominant-baseline="central">the rest in place</text>
+<text class="ts" x="452" y="168" text-anchor="middle" dominant-baseline="central">all shifted</text>
+<text class="ts" x="452" y="186" text-anchor="middle" dominant-baseline="central">together</text>
+<text class="ts" x="567" y="168" text-anchor="middle" dominant-baseline="central">none visible:</text>
+<text class="ts" x="567" y="186" text-anchor="middle" dominant-baseline="central">the detector</text>
+<text class="ts" x="567" y="202" text-anchor="middle" dominant-baseline="central">sees a truck</text>
+
+<g class="c-gray"><rect x="170" y="244" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="222" y="262" text-anchor="middle" dominant-baseline="central">Normal</text>
+<text class="ts" x="222" y="280" text-anchor="middle" dominant-baseline="central">nothing raised</text></g>
+<g class="c-amber"><rect x="285" y="244" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="337" y="262" text-anchor="middle" dominant-baseline="central">Obstructed</text>
+<text class="ts" x="337" y="280" text-anchor="middle" dominant-baseline="central">after 5 min</text></g>
+<g class="c-coral"><rect x="400" y="244" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="452" y="262" text-anchor="middle" dominant-baseline="central">Moved</text>
+<text class="ts" x="452" y="280" text-anchor="middle" dominant-baseline="central">after 20 s</text></g>
+<g class="c-amber"><rect x="515" y="244" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="567" y="262" text-anchor="middle" dominant-baseline="central">Obstructed</text>
+<text class="ts" x="567" y="280" text-anchor="middle" dominant-baseline="central">by a truck</text></g>
+
+<g transform="translate(170,314)"><circle class="in" cx="4" cy="0" r="3"/><text class="tx" x="12" y="0" dominant-baseline="central">found in place</text>
+<circle class="moved" cx="104" cy="0" r="3"/><text class="tx" x="112" y="0" dominant-baseline="central">found shifted</text>
+<circle class="gone" cx="200" cy="0" r="3"/><text class="tx" x="208" y="0" dominant-baseline="central">not found</text></g>
+</svg>
