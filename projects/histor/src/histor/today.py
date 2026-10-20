@@ -50,6 +50,7 @@ TAMPER = {"blocked": ("Camera covered", "The {cam} camera was covered"),
           "dark": ("Picture went dark", "The {cam} picture went dark"),
           "blurred": ("Picture blurred", "The {cam} picture went blurry"),
           "moved": ("Camera moved", "The {cam} camera was moved"),
+          "obstructed": ("View blocked", "Something is blocking the {cam} camera's view"),
           "frozen": ("Picture frozen", "The {cam} picture froze")}
 SUMMARY_MAX_AGE = 15 * 60     # the written summary is made again after this long...
 SUMMARY_MIN_AGE = 2 * 60      # ...or after a new event, but not more often than this

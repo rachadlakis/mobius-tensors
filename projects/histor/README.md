@@ -268,7 +268,8 @@ microphone.
 
 Object rules work on the detector's classes. Fire and smoke have their own model (see
 [Models](#models-and-licences)) and their own section, `fire:`. It raises a `fire` alert when flames or
-smoke are seen on 3 of 5 checks (every 0.5 s). Install the model with
+smoke are seen 3 times over 0.4 s: a check every 0.5 s, and about every frame as soon as fire
+or smoke is seen once, so the alert comes ~0.4 s after the first sighting. Install the model with
 `uv run -m histor.engine.download_model fire_smoke`; the repo is private, so it needs
 `HF_TOKEN`. It adds early warning to certified smoke and heat detectors; it does not replace
 them. Other new things to detect (objects a customer names) need a model trained for them; the

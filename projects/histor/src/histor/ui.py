@@ -539,10 +539,12 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
 
     def report_periods(name: str | None, select: str | None = None) -> Any:
         """Saved reports of `name`, newest first; select: the one just made."""
-        choices = []
-        for p in (reporter.saved(name) if reporter and name else [])[:200]:
+        choices: list[tuple[str, str]] = []
+        rep = reporter  # a local: mypy narrows it (not the closure's `reporter`)
+        for p in (rep.saved(name) if rep is not None and name else [])[:200]:
+            assert rep is not None
             try:
-                r = reporter.load(p)
+                r = rep.load(p)
                 if r.get("custom") and name != CUSTOM:  # ranges are listed under custom only
                     continue
                 label = period_text(*(datetime.fromisoformat(r[k]) for k in ("since", "until")))

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,7 +27,7 @@ def is_live(source: str | int) -> bool:
     return isinstance(source, int) or str(source).isdigit() or "://" in str(source)
 
 
-def iter_frames(source: str | int) -> Iterator[Frame]:
+def iter_frames(source: str | int) -> Generator[Frame, None, None]:
     """Yield frames from `source`. A digit string like "0" means a webcam index."""
     if isinstance(source, str) and source.isdigit():
         source = int(source)

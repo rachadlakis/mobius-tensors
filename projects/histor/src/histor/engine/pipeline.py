@@ -241,7 +241,7 @@ class Pipeline:
         if self.tracker is not None:
             self._track(frame, result)
         if self.tamper is not None:
-            result.events += self._tamper_events(frame, result.tracks, timestamp)
+            result.events += self._tamper_events(frame, result, timestamp)
         if self.fire is not None:
             result.events += self._fire_events(frame, result.tracks, timestamp)
         if self.sounds is not None:
@@ -278,16 +278,19 @@ class Pipeline:
             result.events += (self.alerts.handle(found, frame, result.tracks, wall)
                               if self.alerts else found)
 
-    def _tamper_events(self, frame: np.ndarray, tracks: list[Track],
+    def _tamper_events(self, frame: np.ndarray, result: FrameResult,
                        timestamp: float) -> list[ZoneEvent]:
+        """The detections tell a truck parked in front of the camera from a turned camera."""
         from histor.engine.tamper import EVENT_TYPE
 
         assert self.tamper is not None
-        found = [ZoneEvent(timestamp, EVENT_TYPE, e.kind, None, "camera", score=e.value)
-                 for e in self.tamper.update(frame, timestamp)]
+        objects = [(d.label, (d.x1, d.y1, d.x2, d.y2)) for d in result.detections]
+        found = [ZoneEvent(timestamp, EVENT_TYPE, e.kind, None, e.label or "camera",
+                           score=e.value)
+                 for e in self.tamper.update(frame, timestamp, objects)]
         if self.alerts is None or not found:
             return found
-        return self.alerts.handle(found, frame, tracks, self.wall_time(timestamp))
+        return self.alerts.handle(found, frame, result.tracks, self.wall_time(timestamp))
 
     def _fire_events(self, frame: np.ndarray, tracks: list[Track],
                      timestamp: float) -> list[ZoneEvent]:

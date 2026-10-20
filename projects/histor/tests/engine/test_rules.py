@@ -179,6 +179,127 @@ def test_pointed_at_a_wall_is_blocked_and_learns_no_reference():
     assert events == [] and check.reference is not None  # a real view: learned, not "moved"
 
 
+# --- moved or obstructed: a truck parked in front is not a turned camera
+
+def truck(view: np.ndarray, x1: int, x2: int, seed: int = 0) -> np.ndarray:
+    """A truck's side from x1 to x2, full height: plain paint, a logo stripe, two windows."""
+    frame = view.copy()
+    frame[:, x1:x2] = (60, 70, 150)
+    cv2.rectangle(frame, (x1 + 10, 120), (x2 - 10, 150), (240, 240, 240), -1)
+    for wx in (x1 + 20, (x1 + x2) // 2):
+        cv2.rectangle(frame, (wx, 40), (wx + 50, 90), (20, 20, 20), -1)
+    return noisy(frame, seed)  # the sensor's noise is over the truck too
+
+
+def shifted(view: np.ndarray, dx: int, dy: int = 0) -> np.ndarray:
+    return cv2.warpAffine(view, np.float32([[1, 0, dx], [0, 1, dy]]), view.shape[1::-1],
+                          borderMode=cv2.BORDER_REPLICATE)
+
+
+def blocking(**options) -> tuple[TamperCheck, np.ndarray, float]:
+    return learned(obstructed_seconds=30, **options)
+
+
+def test_truck_parked_over_half_the_view_is_obstructed_not_moved():
+    check, view, t = blocking()
+    events, t = feed(check, lambda i: truck(view, 0, 380, i), t, 120)
+    assert [e.kind for e in events] == ["obstructed"]
+    assert events[0].value >= 0.5 and events[0].label == "camera"  # no detector: unknown cause
+    events, _ = feed(check, lambda i: noisy(view, i), t, 60)  # it drives away
+    assert events == [] and check.last_state == "home"
+
+
+def test_obstruction_says_what_the_detector_saw():
+    check, view, t = blocking()
+    seen = [("truck", (0, 0, 380, 360)), ("person", (500, 100, 540, 300))]
+    events = []
+    for i in range(60):
+        events += check.update(truck(view, 0, 380, i), t + i, seen)
+    assert [(e.kind, e.label) for e in events] == [("obstructed", "truck")]
+
+
+def test_near_full_cover_seen_by_the_detector_is_obstructed():
+    check, view, t = blocking()
+    events = []
+    for i in range(60):  # 95% of the view, a truck box over it
+        events += check.update(truck(view, 0, 610, i), t + i, [("truck", (0, 0, 610, 360))])
+    assert [(e.kind, e.label) for e in events] == [("obstructed", "truck")]
+
+
+def test_near_full_cover_that_grew_from_a_partial_one_is_obstructed():
+    check, view, t = blocking()
+    events, t = feed(check, lambda i: truck(view, 0, 380, i), t, 6)  # it pulls in...
+    events2, _ = feed(check, lambda i: truck(view, 0, 610, i), t, 60)  # ...and stops
+    assert events == [] and [e.kind for e in events2] == ["obstructed"]
+
+
+def test_unexplained_full_cover_raises_once_but_its_leaving_does_not():
+    check, view, t = blocking()
+    events, t = feed(check, lambda i: truck(view, 0, 640, i), t, 40)  # sudden, no detection
+    assert len(events) == 1 and events[0].kind in ("moved", "blurred")  # can't tell: say so
+    events, _ = feed(check, lambda i: noisy(view, i), t, 60)  # the first view is known again
+    assert events == [] and check.last_state == "home"
+
+
+def test_wrong_moved_is_undone_when_the_first_view_comes_back():
+    check, view, t = blocking(blur_ratio=0.0)  # only the position judged
+    events, t = feed(check, lambda i: truck(view, 0, 640, i), t, 40)
+    assert [e.kind for e in events] == ["moved"] and len(check.views) == 2
+    events, _ = feed(check, lambda i: noisy(view, i), t, 60)
+    assert events == [] and check.last_state == "home"
+
+
+def test_small_pan_is_moved():
+    check, view, t = learned()
+    events, _ = feed(check, lambda i: noisy(shifted(view, 40, 10), i), t, 30)
+    assert [e.kind for e in events] == ["moved"]
+
+
+def test_wind_sway_is_not_moved():
+    check, view, t = learned()
+    events, _ = feed(check, lambda i: noisy(shifted(view, (-3, 3)[i % 2], (2, -2)[i % 2]), i),
+                     t, 120)
+    assert events == []
+
+
+def test_crowd_passing_is_not_obstructed():
+    check, view, t = blocking()
+
+    def crowd(i):
+        frame = noisy(view, i)
+        rng = np.random.default_rng(i)
+        for _ in range(14):  # people everywhere, somewhere else each sample
+            x, y = int(rng.integers(0, 600)), int(rng.integers(0, 200))
+            cv2.rectangle(frame, (x, y), (x + 60, y + 160),
+                          tuple(int(c) for c in rng.integers(0, 255, 3)), -1)
+        return frame
+
+    events, _ = feed(check, crowd, t, 120)
+    assert events == []
+
+
+def test_on_screen_clock_does_not_hide_a_turn():
+    def clock(frame: np.ndarray, i: int) -> np.ndarray:  # burnt in after the sensor's noise
+        cv2.putText(frame, f"2026-10-20 14:{i // 60 % 60:02d}:{i % 60:02d}  GATE CAMERA 01",
+                    (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+        return frame
+
+    check = TamperCheck(interval_seconds=1, hold_seconds=10, learn_seconds=30)
+    view, other = scene(), scene(seed=7)
+    events, t = feed(check, lambda i: clock(noisy(view, i), i), 0, 60)
+    assert events == [] and check._overlay is not None and check._overlay[:30].any()
+    events, _ = feed(check, lambda i: clock(noisy(other, i), i), t, 30)
+    assert [e.kind for e in events] == ["moved"]
+
+
+def test_night_look_of_the_same_view_is_not_moved():
+    check, view, t = learned()
+    grey = cv2.cvtColor(view, cv2.COLOR_BGR2GRAY)
+    infrared = cv2.cvtColor(cv2.convertScaleAbs(grey, alpha=0.6, beta=30), cv2.COLOR_GRAY2BGR)
+    events, _ = feed(check, lambda i: noisy(infrared, i), t, 120)
+    assert events == []
+
+
 VIDEO = ROOT / "data" / "vtest.avi"
 
 
@@ -203,6 +324,35 @@ def test_real_street_video_no_false_alarm_then_covered():
     for i in range(150):
         events += check.update(hand, t + i * 0.1)
     assert [e.kind for e in events] == ["blocked"]
+
+
+@pytest.mark.skipif(not VIDEO.exists(), reason="sample video data/vtest.avi")
+@pytest.mark.parametrize("change, expected", [
+    ("truck", ["obstructed"]),  # a van parks over 60% of the street, people walk on
+    ("pan", ["moved"]),         # the camera is turned by 1/16 of its width
+])
+def test_real_street_video_truck_parks_or_camera_turns(change, expected):
+    cap = cv2.VideoCapture(str(VIDEO))
+    frames = []
+    while len(frames) < 700:
+        ok, frame = cap.read()
+        if not ok:
+            break
+        frames.append(frame)
+    cap.release()
+    check = TamperCheck(interval_seconds=0.5, hold_seconds=10, learn_seconds=20,
+                        obstructed_seconds=20)
+    h, w = frames[0].shape[:2]
+    events = []
+    for i, frame in enumerate(frames):  # ~10 fps: 70 s, the change after 25 s
+        if i >= 250 and change == "truck":
+            frame = frame.copy()
+            frame[:, : int(w * 0.6)] = (60, 70, 150)
+            cv2.rectangle(frame, (20, h // 3), (int(w * 0.6) - 20, h // 3 + 30), (230, 230, 230), -1)
+        elif i >= 250:
+            frame = shifted(frame, w // 16, 4)
+        events += check.update(frame, i * 0.1)
+    assert [e.kind for e in events] == expected
 
 
 # ------------------------------------------------------------------ abandoned

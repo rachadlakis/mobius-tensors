@@ -183,7 +183,8 @@ class SearchIndexer:
             if self.faces is not None and track.label == "person" and self._due(
                     self._last_face, track.id, t, self.face_interval, hi_ok):
                 self._last_face[track.id] = t
-                faces.append((track.id, hbox, True) if hi_ok else (track.id, box, False))
+                faces.append((track.id, hbox, True) if hi_ok and hbox is not None
+                             else (track.id, box, False))
             if hi_ok:
                 self._hires_tracks.add(track.id)
         if len(self._last_object) > 5000:  # forget objects not seen for 10 minutes
@@ -197,10 +198,12 @@ class SearchIndexer:
         if not (objects or faces or scene or moving):
             return
         keyframe = self._keyframe
-        fresh = keyframe is not None and abs(t - keyframe.time) <= self.keyframe_max_age
+        fresh = keyframe if keyframe is not None and abs(t - keyframe.time) <= \
+            self.keyframe_max_age else None
         job = _Job(frame.copy(), t, objects, faces, scene,
                    hires=hires.image if hires is not None else None,
-                   scene_image=keyframe.image if scene and fresh else None, moving=moving)
+                   scene_image=fresh.image if scene and fresh is not None else None,
+                   moving=moving)
         if self.blocking:
             self._queue.put(job)
             return

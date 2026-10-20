@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="396" viewBox="0 0 680 396" role="img" aria-label="Four moments of a ladder carried in and left, compared with a fast and a slow background">
+<style>
+:root { --t: #888780; }
+text { font-family: system-ui, "Segoe UI", sans-serif; }
+.th { font-size: 14px; font-weight: 500; fill: #2C2C2A; }
+.ts { font-size: 12px; fill: #5F5E5A; }
+.box { fill: #FAF9F5; stroke: #B4B2A9; }
+.arr { stroke: #888780; stroke-width: 1.5; fill: none; }
+.c-gray > rect { fill: #F1EFE8; stroke: #5F5E5A; } .c-gray > .th { fill: #444441; } .c-gray > .ts { fill: #5F5E5A; }
+.c-teal > rect { fill: #E1F5EE; stroke: #0F6E56; } .c-teal > .th { fill: #085041; } .c-teal > .ts { fill: #0F6E56; }
+.c-amber > rect { fill: #FAEEDA; stroke: #854F0B; } .c-amber > .th { fill: #633806; } .c-amber > .ts { fill: #854F0B; }
+</style>
+<rect width="680" height="396" fill="#ffffff"/>
+<text class="ts" x="222" y="48" text-anchor="middle">Before</text>
+<text class="ts" x="337" y="48" text-anchor="middle">Carried in</text>
+<text class="ts" x="452" y="48" text-anchor="middle">Left there</text>
+<text class="ts" x="567" y="48" text-anchor="middle">10 min later</text>
+<text class="th" x="40" y="92" dominant-baseline="central">Camera</text>
+<text class="ts" x="40" y="110" dominant-baseline="central">this frame</text>
+<text class="th" x="40" y="176" dominant-baseline="central">Fast background</text>
+<text class="ts" x="40" y="194" dominant-baseline="central">learns in seconds</text>
+<text class="th" x="40" y="260" dominant-baseline="central">Slow background</text>
+<text class="ts" x="40" y="278" dominant-baseline="central">learns in minutes</text>
+<text class="th" x="40" y="348" dominant-baseline="central">Verdict</text>
+
+<g transform="translate(170,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/></g>
+<g transform="translate(285,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/>
+<g stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" fill="none"><circle cx="40" cy="22" r="5"/><line x1="40" y1="27" x2="40" y2="46"/><line x1="40" y1="46" x2="35" y2="58"/><line x1="40" y1="46" x2="45" y2="58"/><line x1="9" y1="29" x2="15" y2="29"/><line x1="7" y1="36" x2="15" y2="36"/><line x1="9" y1="43" x2="15" y2="43"/></g>
+<g stroke="#BA7517" stroke-width="1.5" stroke-linecap="round"><line x1="22" y1="33" x2="80" y2="33"/><line x1="22" y1="39" x2="80" y2="39"/><line x1="28" y1="33" x2="28" y2="39"/><line x1="54" y1="33" x2="54" y2="39"/><line x1="66" y1="33" x2="66" y2="39"/><line x1="78" y1="33" x2="78" y2="39"/></g>
+<rect x="4" y="11" width="82" height="52" rx="3" fill="none" stroke="#1D9E75" stroke-width="0.8" stroke-dasharray="3 3"/></g>
+<g transform="translate(400,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/>
+<g stroke="#BA7517" stroke-width="1.5" stroke-linecap="round"><line x1="62" y1="58" x2="74" y2="14"/><line x1="74" y1="58" x2="86" y2="14"/><line x1="64.4" y1="49.2" x2="76.4" y2="49.2"/><line x1="66.8" y1="40.4" x2="78.8" y2="40.4"/><line x1="69.2" y1="31.6" x2="81.2" y2="31.6"/><line x1="71.6" y1="22.8" x2="83.6" y2="22.8"/></g>
+<rect x="56" y="8" width="36" height="55" rx="3" fill="none" stroke="#BA7517" stroke-width="0.8" stroke-dasharray="3 3"/></g>
+<g transform="translate(515,66)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/>
+<g stroke="#BA7517" stroke-width="1.5" stroke-linecap="round"><line x1="62" y1="58" x2="74" y2="14"/><line x1="74" y1="58" x2="86" y2="14"/><line x1="64.4" y1="49.2" x2="76.4" y2="49.2"/><line x1="66.8" y1="40.4" x2="78.8" y2="40.4"/><line x1="69.2" y1="31.6" x2="81.2" y2="31.6"/><line x1="71.6" y1="22.8" x2="83.6" y2="22.8"/></g></g>
+
+<g transform="translate(170,150)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/></g>
+<g transform="translate(285,150)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/></g>
+<g transform="translate(400,150)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/>
+<g stroke="#BA7517" stroke-width="1.5" stroke-linecap="round"><line x1="62" y1="58" x2="74" y2="14"/><line x1="74" y1="58" x2="86" y2="14"/><line x1="64.4" y1="49.2" x2="76.4" y2="49.2"/><line x1="66.8" y1="40.4" x2="78.8" y2="40.4"/><line x1="69.2" y1="31.6" x2="81.2" y2="31.6"/><line x1="71.6" y1="22.8" x2="83.6" y2="22.8"/></g></g>
+<g transform="translate(515,150)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/>
+<g stroke="#BA7517" stroke-width="1.5" stroke-linecap="round"><line x1="62" y1="58" x2="74" y2="14"/><line x1="74" y1="58" x2="86" y2="14"/><line x1="64.4" y1="49.2" x2="76.4" y2="49.2"/><line x1="66.8" y1="40.4" x2="78.8" y2="40.4"/><line x1="69.2" y1="31.6" x2="81.2" y2="31.6"/><line x1="71.6" y1="22.8" x2="83.6" y2="22.8"/></g></g>
+
+<g transform="translate(170,234)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/></g>
+<g transform="translate(285,234)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/></g>
+<g transform="translate(400,234)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/></g>
+<g transform="translate(515,234)"><rect class="box" width="105" height="70" rx="4" stroke-width="0.5"/><line x1="6" y1="58" x2="99" y2="58" stroke="var(--t)" stroke-width="0.5"/>
+<g stroke="#BA7517" stroke-width="1.5" stroke-linecap="round"><line x1="62" y1="58" x2="74" y2="14"/><line x1="74" y1="58" x2="86" y2="14"/><line x1="64.4" y1="49.2" x2="76.4" y2="49.2"/><line x1="66.8" y1="40.4" x2="78.8" y2="40.4"/><line x1="69.2" y1="31.6" x2="81.2" y2="31.6"/><line x1="71.6" y1="22.8" x2="83.6" y2="22.8"/></g></g>
+
+<g class="c-gray"><rect x="170" y="322" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="222" y="340" text-anchor="middle" dominant-baseline="central">Nothing</text>
+<text class="ts" x="222" y="358" text-anchor="middle" dominant-baseline="central">= both</text></g>
+<g class="c-teal"><rect x="285" y="322" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="337" y="340" text-anchor="middle" dominant-baseline="central">Moving</text>
+<text class="ts" x="337" y="358" text-anchor="middle" dominant-baseline="central">≠ fast, ≠ slow</text></g>
+<g class="c-amber"><rect x="400" y="322" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="452" y="340" text-anchor="middle" dominant-baseline="central">New item</text>
+<text class="ts" x="452" y="358" text-anchor="middle" dominant-baseline="central">= fast, ≠ slow</text></g>
+<g class="c-gray"><rect x="515" y="322" width="105" height="52" rx="8" stroke-width="0.5"/>
+<text class="th" x="567" y="340" text-anchor="middle" dominant-baseline="central">Normal</text>
+<text class="ts" x="567" y="358" text-anchor="middle" dominant-baseline="central">= both again</text></g>
+</svg>
