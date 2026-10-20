@@ -16,6 +16,8 @@ what they catch to channels such as webhook, email and Telegram (see [Alerts](#a
 
 ## How it works
 
+<img src="docs/images/how-it-works.svg" alt="Cameras, one recorder per camera, one store per site; search, chat and reports read the store; alerts go out live" width="680" />
+
 1. **Record** (one process per camera): detect and track every object (all 80 COCO classes),
    embed each tracked object with CLIP, and every few seconds embed the whole frame plus a 2x2
    grid of tiles, so things the detector has no class for are still searchable. Moving things no
@@ -35,14 +37,39 @@ what they catch to channels such as webhook, email and Telegram (see [Alerts](#a
 5. **Report** (optional): hourly, daily or weekly, a summary of what the chosen cameras saw,
    focused on what the owner asked to watch for, saved and sent (see [Reports](#reports)).
 
+People also become exact facts, which answer questions that CLIP can only guess at:
+
+<img src="docs/images/pose-facts.svg" alt="A person's 17 keypoints become posture, arms, facing, head, motion, what they carry, colour of top and trousers" width="680" />
+
+A question is split into *what*, *when* and *which camera*; only the *what* goes through CLIP,
+and the matches of one tracked object come back as one visit:
+
+<img src="docs/images/search-visits.svg" alt="A question split into what, when and camera; stored vectors ranked; matches of the same tracked object merged into visits" width="680" />
+
+The chat goes further: the model picks the lookups a question needs, reads the thumbnails with
+the local vision model, and answers with its evidence:
+
+<img src="docs/images/chat-tools.svg" alt="The chat model calls people(), then look() on the thumbnail, then answers with the evidence; at most 6 rounds" width="680" />
+
 The detector, tracker, CLIP encoder, store and search are the engine in `src/histor/engine/`; the product modules sit on top in `src/histor/`. One uv environment,
 models in `models/`.
 
 ### Things the detector misses
 
-The detector knows 80 classes. Anything else (a cart, a drone, a ladder) is found by change
-alone (`engine/motion.py`, `search.motion` in the config). Each frame is first cleaned of what
-is not a new thing: camera shake, swaying leaves, light changes, and objects already tracked.
+The detector knows 80 classes. Anything else (a ladder, a box on the floor, smoke) is still in
+the scenes: every few seconds the whole frame and 4 overlapping tiles are embedded, and in a
+tile a small thing is 1.6× larger in the picture CLIP sees.
+
+<img src="docs/images/scene-tiles.svg" alt="The whole frame and 4 overlapping tiles; a small ladder is 1.6 times larger in a tile" width="680" />
+
+But a scene is a sample: something that crosses the picture between two samples would be
+missed. So moving things are found by change alone too (`engine/motion.py`, `search.motion` in
+the config), on every frame, and embedded as soon as they are seen twice.
+
+<img src="docs/images/fast-object-timeline.svg" alt="A cart crossing in 0.8 s: missed by the scenes and the detector, caught by motion" width="680" />
+
+Each frame is first cleaned of what is not a new thing: camera shake, swaying leaves, light
+changes, and objects already tracked.
 
 <img src="docs/images/change-detection-flow.svg" alt="From camera frame to moving thing or new still item" width="680" />
 
@@ -71,7 +98,8 @@ no research-only), it runs on a CPU through ONNX and ports to C++. No PyTorch at
 
 ## Private by design
 
-- Runs on the site's own server, cameras on an isolated network: footage never leaves the building.
+- Runs on the site's own server, cameras on an isolated network: footage never leaves the
+  building (see the network in [Installing a site](#installing-a-site)).
 - The chat model is local by default. A cloud model (Claude) is opt-in and receives text only
   (question, times, cameras, labels, file names), never images; `look` and alert checking always
   run locally.
@@ -245,6 +273,8 @@ alerts:
       hours: "22:00-06:00"
 ```
 
+<img src="docs/images/zones-and-lines.svg" alt="An area raises enter, exit, dwell and crowd; a line raises cross with its direction, one-way lines a wrong-way alarm" width="680" />
+
 Draw areas and lines in the test bench (**Zones & lines** tab) and paste the YAML. Each
 channel filters by `rules`, `events`, `labels`, `hours` and `cooldown_seconds`. Every event goes
 into the store with a snapshot, so the chat answers "did any alert go off last night?" from the
@@ -344,6 +374,8 @@ stored, marked); `tag` sends everything with the verdict, to measure the model a
 that is down or slow never stops an alert, and fire alerts are never held back. Each check costs
 seconds on a CPU: check rare, costly events (person down, abandoned bags), not every crossing.
 
+<img src="docs/images/alert-checking.svg" alt="Alert stored, the local vision model answers yes, no or unsure; no holds it back in veto mode; a model down or late never stops an alert; fire is never held back" width="680" />
+
 ## Reports
 
 Set up at install time with the owner: how often, which cameras, what they care about. In
@@ -425,6 +457,8 @@ The essentials:
   Telegram bot.
 - API and dashboard on `127.0.0.1:8000` with `server.token` set; reach them through an SSH tunnel,
   a VPN or an HTTPS proxy.
+
+<img src="docs/images/site-network.svg" alt="Cameras on their own network cabled to the server only; the office network on the server's second port; nothing routed between them; no port open to the internet" width="680" />
 
 | Cameras | Server                                      | Detector                     | Disk (1080p, 7 days) |
 | ------- | ------------------------------------------- | ---------------------------- | -------------------- |

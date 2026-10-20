@@ -50,6 +50,6 @@ text { font-family: system-ui, "Segoe UI", sans-serif; }
 <text class="th" x="360" y="306" text-anchor="middle" dominant-baseline="central">Internet</text></g>
 <path class="no" d="M360 230 L360 286"/>
 <g stroke="#993C1D" stroke-width="1.8"><line x1="352" y1="250" x2="368" y2="266"/><line x1="368" y1="250" x2="352" y2="266"/></g>
-<text class="tx" x="376" y="256" fill="#993C1D">no port forwarding:</text>
-<text class="tx" x="376" y="268" fill="#993C1D">footage never leaves the building</text>
+<text class="tx" x="344" y="256" text-anchor="end" fill="#993C1D">no port forwarding:</text>
+<text class="tx" x="344" y="268" text-anchor="end" fill="#993C1D">footage never leaves the building</text>
 </svg>

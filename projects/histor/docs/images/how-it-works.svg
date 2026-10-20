@@ -72,5 +72,5 @@ text { font-family: system-ui, "Segoe UI", sans-serif; }
 <text class="tx" x="442" y="340" text-anchor="middle" fill="#993C1D">live, as they happen</text>
 <g class="c-coral"><rect x="530" y="323" width="135" height="48" rx="8" stroke-width="0.5"/>
 <text class="th" x="597" y="339" text-anchor="middle" dominant-baseline="central">Alerts</text>
-<text class="ts" x="597" y="357" text-anchor="middle" dominant-baseline="central">webhook, email, Telegram</text></g>
+<text class="ts" x="597" y="357" text-anchor="middle" dominant-baseline="central">Telegram, email…</text></g>
 </svg>

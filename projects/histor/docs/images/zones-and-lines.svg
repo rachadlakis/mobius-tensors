@@ -29,8 +29,9 @@ text { font-family: system-ui, "Segoe UI", sans-serif; }
 <path class="path" d="M8 140 C40 136 60 132 84 128" marker-end="url(#tip)"/>
 <g class="person" transform="translate(100,130)"><use href="#walker"/></g>
 <g class="person" transform="translate(150,146)"><use href="#walker"/></g>
-<text class="tx" x="108" y="78" fill="#D85A30">enter</text>
-<text class="tx" x="138" y="118" fill="#D85A30">dwell: still in it after 60 s</text></g>
+<text class="tx" x="10" y="124" fill="#D85A30">enter</text>
+<text class="tx" x="70" y="40" fill="#D85A30">dwell: still inside after 60 s</text>
+<line x1="130" y1="44" x2="148" y2="116" stroke="#D85A30" stroke-width="0.8"/></g>
 <text class="ts" x="40" y="232">enter / exit, dwell after <tspan font-weight="500">dwell_seconds</tspan>,</text>
 <text class="ts" x="40" y="248">crowd: more than <tspan font-weight="500">max_count</tspan> inside (queues).</text>
 <text class="ts" x="40" y="264">No points: anywhere in the picture.</text>
@@ -41,12 +42,12 @@ text { font-family: system-ui, "Segoe UI", sans-serif; }
 <rect class="box" width="290" height="170" rx="4" stroke-width="0.5"/>
 <g class="scene"><line x1="0" y1="150" x2="290" y2="150"/><line x1="0" y1="110" x2="290" y2="110"/><rect x="128" y="40" width="8" height="70"/><rect x="152" y="40" width="8" height="70"/></g>
 <line class="line" x1="144" y1="100" x2="144" y2="160"/>
-<text class="tx" x="150" y="96" fill="#534AB7">gate_line</text>
+<text class="tx" x="166" y="100" fill="#534AB7">gate_line</text>
 <g transform="translate(60,122)"><rect class="car" width="54" height="20" rx="4"/><rect class="car" x="10" y="-10" width="30" height="12" rx="3"/><circle class="car" cx="12" cy="22" r="5"/><circle class="car" cx="42" cy="22" r="5"/></g>
 <path class="path" d="M118 134 L200 134" marker-end="url(#tip)"/>
 <text class="tx" x="206" y="138" fill="#D85A30">cross: in</text>
-<path d="M186 160 L240 160" stroke="#534AB7" stroke-width="1.2" fill="none" marker-end="url(#tip-p)"/>
-<text class="tx" x="186" y="154" fill="#534AB7">direction: in</text></g>
+<path d="M190 28 L244 28" stroke="#534AB7" stroke-width="1.2" fill="none" marker-end="url(#tip-p)"/>
+<text class="tx" x="190" y="20" fill="#534AB7">direction: in</text></g>
 <text class="ts" x="370" y="232">cross, with the direction (in / out).</text>
 <text class="ts" x="370" y="248">One-way (<tspan font-weight="500">direction: in</tspan>): crossing out is</text>
 <text class="ts" x="370" y="264">a wrong-way alarm.</text>
