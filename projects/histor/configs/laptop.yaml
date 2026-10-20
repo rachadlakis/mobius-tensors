@@ -48,6 +48,8 @@ search:
   scene_interval_seconds: 5
   scene_tiles: 2
   min_box_height: 40
+  motion:                     # moving things no tracked object covers (engine/motion.py)
+    enabled: true
 
 faces:
   enabled: true

@@ -18,7 +18,9 @@ what they catch to channels such as webhook, email and Telegram (see [Alerts](#a
 
 1. **Record** (one process per camera): detect and track every object (all 80 COCO classes),
    embed each tracked object with CLIP, and every few seconds embed the whole frame plus a 2x2
-   grid of tiles, so things the detector has no class for are still searchable. About once a
+   grid of tiles, so things the detector has no class for are still searchable. Moving things no
+   tracked object covers are embedded as soon as they appear, even if they cross the picture in a
+   second (see [Things the detector misses](#things-the-detector-misses)). About once a
    second, each person's body pose (17 keypoints) becomes a few facts: posture, hands up, facing,
    head down, still / walking / running, a bag or suitcase on them, colour of top and trousers.
    Optionally, each vehicle's number plate is read and the camera's microphone listens for
@@ -35,6 +37,22 @@ what they catch to channels such as webhook, email and Telegram (see [Alerts](#a
 
 The detector, tracker, CLIP encoder, store and search are the engine in `src/histor/engine/`; the product modules sit on top in `src/histor/`. One uv environment,
 models in `models/`.
+
+### Things the detector misses
+
+The detector knows 80 classes. Anything else (a cart, a drone, a ladder) is found by change
+alone (`engine/motion.py`, `search.motion` in the config). Each frame is first cleaned of what
+is not a new thing: camera shake, swaying leaves, light changes, and objects already tracked.
+
+<img src="docs/images/change-detection-flow.svg" alt="From camera frame to moving thing or new still item" width="680" />
+
+To tell a thing passing from a thing left behind, the frame is compared with two backgrounds:
+one that learns in seconds and one that learns in minutes.
+
+<img src="docs/images/two-backgrounds.svg" alt="A ladder carried in and left, against a fast and a slow background" width="680" />
+
+Moving things are indexed today. New still items (the amber case) are planned: see
+[Next](#next).
 
 ## Models and licences
 
@@ -395,6 +413,7 @@ src/histor/
   ui.py                test UI (Gradio): record, find a person by photo, chat, reports
   mcp_server.py        the chat's tools over MCP, for other agents
   telegram_bot.py      the chat as a Telegram bot, for allowed chats
+docs/images/           diagrams shown in this README
 training/              fire and smoke model: runs, results, method
 notebooks/             models_tour.ipynb: each model, step by step
 models/                .onnx weights (git-ignored)
@@ -418,6 +437,8 @@ tests/smoke/           uv run pytest -m smoke: every entry point with the real m
 - [ ] Captions per scene (small VLM) stored next to the vectors, for questions CLIP handles badly
   (counting, "what was he doing").
 - [ ] Multi-camera timeline: follow one visit across cameras.
+- [ ] Search index: new still items (fast + slow background), scenes indexed when they change
+  instead of every 5 s, and results showing the matching tile next to the whole frame.
 
 ## Open questions
 

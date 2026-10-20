@@ -84,6 +84,13 @@ search:
   scene_interval_seconds: 5    # whole frame + tiles: catches what the detector has no class for
   scene_tiles: 2
   min_box_height: 40           # smaller crops carry too few pixels for CLIP to describe
+  # Moving things no tracked object covers (engine/motion.py), embedded as soon as they are seen
+  # in 2 frames, so something crossing in a second is not missed between two scenes. Ignores a
+  # camera shaking in the wind, swaying leaves and changes of light. ~4 ms a frame.
+  motion:
+    enabled: true
+    min_area: 0.002            # share of the frame (640x360: ~21x21 px)
+    max_per_second: 4          # crops embedded a second, at most (first sightings first)
 
 # Alerts: rules evaluated live on every tracked object, next to the memory. Off until a rule is
 # listed. Draw areas/lines in the test bench (Zones & lines tab) and paste them here.

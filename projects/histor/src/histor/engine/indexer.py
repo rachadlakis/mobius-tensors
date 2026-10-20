@@ -5,6 +5,9 @@ Per camera, on a background thread (detection never waits for it on live cameras
               most every `object_interval_seconds` (so one person is not stored 300 times)
   * scenes  - every `scene_interval_seconds` the whole frame plus a grid of tiles, so things
               the detector ignores (a box on the floor, an open gate, smoke) are searchable too
+  * motion  - moving things no tracked object covers (motion.py), embedded as soon as they
+              are seen in two frames: a cart or a drone crossing in one second is not missed
+              between two scenes
   * faces   - only if enabled for this camera: face prints of tracked people, checked every
               `face_interval_seconds`; blurred / tiny / side-on faces are skipped, and only a
               track's best `max_faces_per_track` are kept (an hour at a desk is not 3600 rows)
@@ -23,7 +26,7 @@ from __future__ import annotations
 import logging
 import queue
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -66,6 +69,7 @@ class _Job:
     scene: bool
     hires: np.ndarray | None = None  # keyframe the hi-res boxes refer to
     scene_image: np.ndarray | None = None  # frame for the scene + tiles (None: `frame`)
+    moving: list[tuple[int, np.ndarray]] = field(default_factory=list)  # blob id, box
 
 
 class SearchIndexer:
@@ -85,9 +89,11 @@ class SearchIndexer:
         blocking: bool = False,
         max_queue: int = 4,
         keyframe_max_age: float = 3.0,
+        motion: dict[str, Any] | None = None,
     ) -> None:
         """
         scene_tiles: n -> the frame is also embedded as an n x n grid (0 = whole frame only).
+        motion: MotionWatch options (+ `enabled`); None or no CLIP model: off.
         blocking: wait when the worker is busy (video files: index everything) instead of
                   dropping the job (live cameras: stay real-time).
         keyframe_max_age: scenes use the latest main-stream keyframe if it is this recent.
@@ -105,6 +111,11 @@ class SearchIndexer:
         self.max_faces_per_track = max_faces_per_track
         self.blocking = blocking
         self.keyframe_max_age = keyframe_max_age
+        self.motion = None
+        if embedder is not None and motion and motion.get("enabled", True):
+            from histor.engine.motion import MotionWatch
+
+            self.motion = MotionWatch(**{k: v for k, v in motion.items() if k != "enabled"})
         self._keyframe: HiResFrame | None = None
         self._hires_tracks: set[int] = set()  # tracks seen in a keyframe at least once
         self._last_object: dict[int, float] = {}
@@ -155,7 +166,7 @@ class SearchIndexer:
         """hires: a main-stream keyframe that arrived since the last call, if any."""
         if hires is not None:
             self._keyframe = hires
-        objects, faces = [], []
+        objects, faces, covered = [], [], []
         for track in tracks:
             if track.missed or track.label not in self.classes:
                 continue
@@ -165,6 +176,7 @@ class SearchIndexer:
             hi_ok = hbox is not None and hbox[3] - hbox[1] >= self.min_box_height
             if not (sub_ok or hi_ok):  # a far object can be big enough in the main stream only
                 continue
+            covered.append(box)  # embedded as an object: not again as motion
             if self._due(self._last_object, track.id, t, self.object_interval, hi_ok):
                 self._last_object[track.id] = t
                 objects.append((track.id, track.label, box, hbox if hi_ok else None))
@@ -181,13 +193,14 @@ class SearchIndexer:
         scene = self.embedder is not None and t - self._last_scene >= self.scene_interval
         if scene:
             self._last_scene = t
-        if not (objects or faces or scene):
+        moving = self.motion.update(frame, t, covered) if self.motion is not None else []
+        if not (objects or faces or scene or moving):
             return
         keyframe = self._keyframe
         fresh = keyframe is not None and abs(t - keyframe.time) <= self.keyframe_max_age
         job = _Job(frame.copy(), t, objects, faces, scene,
                    hires=hires.image if hires is not None else None,
-                   scene_image=keyframe.image if scene and fresh else None)
+                   scene_image=keyframe.image if scene and fresh else None, moving=moving)
         if self.blocking:
             self._queue.put(job)
             return
@@ -195,6 +208,8 @@ class SearchIndexer:
             self._queue.put_nowait(job)
         except queue.Full:
             self.dropped += 1  # live: better to skip an index step than to lag behind
+            if self.motion is not None and moving:  # but a fast object may not come back
+                self.motion.retry([i for i, _ in moving])
 
     def _due(self, last: dict[int, float], track_id: int, t: float, interval: float,
              hi_ok: bool) -> bool:
@@ -240,6 +255,15 @@ class SearchIndexer:
             thumb = self.store.save_thumb(crop, "thumbs", f"{self.camera}_{stamp}_{track_id}", t)
             rows.append({"camera": self.camera, "time": t, "kind": "object",
                          "track_id": track_id, "label": label, "box": box, "thumb": thumb})
+
+        for blob_id, box in job.moving:
+            crop = _crop(frame, box, pad=0.15)  # fast things blur: keep their whole streak
+            if crop is None:
+                continue
+            images.append(crop)
+            thumb = self.store.save_thumb(crop, "thumbs", f"{self.camera}_{stamp}_m{blob_id}", t)
+            rows.append({"camera": self.camera, "time": t, "kind": "motion", "box": box,
+                         "thumb": thumb})
 
         if job.scene:
             if job.scene_image is not None:  # main-stream keyframe: tiles keep their detail

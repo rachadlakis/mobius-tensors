@@ -82,7 +82,7 @@ def test_record_stores_every_kind_of_fact_and_sends_alerts(site, fakes):
         assert checked and all(e.get("verified") in ("yes", "skipped") for e in checked)
         assert all(store.media_path(e["snapshot"]) for e in events if e.get("snapshot"))
         kinds = {row[0] for row in store._db.execute("SELECT DISTINCT kind FROM sightings")}
-        assert kinds == {"object", "scene", "tile"}
+        assert kinds == {"object", "scene", "tile", "motion"}  # motion: what no track covers
     finally:
         store.close()
 

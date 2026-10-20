@@ -7,6 +7,7 @@ import threading
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import cv2
 import numpy as np
 import pytest
 
@@ -132,6 +133,26 @@ def test_indexer_intervals_scene_tiles_and_no_faces_by_default(store):
     counts = store.counts()
     # track 1 at t=0 and t=2 (track 2 is too small); one scene = 1 frame + 4 tiles
     assert counts["sightings"] == 2 + 5 and counts["faces"] == 0
+
+
+def test_indexer_stores_fast_things_the_detector_missed(store):
+    idx = SearchIndexer(store, "gate", FakeEmbedder(), scene_interval_seconds=1e9, blocking=True,
+                        motion={"enabled": True})
+    rng = np.random.default_rng(0)
+    base = cv2.resize(rng.integers(0, 255, (30, 40, 3), dtype=np.uint8), (320, 240))
+    t = 1000.0
+    for _ in range(30):
+        idx.update(base, [], t)
+        t += 0.1
+    for x in range(0, 280, 50):  # crosses in 0.6 s, no track
+        frame = base.copy()
+        cv2.rectangle(frame, (x, 100), (x + 30, 130), (255, 255, 255), -1)
+        idx.update(frame, [], t)
+        t += 0.1
+    idx.close()
+    rows = store._db.execute("SELECT track_id, thumb, box FROM sightings WHERE kind = 'motion'"
+                             ).fetchall()
+    assert rows and all(tid is None and thumb for tid, thumb, _ in rows)  # + the first scene
 
 
 def test_faces_enabled_rules():
