@@ -32,7 +32,7 @@ Company-wide, in [docs/mobius-tensors](docs/mobius-tensors/):
 
 Per project, next to its code:
 
-- [Histor](projects/histor/README.md): [README](projects/histor/README.md) and [DOCUMENTATION.md](projects/histor/DOCUMENTATION.md) (product, how it works, site installation, model research, roadmap); presentation, project summary PDF and partner programme in [projects/histor/docs](projects/histor/docs/)
+- [Histor](projects/histor/README.md): [README](projects/histor/README.md) (product, how it works, models and licences, site installation, roadmap, open questions)
 
 ## Layout
 

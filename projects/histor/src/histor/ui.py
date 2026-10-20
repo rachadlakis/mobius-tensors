@@ -177,10 +177,12 @@ class Recorder:
 
     def start(self, source: str, files: list[str] | None = None, camera: str | None = None,
               modules: list[str] | None = None, real_speed: bool = True,
-              loop: bool = False, save: bool = True) -> None:
+              loop: bool = False, save: bool = True, filmed_at: float | None = None) -> None:
         """files: videos / photos to play instead of `source`; camera: the name they are
         recorded under; modules: MODULES labels to run (None: as the config says); save:
-        False = files analysed only, in a store of their own (shown, then thrown away)."""
+        False = files analysed only, in a store of their own (shown, then thrown away);
+        filmed_at: unix time of the files' first frame (None: now), so events carry the
+        times a real camera would have given them."""
         if self.running:
             return
         self._stop.clear()
@@ -193,7 +195,8 @@ class Recorder:
             config = results_only(config, self._results_dir)
             self.results = EventStore.from_config(config["store"])
         self._thread = threading.Thread(
-            target=self._run, args=(source, files or [], config, real_speed, loop), daemon=True)
+            target=self._run, args=(source, files or [], config, real_speed, loop, filmed_at),
+            daemon=True)
         self._thread.start()
 
     def discard(self) -> None:
@@ -211,7 +214,7 @@ class Recorder:
             self._thread.join(timeout=60)  # the indexer finishes its queue first
 
     def _run(self, source: str, files: list[str], config: dict[str, Any], real_speed: bool,
-             loop: bool) -> None:
+             loop: bool, filmed_at: float | None = None) -> None:
         try:
             if files:
                 # Files: every indexing step runs (live=False), and sound is read from the file
@@ -219,7 +222,7 @@ class Recorder:
                 videos = [f for f in files if not is_image(f)]
                 audio = videos[0] if len(files) == 1 and videos and not loop else None
                 self.pipeline = Pipeline.from_config(config, source=self.camera, live=False,
-                                                     audio_source=audio)
+                                                     start_time=filmed_at, audio_source=audio)
                 frames = file_frames(files, real_speed, loop, self._stop)
             else:
                 self.pipeline = Pipeline.from_config(
@@ -373,10 +376,11 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                 gr.Button(interactive=recorder.running))
 
     def start(src: str, files: list[str] | None, sim_name: str, modules: list[str],
-              real_speed: bool, loop: bool, keep: str) -> tuple[Any, ...]:
+              real_speed: bool, loop: bool, keep: str,
+              filmed_at: float | None = None) -> tuple[Any, ...]:
         files = [f for f in files or [] if is_image(f) or Path(f).suffix.lower() in VIDEO_TYPES]
         recorder.start(src.strip() or source, files, sim_name if files else None, modules,
-                       real_speed, loop, save=keep != "results")
+                       real_speed, loop, save=keep != "results", filmed_at=filmed_at)
         return status_html(), gr.Timer(active=True), gr.Button(interactive=False), \
             gr.Button(interactive=True)
 
@@ -746,6 +750,10 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                                 info="Added: searchable, in Today and the reports, like a "
                                      "camera. Results only: nothing saved, no alerts sent.")
                             sim_name = gr.Textbox("sim", label="Camera name", max_lines=1)
+                            sim_when = gr.DateTime(
+                                label="Filmed at", include_time=True,
+                                info="Date and time of the first frame: events are saved at "
+                                     "the times a real camera would have given them. Empty: now.")
                             with gr.Row(elem_classes="ag-row-tight"):
                                 sim_real = gr.Checkbox(True, label="Real speed", min_width=0,
                                                        info="as fast as a camera sends")
@@ -783,7 +791,7 @@ def build_ui(config: dict[str, Any], camera: str, source: str) -> gr.Blocks:
                 live_timer = gr.Timer(0.2, active=False)
                 stats_timer = gr.Timer(2.0)
                 start_btn.click(start, [source_box, sim_files, sim_name, modules_box, sim_real,
-                                        sim_loop, sim_keep],
+                                        sim_loop, sim_keep, sim_when],
                                 [status, live_timer, start_btn, stop_btn])
                 stop_btn.click(stop, None, [status, live_timer, start_btn, stop_btn])
                 live_timer.tick(live, None, [view, status, live_timer, start_btn, stop_btn],

@@ -12,11 +12,9 @@ by the bench?"*.
 
 Histor is about **memory**: store all of it, ask any question later. It also **alerts**: the
 same recorder runs the engine's area and line rules live and sends
-what they catch to channels such as webhook and email (see [Alerts](#alerts)).
+what they catch to channels such as webhook, email and Telegram (see [Alerts](#alerts)).
 
 ## How it works
-
-![Histor: the perception pipeline (left) and the agent pipeline (right)](docs/images/architecture.svg)
 
 1. **Record** (one process per camera): detect and track every object (all 80 COCO classes),
    embed each tracked object with CLIP, and every few seconds embed the whole frame plus a 2x2
@@ -31,15 +29,37 @@ what they catch to channels such as webhook and email (see [Alerts](#alerts)).
 3. **Chat**: an LLM gets the store as tools (objects, search, alerts, people, plates, face,
    look), runs as many lookups as the question needs, and answers in sentences, listing the
    thumbnails it looked at as evidence. `look` lets a local vision model read those images.
-4. **Alert** (optional): areas, lines, crowding, abandoned bags, camera tampering, poses,
-   watchlist plates, sounds and fire or smoke (our own model) raise events while recording; each is stored with a snapshot and
-   sent to the channels whose filters accept it.
+4. **Alert** (optional): rules raise events while recording (see [Alerts](#alerts)).
 5. **Report** (optional): hourly, daily or weekly, a summary of what the chosen cameras saw,
    focused on what the owner asked to watch for, saved and sent (see [Reports](#reports)).
 
-The detector, tracker, CLIP encoder, store and search are the engine in `src/histor/engine/`
-([DOCUMENTATION.md](DOCUMENTATION.md#13-code-layout)); the product modules sit on top in `src/histor/`. One uv environment,
+The detector, tracker, CLIP encoder, store and search are the engine in `src/histor/engine/`; the product modules sit on top in `src/histor/`. One uv environment,
 models in `models/`.
+
+## Models and licences
+
+| Role                         | Model                                                                  | Licence                                   |
+| ---------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
+| Objects                      | YOLOX (size per machine: [Installing a site](#installing-a-site))      | Apache-2.0                                |
+| Search                       | CLIP ViT-B/32, OpenCLIP LAION-2B                                       | MIT                                       |
+| Body pose                    | ViTPose-B, COCO only (RTMPose-t: trials only, research training data) | Apache-2.0                                |
+| Fire and smoke               | our own YOLOv9 (`training/`)                                         | ours                                      |
+| Faces (opt-in)               | YuNet + SFace                                                          | MIT / Apache-2.0                          |
+| Plates (opt-in)              | finder open-image-models YOLOv9-t, reader fast-plate-ocr               | finder: trials only (see [Next](#next)); reader MIT |
+| Sounds (opt-in)              | YAMNet                                                                 | Apache-2.0                                |
+
+Chat and vision models: [Chat](#chat). A model ships only if code, weights **and** training data allow commercial use (no AGPL/GPL,
+no research-only), it runs on a CPU through ONNX and ports to C++. No PyTorch at run time.
+
+## Private by design
+
+- Runs on the site's own server, cameras on an isolated network: footage never leaves the building.
+- The chat model is local by default. A cloud model (Claude) is opt-in and receives text only
+  (question, times, cameras, labels, file names), never images; `look` and alert checking always
+  run locally.
+- Faces are off until the client approves in writing (biometric data); face prints are deleted
+  after 7 days. Plates and sounds are off by default; audio is classified in memory, never stored.
+- Retention: sightings and events 30 days, recordings 7 days (purged by the API server).
 
 ## Quick start
 
@@ -54,17 +74,17 @@ uv run -m histor.ask "person with a bag on street"
 uv run -m histor.ask                            # interactive, empty line quits
 ```
 
-The models run on the GPU when there is one (`device: auto`, see [GPU](DOCUMENTATION.md#14-models-and-licences)).
+The models run on the GPU when there is one (`device: auto`).
 NVIDIA machine: `uv sync --no-group cpu --group gpu`.
 
 ## Test on a laptop
 
 A laptop's webcam is enough to try recording, face search and the chat. Models: YOLOX and the
 face models (`uv run -m histor.engine.download_model yolox_nano` and `... faces`; the laptop config
-uses nano to stay fluid, sites use `yolox_s`);
+uses nano to stay fluid);
 CLIP is optional (without it, everything but search by description works), and so is the pose
 model (`uv run --group export -m histor.engine.export_pose`): with it, the live view draws each person's
-skeleton, and raising both hands for 3 s or lying down for 10 s fires an alert.
+skeleton and the pose alerts fire (see [Alerts](#alerts)).
 
 ```bash
 uv run --group ui -m histor.ui        # configs/laptop.yaml, opens http://127.0.0.1:7860
@@ -80,8 +100,7 @@ The other pages are in the top bar (*Test bench* appears with the *Developer* sw
 2. **Find a person**: upload a photo, or *Use a frame from the live camera*, pick a time range
    (`today`, `last 10 minutes`) and *Search*: likely / possible visits with their best face.
    No LLM needed.
-3. **Ask**: the chat, with *Attach photo* for face questions. Needs Ollama running
-   (`ollama serve`, `ollama pull qwen3.5:4b`, which also reads images) or the `claude` model (`uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env`).
+3. **Ask**: the chat, with *Attach photo* for face questions. Needs a chat model (see [Chat](#chat)).
 
 The test store is `data/store/laptop.db` (delete `data/store/laptop*` to start over), separate
 from a site's. Video files and camera URLs work as a source too.
@@ -89,7 +108,6 @@ from a site's. Video files and camera URLs work as a source too.
 ## Chat
 
 The model is a switch in `configs/default.yaml` (`chat.model`, entries under `chat.models`).
-Local is the default: the LLM runs on the site's server and nothing leaves it.
 
 | Entry              | Runs on                                                                                       | Setup                                                         |
 | ------------------ | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -102,8 +120,7 @@ Local is the default: the LLM runs on the site's server and nothing leaves it.
 | `nemotron-large` | Ollama, ~32 GB RAM or GPU (Nemotron 3.5 Lightning 30B-A3B, OpenMDW 1.1: read before shipping) | `ollama pull nemotron-3.5-lightning`                        |
 | `claude`         | Anthropic API (Claude Opus 5.5)                                                               | `uv sync --group claude`, `ANTHROPIC_API_KEY` in `.env` |
 
-The open models after `local` were added on 2026-10-08 to compare on the same questions; the
-default stays `qwen3:4b` until the planned evals pick a winner. The UI's *Ask* tab shows whether
+The open models after `local` are there to compare on the same questions (see [Next](#next)). The UI's *Ask* tab shows whether
 the selected model's server is up and the model downloaded. `note:` in an entry is shown there.
 
 ```bash
@@ -121,7 +138,7 @@ time as"):
 | What happened yesterday 6pm to 9pm?                                      | `objects(when="yesterday 6pm to 9pm")`: everything tracked, in time order, with counts                                                    |
 | How many cars came in today?                                             | `objects(labels=["car"], when="today")`: exact, one tracked object = one visit                                                            |
 | Anyone with a dog this morning?                                          | `objects(labels=["person"], with_labels=["dog"], when="this morning")`                                                                    |
-| A man in a red jacket near a car?                                        | `search(query="man in a red jacket", with_labels=["car"])`: CLIP, ranked guesses                                                          |
+| A man in a red jacket near a car?                                        | `search(query="man in a red jacket", with_labels=["car"])`: CLIP                                                                          |
 | Did any alert go off last night?                                         | `alerts(when="last night")`: what the alert rules fired, exact                                                                            |
 | Who entered the yard?                                                    | `alerts(rules=["yard"], types=["enter"])`                                                                                                 |
 | Did anyone fall in the warehouse last night?                             | `people(postures=["lying"], when="last night")`: seconds lying per person, exact; also `alerts(types=["down"])`                         |
@@ -144,9 +161,7 @@ In the interactive chat, `/model claude` switches model (and starts a new conver
 
 ### Looking for a person from a photo
 
-Needs `faces.enabled: true` (biometric data: client approval first, see the
-[engine docs](DOCUMENTATION.md#21-face-search-opt-in)), and only
-finds people on cameras that were recording faces at the time.
+Needs `faces.enabled: true` (see [Private by design](#private-by-design)), and only finds people on cameras that were recording faces at the time.
 
 ```text
 you> /photo visitor.jpg
@@ -173,11 +188,16 @@ results. `think: false` turns a thinking model's reasoning off (the vision model
 and alert checking has it off by default: a yes/no answer in a second, not minutes). Any
 OpenAI-compatible server works as `api: openai`: llama.cpp's `llama-server`
 (`base_url: http://127.0.0.1:8080/v1`), LM Studio, vLLM, or a hosted one with
-`api_key: ${SOME_KEY}`. Add an entry, no code change. With a cloud model, the question and the
-search results (times, cameras, labels, thumbnail paths) are sent, never images or video.
+`api_key: ${SOME_KEY}`. Add an entry, no code change.
 
 Small local models follow the tool instructions less reliably than large ones: if answers look
 wrong, run with tool calls visible and check which lookups it made.
+
+### Other agents (MCP)
+
+`uv run --group mcp -m histor.mcp_server --config configs/default.yaml` serves the same tools over
+MCP (stdio) for Claude, ChatGPT or a client's own agent, also from a laptop over SSH; `face` only
+with `mcp.face_search` (`mcp:` section).
 
 ## Alerts
 
@@ -210,8 +230,10 @@ alerts:
 Draw areas and lines in the test bench (**Zones & lines** tab) and paste the YAML. Each
 channel filters by `rules`, `events`, `labels`, `hours` and `cooldown_seconds`. Every event goes
 into the store with a snapshot, so the chat answers "did any alert go off last night?" from the
-full list, whatever the channels sent. Channel details and the plan for Telegram, WhatsApp, SMS
-and on-site sirens: [engine docs](DOCUMENTATION.md#17-alerts-and-channels).
+full list, whatever the channels sent. Webhook, email and Telegram work today; the same Telegram
+bot can also answer questions from allowed chats (`telegram:` section;
+only text leaves the site unless snapshots or clips are switched on). WhatsApp, SMS and on-site sirens
+are planned.
 
 More event types, each in its own config section and through the same channels:
 
@@ -220,15 +242,14 @@ More event types, each in its own config section and through the same channels:
 | `crowd`     | the area's name:`max_count` objects inside for `count_seconds` (queues, crowds)                | a zone in`zones:` | —                           |
 | `abandoned` | `abandoned_object`: a backpack, handbag or suitcase still and unattended for 60 s                | `abandoned:`      | off                          |
 | `tamper`    | `blocked` / `dark` / `blurred` / `moved` / `frozen`: the camera's own picture, for 20 s  | `tamper:`         | on                           |
-| `plate`     | the watchlist entry's name: a listed plate read twice on a vehicle                                 | `plates:`         | off (personal data)          |
-| `sound`     | `smoke_alarm`, `glass_break`, `gunshot`, `explosion`, `scream`, `car_alarm`, `siren` | `sounds:`         | off (listening is regulated) |
+| `plate`     | the watchlist entry's name: a listed plate read twice on a vehicle                                 | `plates:`         | off                          |
+| `sound`     | `smoke_alarm`, `glass_break`, `gunshot`, `explosion`, `scream`, `car_alarm`, `siren` | `sounds:`         | off                          |
 
-A one-way line (`direction: in`) is a wrong-way alarm. Sounds are classified in memory and never
-stored; they need ffmpeg and a camera with a microphone. Details and thresholds:
-[engine docs](DOCUMENTATION.md#16-areas-lines-and-other-rules).
+A one-way line (`direction: in`) is a wrong-way alarm. Sounds need ffmpeg and a camera with a
+microphone.
 
-Object rules work on the detector's 80 classes. Fire and smoke have their own model, trained
-by us (`training/`), and their own section, `fire:`. It raises a `fire` alert when flames or
+Object rules work on the detector's classes. Fire and smoke have their own model (see
+[Models](#models-and-licences)) and their own section, `fire:`. It raises a `fire` alert when flames or
 smoke are seen on 3 of 5 checks (every 0.5 s). Install the model with
 `uv run -m histor.engine.download_model fire_smoke`; the repo is private, so it needs
 `HF_TOKEN`. It adds early warning to certified smoke and heat detectors; it does not replace
@@ -237,8 +258,15 @@ rules and channels then apply unchanged.
 
 Body poses add two event types: `down` (rule `person_down`: a person lying for 10 s) and
 `hands_up` (both hands above the head for 3 s). Enable them in the `pose:` section
-(`alerts: [down]` by default); they reach the same channels and the same `alerts` tool. Details,
-models and limits: [engine docs](DOCUMENTATION.md#22-body-poses-what-people-were-doing).
+(`alerts: [down]` by default); they reach the same channels and the same `alerts` tool.
+
+### Alert checking
+
+Optional (`alerts.verify`): before an alert is sent, the local vision model (`qwen3.5:4b`) looks
+at its snapshot and a close-up and answers YES, NO or UNSURE. Mode `veto` holds a NO back (still
+stored, marked); `tag` sends everything with the verdict, to measure the model at a pilot. A model
+that is down or slow never stops an alert, and fire alerts are never held back. Each check costs
+seconds on a CPU: check rare, costly events (person down, abandoned bags), not every crossing.
 
 ## Reports
 
@@ -281,16 +309,14 @@ Reports are saved as JSON and Markdown under `data/store/reports/<name>/` (the U
 shows them, with the evidence thumbnails, and makes one on demand), then sent: email with up to 4
 thumbnails attached, webhook as JSON (`kind: report`, summary, counts, thumbnail paths). A new
 schedule starts with the next period; a period that ended while `report.py` was stopped is made
-when it starts again (the latest one only). With a cloud model, the counts and the interests are
-sent to it, never images.
+when it starts again (the latest one only).
 
 ## Cameras
 
-Cameras are declared under `cameras:` in `configs/default.yaml`, see
-[IP cameras](DOCUMENTATION.md#35-install-the-software). The `recording:` section saves
-each camera's main stream and crops from its full-resolution keyframes
-([details](DOCUMENTATION.md#20-main-stream-recording-and-hi-res-crops)). For the HTTP API
+Cameras are declared under `cameras:` in `configs/default.yaml`. The `recording:` section saves
+each camera's main stream and crops from its full-resolution keyframes. For the HTTP API
 (`/search`, `/search/face`, `/events`), run `uv run --group server -m histor.engine.server --config configs/default.yaml`.
+It also serves the dashboard at `/` (cameras, live alerts with verdicts, search).
 
 Give each camera an `about:` at install time, standing at the camera, so the chat knows what
 it looks at (example in `configs/default.yaml`):
@@ -308,8 +334,42 @@ It goes into the model's instructions as one short line per camera (cut at ~300 
 for small local models). Use roles ("manager's office"), not people's names: with a cloud
 model, this text is sent too.
 
+## Installing a site
+
+The essentials:
+
+- Cameras on a PoE switch cabled to the server only. The server has two network ports (cameras
+  on `10.50.0.0/24` with no gateway, the office LAN on the other) and does not route between them.
+  Never port-forward RTSP or the camera pages.
+- Cameras: ONVIF + RTSP, H.264; sub stream at 10–15 FPS for detection, main stream with a 1 s
+  I-frame interval for recording; smart codec, UPnP and cloud off; time from the server (NTP).
+- Ubuntu Server 24.04, CPU only is fine; a surveillance HDD for recordings (~43 GB per 1080p
+  camera per day).
+- One systemd service per camera (`histor-camera@<name>`), plus the API, reports and the optional
+  Telegram bot.
+- API and dashboard on `127.0.0.1:8000` with `server.token` set; reach them through an SSH tunnel,
+  a VPN or an HTTPS proxy.
+
+| Cameras | Server                                      | Detector                     | Disk (1080p, 7 days) |
+| ------- | ------------------------------------------- | ---------------------------- | -------------------- |
+| 1–4     | 8 cores, 16 GB RAM (32 with chat + vision) | `yolox_s`                  | 2 TB                 |
+| 5–12    | 16 cores, 32 GB RAM                         | `yolox_s` or `yolox_tiny` | 4–6 TB               |
+| 12+     | benchmark first; GPU server if needed       | `yolox_m`                  | ~0.3 TB per camera   |
+
+Starting points: run the site's cameras for an hour and watch the CPU before signing off.
+
+## Limits
+
+- Visual search gives ranked guesses: check the evidence frames.
+- A long occlusion can split one visit into two.
+- Not yet checked on a real site (next: a pilot site): alert checking (a week in `tag` mode),
+  person down (staged falls), face thresholds (CCTV), plate read rates, sound false alarms and
+  fire on real videos. Validate before promising them.
+- Weapons are not offered.
+
 ## Cost of "everything"
 
+Everything is sampled: each object every 2 s, each scene every 5 s, nothing under 40 px.
 Embedding every class costs more CPU and storage than the people-and-vehicles default of
 `configs/engine/search_example.yaml`. A CLIP crop takes ~30 ms on a laptop CPU, and each embedding is one 512-float
 row (2 KB). On live cameras the indexer drops jobs instead of slowing detection down, so a busy
@@ -324,7 +384,7 @@ configs/laptop.yaml    test on a laptop: webcam = camera "laptop", faces on, own
 configs/engine/        engine-only examples (detection, zones, search)
 src/histor/
   engine/              detector, tracker, zones, alerts, store, CLIP / faces / pose / plates / sounds,
-                       tamper and abandoned rules, search, API (DOCUMENTATION.md)
+                       tamper and abandoned rules, search, API
   record.py            recorder (engine/main.py with this config)
   ask.py               question -> ranked sightings (no LLM)
   report.py            hourly / daily / weekly / monthly reports: exact counts + LLM summary, saved and sent
@@ -333,6 +393,9 @@ src/histor/
   llm.py               model backends: Ollama, OpenAI-compatible (local) and Claude
   vision.py            the local vision model behind `look` (chat.vision)
   ui.py                test UI (Gradio): record, find a person by photo, chat, reports
+  mcp_server.py        the chat's tools over MCP, for other agents
+  telegram_bot.py      the chat as a Telegram bot, for allowed chats
+training/              fire and smoke model: runs, results, method
 notebooks/             models_tour.ipynb: each model, step by step
 models/                .onnx weights (git-ignored)
 tests/                 uv run pytest (tests/engine/ for the engine)
@@ -341,29 +404,25 @@ tests/smoke/           uv run pytest -m smoke: every entry point with the real m
 
 ## Next
 
-- [X] Chat layer with switchable models (local by default).
-- [X] Alerts: areas and lines, channels with filters (rules, events, labels, hours, cooldown),
-  chat tool over the alert history.
-- [ ] More alert channels: Telegram, WhatsApp, SMS, on-site siren / relay.
-- [X] Periodic reports: hourly / daily / weekly / monthly (or any range) per camera set and interests, saved and sent.
-  Next: set them up from the UI; "what did last night's report say" in the chat.
-- [X] Fire and smoke: our own YOLOv9 model (training/), `fire` alerts with persistence.
-  Next: real fire videos and a pilot site's own footage; CLIP score for fires that fill the frame.
-- [ ] Detectors trained per customer (customer-specific objects).
-- [X] Body poses: posture (with bending), hands up, facing, head down, still / walking /
-  running, carried bags, clothing colours (`people` tool), person-down and hands-up alerts. Next: staged-fall test at a pilot site; a smaller COCO-only pose model.
-- [ ] Chat in the browser: `/chat` endpoint + page showing the evidence thumbnails.
-- [ ] Evals: a fixed set of questions on recorded footage to compare local models.
-- [X] Better search vectors: CLIP B/32 LAION-2B, vectors tagged with their model (2026-10-09).
-- [X] `look`: a local vision model reads the evidence images for the chat (2026-10-09).
-- [X] Number plates: read per vehicle, `plates` tool, `GET /plates`, watchlist alerts
-  (2026-10-09).
 - [ ] **Urgent: train our own YOLOX plate finder** on Open Images' "Vehicle registration plate"
   boxes (CC BY 4.0) and set `plates.detector.type: yolox`. The current finder's weights were
-  trained with a fork of the GPL-3.0 YOLOv9 repo (MIT code): trials only until then. With
-  our own finder the plate pipeline is fully permissive.
-- [X] Sound events from camera microphones (2026-10-09). Next: check on real camera audio.
-- [X] Rules without a model: camera tampering, abandoned bags, crowding (2026-10-09).
+  trained with a fork of the GPL-3.0 YOLOv9 repo (MIT code): trials only until then.
+- [ ] Evals: a fixed set of questions on recorded footage to pick the default chat model
+  (`qwen3:4b` today).
+- [ ] More alert channels: WhatsApp, SMS, on-site siren / relay.
+- [ ] Logins per person (today one shared token per site); the chat in the dashboard.
+- [ ] Reports set up from the UI; "what did last night's report say" in the chat.
+- [ ] Fire: a CLIP score for fires that fill the frame.
+- [ ] A smaller COCO-only pose model.
+- [ ] Detectors trained per customer (customer-specific objects).
 - [ ] Captions per scene (small VLM) stored next to the vectors, for questions CLIP handles badly
   (counting, "what was he doing").
 - [ ] Multi-camera timeline: follow one visit across cameras.
+
+## Open questions
+
+- **Before the first paid site:** how updates reach client servers (signed releases, undo,
+  offline sites, what an unpaid site does), and how far to protect our code and models.
+- **Pilot offer:** what it costs, how long it lasts, and what result turns it into a sale.
+- **Contracts:** the face-search approval form; which countries allow plates and sound; what a
+  cloud chat model receives; how to word fire alerts.
