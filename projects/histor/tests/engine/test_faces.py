@@ -16,7 +16,6 @@ from histor.engine.faces import Face, FaceEngine, FaceQuality, PhotoFace, choose
 from histor.engine.indexer import SearchIndexer
 from histor.engine.query import parse_query
 from histor.engine.search import SearchEngine, face_answer, group_face_visits
-from histor.engine.store import EventStore
 from histor.engine.tracker import Track
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,13 +29,6 @@ def unit(*values: float) -> np.ndarray:
 def at(cos: float) -> np.ndarray:
     """A 2-d unit vector whose cosine with unit(1, 0) is `cos`."""
     return unit(cos, float(np.sqrt(1 - cos * cos)))
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
 
 
 # ------------------------------------------------------------------ quality

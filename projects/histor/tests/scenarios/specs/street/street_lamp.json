@@ -1,0 +1,4 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 40,
+             "layers": [{"kind": "lamp", "at": [0.8, 0.25], "radius": 14, "from": 5}]},
+ "negative": true, "scored_types": ["fire"],
+ "notes": "A warm lamp switched on at 5 s and left on: no fire alert."}

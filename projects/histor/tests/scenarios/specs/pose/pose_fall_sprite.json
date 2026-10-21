@@ -1,0 +1,6 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 40,
+             "layers": [{"kind": "person", "path": [[0.15, 0.92], [0.45, 0.92]], "height": 250,
+                         "from": 2, "fall_at": 12, "fall_seconds": 1}]},
+ "expect": [{"type": "down", "from": 13, "to": 13, "max_delay": 15}],
+ "xfail": "YOLOX-nano finds the lying sprite at 0.26, under its 0.35 threshold, so it is not tracked and its pose never sampled (baseline 2026-10-20)",
+ "notes": "A person (cut from data/basketball2.png) walks in, falls at 12 s and lies there; down within 15 s. 250 px tall: the lying box is 74 px high, so the pose suite sets pose.min_box_height 40 rather than sizing the sprite."}

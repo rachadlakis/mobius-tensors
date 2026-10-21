@@ -5,9 +5,9 @@ Per camera, on a background thread (detection never waits for it on live cameras
               most every `object_interval_seconds` (so one person is not stored 300 times)
   * scenes  - every `scene_interval_seconds` the whole frame plus a grid of tiles, so things
               the detector ignores (a box on the floor, an open gate, smoke) are searchable too
-  * motion  - moving things no tracked object covers (motion.py), embedded as soon as they
-              are seen in two frames: a cart or a drone crossing in one second is not missed
-              between two scenes
+  * motion  - moving things no tracked object covers (motion.py, from the camera's change
+              analysis: change.py), embedded as soon as they are seen in two frames: a cart
+              or a drone crossing in one second is not missed between two scenes
   * faces   - only if enabled for this camera: face prints of tracked people, checked every
               `face_interval_seconds`; blurred / tiny / side-on faces are skipped, and only a
               track's best `max_faces_per_track` are kept (an hour at a desk is not 3600 rows)
@@ -33,6 +33,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 import numpy as np
 
 if TYPE_CHECKING:
+    from histor.engine.change import Change, ChangeAnalyser
     from histor.engine.store import EventStore
     from histor.engine.tracker import Track
 
@@ -93,7 +94,9 @@ class SearchIndexer:
     ) -> None:
         """
         scene_tiles: n -> the frame is also embedded as an n x n grid (0 = whole frame only).
-        motion: MotionWatch options (+ `enabled`); None or no CLIP model: off.
+        motion: MotionWatch options (+ `enabled`); None or no CLIP model: off. update()
+                takes the camera's change analysis; without one, the indexer keeps its own
+                (from the analysis keys an older config has in `motion`).
         blocking: wait when the worker is busy (video files: index everything) instead of
                   dropping the job (live cameras: stay real-time).
         keyframe_max_age: scenes use the latest main-stream keyframe if it is this recent.
@@ -112,6 +115,8 @@ class SearchIndexer:
         self.blocking = blocking
         self.keyframe_max_age = keyframe_max_age
         self.motion = None
+        self._motion_options = motion or {}
+        self._change: ChangeAnalyser | None = None  # own analysis, when none is passed
         if embedder is not None and motion and motion.get("enabled", True):
             from histor.engine.motion import MotionWatch
 
@@ -147,7 +152,9 @@ class SearchIndexer:
                         "still recorded). Export it: uv run --group export -m histor.engine.export_clip",
                         image_model, camera)
         face_model = None
-        if faces_enabled(faces_config, camera):
+        from histor.engine.cameras import section_enabled
+
+        if section_enabled(faces_config, camera):
             from histor.engine.faces import FaceEngine
 
             face_model = FaceEngine.from_config(faces_config or {})
@@ -162,8 +169,9 @@ class SearchIndexer:
     # ------------------------------------------------------------ called per frame
 
     def update(self, frame: np.ndarray, tracks: list[Track], t: float,
-               hires: HiResFrame | None = None) -> None:
-        """hires: a main-stream keyframe that arrived since the last call, if any."""
+               hires: HiResFrame | None = None, change: Change | None = None) -> None:
+        """hires: a main-stream keyframe that arrived since the last call, if any.
+        change: the camera's change analysis of this frame (Pipeline)."""
         if hires is not None:
             self._keyframe = hires
         objects, faces, covered = [], [], []
@@ -194,7 +202,16 @@ class SearchIndexer:
         scene = self.embedder is not None and t - self._last_scene >= self.scene_interval
         if scene:
             self._last_scene = t
-        moving = self.motion.update(frame, t, covered) if self.motion is not None else []
+        moving = []
+        if self.motion is not None:
+            if change is None:
+                if self._change is None:
+                    from histor.engine.change import ChangeAnalyser
+
+                    self._change = ChangeAnalyser.from_config(
+                        {"search": {"motion": self._motion_options}})
+                change = self._change.update(frame, t)
+            moving = self.motion.update(change, t, covered)
         if not (objects or faces or scene or moving):
             return
         keyframe = self._keyframe
@@ -337,14 +354,6 @@ class SearchIndexer:
         kept.sort(key=lambda k: -k[0])
         if len(kept) > self.max_faces_per_track:
             self.store.delete_faces([kept.pop()[1]])
-
-
-def faces_enabled(config: dict[str, Any] | None, camera: str) -> bool:
-    """Faces are off unless `faces.enabled: true`; `faces.cameras` narrows it to some cameras."""
-    if not config or not config.get("enabled"):
-        return False
-    cameras = config.get("cameras")
-    return not cameras or camera in cameras
 
 
 def _crop(frame: np.ndarray, box: np.ndarray, pad: float = 0.0) -> np.ndarray | None:

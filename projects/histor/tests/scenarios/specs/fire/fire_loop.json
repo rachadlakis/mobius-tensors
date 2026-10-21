@@ -1,0 +1,4 @@
+{"clip": "data/test_videos/fire_loop.mp4",
+ "expect": [{"type": "fire", "rule": "fire", "from": 9, "to": 9, "max_delay": 3, "early": 3},
+            {"type": "fire", "rule": "smoke", "from": 24, "to": 24, "max_delay": 3, "early": 3}],
+ "notes": "training/fire_smoke/make_test_video.py: held-out pictures 3 s each, flames and smoke flickering inside their labelled boxes; fire from 9 s, smoke from 24 s, clean pictures between. One alert each within 3 s, nothing on the clean ones."}

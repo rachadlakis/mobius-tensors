@@ -85,12 +85,27 @@ search:
   scene_tiles: 2
   min_box_height: 40           # smaller crops carry too few pixels for CLIP to describe
   # Moving things no tracked object covers (engine/motion.py), embedded as soon as they are seen
-  # in 2 frames, so something crossing in a second is not missed between two scenes. Ignores a
-  # camera shaking in the wind, swaying leaves and changes of light. ~4 ms a frame.
+  # in 2 frames, so something crossing in a second is not missed between two scenes. What moved
+  # comes from the camera's change analysis (the `change` section below).
   motion:
     enabled: true
     min_area: 0.002            # share of the frame (640x360: ~21x21 px)
     max_per_second: 4          # crops embedded a second, at most (first sightings first)
+
+# What changed in the picture, worked out once per camera and frame (engine/change.py) and read by
+# search motion and fire (built only when one of them is on). ~2.5 ms a 1280x720 frame on a laptop
+# CPU. Older configs had the first six keys under search.motion; they are still read from there.
+change:
+  width: 320                   # px: the small copy analysed (the height follows)
+  light_change: 0.4            # share of the picture changed at once that is light, not a thing
+  max_shift: 0.08              # a camera jump bigger than this share of the picture: a new view
+  warmup_frames: 15            # frames before the background is trusted
+  history: 300                 # frames the background (OpenCV MOG2) learns from
+  var_threshold: 25            # how far from the background a pixel must be to count as changed
+  diff_threshold: 12           # grey levels a pixel must change from the last frame (flicker)
+  warm_min_value: 120          # brightness a red/orange/yellow pixel needs to count as warm
+  bright_value: 220            # brightness that counts as bright (flames at night, infrared)
+  colourless_saturation: 12    # mean saturation under which the picture is grey (infrared)
 
 # Alerts: rules evaluated live on every tracked object, next to the memory. Off until a rule is
 # listed. Draw areas/lines in the test bench (Zones & lines tab) and paste them here.
@@ -318,7 +333,7 @@ chat:
     max_images: 4              # per look
     max_side: 640              # shrink images to this (longest side): speed vs detail
 
-# Face prints are biometric data: off unless a client has approved it (DOCUMENTATION.md, section 21).
+# Face prints are biometric data: off by default, on when the client asks.
 # When on, the chat can look for a person from a photo: /photo visitor.jpg, then ask.
 faces:
   enabled: false
@@ -350,7 +365,7 @@ pose:
 
 # Number plates (plates.py): each tracked vehicle's plate read about once a second, searchable
 # with the chat's `plates` tool and GET /plates, and a `plate` alert for the watchlist. Plates
-# are personal data in many countries: off until the client agrees, and kept for
+# are personal data in many countries: off by default, on when the client asks; kept for
 # store.plate_retention_days (default: retention_days). Best with `recording:` on: plates are
 # read from the main stream's full-resolution keyframes. Models:
 # `uv run -m histor.engine.download_model plates` (the finder is for trials until a legal check,
@@ -376,8 +391,8 @@ plates:
 # Sound events from camera microphones (sound.py): YAMNet hears smoke alarms, breaking glass,
 # gunshots, explosions, screams, car alarms and sirens, and raises a `sound` alert (rule = the
 # group below) through the alert channels. Audio is classified in memory and never stored.
-# Listening is regulated in many places, often more than video: off until the client and the
-# local law allow it, and only on cameras that have a microphone. Reads the main stream's audio
+# Listening is regulated in many places, often more than video: off by default, on when the
+# client asks, and only on cameras that have a microphone. Reads the main stream's audio
 # (needs ffmpeg). Model: `uv run -m histor.engine.download_model sounds`.
 sounds:
   enabled: false

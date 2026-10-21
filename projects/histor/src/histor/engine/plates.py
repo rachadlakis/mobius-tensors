@@ -202,11 +202,3 @@ def crop_box(image: np.ndarray, box: Any, pad: float = 0.0) -> np.ndarray | None
     if x2 - x1 < 2 or y2 - y1 < 2:
         return None
     return image[y1:y2, x1:x2]
-
-
-def plates_enabled(config: dict[str, Any] | None, camera: str) -> bool:
-    """`plates` section on, and this camera listed (or no list: every camera)."""
-    if not config or not config.get("enabled"):
-        return False
-    cameras = config.get("cameras") or []
-    return not cameras or camera in cameras

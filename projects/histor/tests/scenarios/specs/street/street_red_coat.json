@@ -1,0 +1,5 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 40,
+             "layers": [{"kind": "warm_mover", "path": [[0.1, 0.75], [0.9, 0.7]], "size": [40, 70],
+                         "from": 10, "to": 30}]},
+ "negative": true, "scored_types": ["fire"],
+ "notes": "Red and orange cloth walking across: a fire look-alike, no fire alert."}

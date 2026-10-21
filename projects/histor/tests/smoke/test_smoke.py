@@ -457,31 +457,13 @@ FIRE_VIDEO = DATA / "test_videos" / "fire_loop.mp4"
                     reason="training/fire_smoke/make_test_video.py and download_model fire_smoke")
 @pytest.mark.parametrize("size", ["s", "t"])
 def test_fire_alerts_on_a_video(tmp_path, size):
-    """Held-out fire and smoke pictures in a video: each alerts within 3 s of coming into view,
-    once, with a snapshot; the clean stretches raise nothing."""
-    from histor.engine.pipeline import Pipeline
+    """The bench's fire_loop spec (tests/scenarios/specs/fire): held-out fire and smoke
+    pictures, flickering; each alerts within 3 s of coming into view, once, and the clean
+    stretches raise nothing. Both models, every frame (not realtime)."""
+    from histor.engine import scenarios
 
-    timeline = json.loads((DATA / "test_videos" / "fire_loop.json").read_text(encoding="utf-8"))
-    config = {"model": {"path": str(MODELS / "yolox_nano.onnx")},
-              "store": {"path": str(tmp_path / "db.sqlite")},
-              "fire": {"enabled": True,
-                       "model": {"path": str(MODELS / f"fire_smoke_yolov9{size}_640.onnx")}},
-              "alerts": {"console": False}}
-    pipe = Pipeline.from_config(config, source="kitchen", live=False, start_time=0.0)
-    cap = cv2.VideoCapture(str(FIRE_VIDEO))
-    fps, i = cap.get(cv2.CAP_PROP_FPS) or 10, 0
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            break
-        pipe.process(frame, i / fps)
-        i += 1
-    pipe.close()
-    rows = pipe.store._db.execute("SELECT time, rule, snapshot FROM events WHERE type = 'fire' "
-                                  "ORDER BY time").fetchall()
-    pipe.store.close()
-    for kind in ("fire", "smoke"):
-        start = min(t["from"] for t in timeline if t["kind"] == kind)
-        hits = [r for r in rows if r[1] == kind]
-        assert len(hits) == 1 and start <= hits[0][0] <= start + 3 and hits[0][2], (kind, rows)
-    assert len(rows) == 2  # nothing on the clean stretches
+    spec = scenarios.load_spec(scenarios.SPECS / "fire" / "fire_loop.json")
+    result = scenarios.run_spec(spec, workdir=tmp_path, overrides=[
+        f"fire.model.path=models/fire_smoke_yolov9{size}_640.onnx"])
+    s = scenarios.score(result, spec, ["fire"])
+    assert s.passed(spec) and len(result.events) == 2, result.events

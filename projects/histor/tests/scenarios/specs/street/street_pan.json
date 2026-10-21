@@ -1,0 +1,6 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 70,
+             "layers": [{"kind": "shift", "share": 0.0625, "from": 25}]},
+ "config": {"tamper": {"interval_seconds": 0.5, "hold_seconds": 10, "learn_seconds": 20,
+                       "obstructed_seconds": 20}},
+ "expect": [{"type": "tamper", "rule": "moved", "from": 25, "to": 25, "max_delay": 15}],
+ "notes": "The camera turned by 1/16 of its width at 25 s: moved within hold_seconds + 5 s."}

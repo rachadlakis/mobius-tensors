@@ -1,0 +1,7 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 70,
+             "layers": [{"kind": "slide", "a": [-0.6, 0, 0, 1], "b": [0, 0, 0.6, 1],
+                         "seconds": 3, "from": 25}]},
+ "config": {"tamper": {"interval_seconds": 0.5, "hold_seconds": 10, "learn_seconds": 20,
+                       "obstructed_seconds": 20}},
+ "expect": [{"type": "tamper", "rule": "obstructed", "from": 28, "to": 28, "max_delay": 30}],
+ "notes": "A van slides in from the left at 25 s and parks over 60% of the street: obstructed (not moved, not blocked) after obstructed_seconds."}

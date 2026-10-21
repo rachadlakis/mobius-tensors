@@ -61,6 +61,15 @@ def expand_env(value: str) -> str:
     return _ENV_VAR.sub(lookup, value)
 
 
+def section_enabled(section: dict[str, Any] | None, camera: str) -> bool:
+    """A config section (fire, pose, faces...) is on for this camera: `enabled: true`, and the
+    camera in its `cameras` list (no list, or an empty one: every camera)."""
+    if not section or not section.get("enabled"):
+        return False
+    cameras = section.get("cameras") or []
+    return not cameras or camera in cameras
+
+
 def camera_url(camera: dict[str, Any]) -> str:
     """Build the stream URL for one entry of the `cameras` config section."""
     from dotenv import load_dotenv

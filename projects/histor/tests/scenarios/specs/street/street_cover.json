@@ -1,0 +1,5 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 60, "layers": [{"kind": "cover", "from": 40}]},
+ "config": {"tamper": {"interval_seconds": 0.5, "hold_seconds": 10, "learn_seconds": 20,
+                       "obstructed_seconds": 20}},
+ "expect": [{"type": "tamper", "rule": "blocked", "from": 40, "to": 40, "max_delay": 15}],
+ "notes": "A hand over the lens at 40 s: blocked within hold_seconds + 5 s, nothing before."}

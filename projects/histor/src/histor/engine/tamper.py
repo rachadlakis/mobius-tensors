@@ -52,10 +52,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
+
+if TYPE_CHECKING:
+    from histor.engine.change import Change
 
 EVENT_TYPE = "tamper"
 CHECKS = ("blocked", "dark", "blurred", "moved", "obstructed", "frozen")
@@ -80,11 +83,21 @@ class Measure:
     peak: float = 0.0  # the crispest edges: 99.9th percentile of |Laplacian|
 
 
-def measure(frame: np.ndarray, width: int = 320) -> Measure:
+WIDTH = 320  # the grey copy's width (the change analysis gives the same copy at this width)
+
+
+def prepare(frame: np.ndarray) -> np.ndarray:
+    """The grey copy, WIDTH px wide."""
     h, w = frame.shape[:2]
-    scale = width / w
-    small = cv2.resize(frame, (width, max(1, round(h * scale))), interpolation=cv2.INTER_AREA)
-    grey = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY) if small.ndim == 3 else small
+    small = cv2.resize(frame, (WIDTH, max(1, round(h * WIDTH / w))), interpolation=cv2.INTER_AREA)
+    return cv2.cvtColor(small, cv2.COLOR_BGR2GRAY) if small.ndim == 3 else small
+
+
+def measure(frame: np.ndarray) -> Measure:
+    return measure_grey(prepare(frame))
+
+
+def measure_grey(grey: np.ndarray) -> Measure:
     blurred = cv2.GaussianBlur(grey.astype(np.float32), (0, 0), 2)
     magnitude = cv2.magnitude(cv2.Sobel(blurred, cv2.CV_32F, 1, 0),
                               cv2.Sobel(blurred, cv2.CV_32F, 0, 1))
@@ -182,9 +195,11 @@ class TamperCheck:
         return cls(**{k: v for k, v in config.items() if k not in {"enabled", "cameras"}})
 
     def update(self, frame: np.ndarray, t: float,
-               objects: Sequence[tuple[str, Sequence[float]]] | None = None
-               ) -> list[TamperEvent]:
-        """objects: what the detector found in this frame, as (label, box in frame pixels)."""
+               objects: Sequence[tuple[str, Sequence[float]]] | None = None,
+               change: Change | None = None) -> list[TamperEvent]:
+        """objects: what the detector found in this frame, as (label, box in frame pixels).
+        change: the camera's change analysis of this frame, if there is one (its grey copy is
+        used when it has tamper's width)."""
         h, w = frame.shape[:2]
         seen = [(name, [box[0] / w, box[1] / h, box[2] / w, box[3] / h])
                 for name, box in objects or []]  # boxes as shares of the frame
@@ -194,7 +209,8 @@ class TamperCheck:
         if t - self._last < self.interval:
             return []
         self._last = t
-        m = measure(frame)
+        m = measure_grey(change.grey if change is not None and change.width == WIDTH
+                         else prepare(frame))
         self.last_measure = m
         if self.started is None:
             self.started = t
@@ -463,10 +479,3 @@ def _what(cells: list[int], objects: list[tuple[str, list[float]]]) -> str | Non
         if count > best_count:
             best, best_count = label, count
     return best if best_count * 2 >= len(cells) else None
-
-
-def tamper_enabled(config: dict[str, Any] | None, camera: str) -> bool:
-    if not config or not config.get("enabled"):
-        return False
-    cameras = config.get("cameras") or []
-    return not cameras or camera in cameras

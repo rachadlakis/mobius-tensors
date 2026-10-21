@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from histor.engine.boxes import centre
+
 if TYPE_CHECKING:
     from histor.engine.tracker import Track
     from histor.engine.zones import Zone
@@ -43,10 +45,6 @@ class AbandonedEvent:
     track_id: int
     label: str
     seconds: float  # how long it had been still and alone
-
-
-def _centre(box: Any) -> tuple[float, float]:
-    return (float(box[0] + box[2]) / 2, float(box[1] + box[3]) / 2)
 
 
 class AbandonedWatch:
@@ -82,18 +80,18 @@ class AbandonedWatch:
             if track.missed or track.label not in self.classes:
                 continue  # a coasting track keeps its state
             box = np.asarray(track.box, float)
-            centre = _centre(box)
+            middle = centre(box)
             if self.zones and not any(z.contains(z.anchor(box)) for z in self.zones):
                 self._state.pop(track.id, None)
                 continue
             size = max(box[2] - box[0], box[3] - box[1], 1.0)
             state = self._state.get(track.id)
-            if state is None or np.hypot(centre[0] - state.anchor[0],
-                                         centre[1] - state.anchor[1]) > self.still_ratio * size:
-                state = _State(centre, t, None)  # (re)started: it moved
+            if state is None or np.hypot(middle[0] - state.anchor[0],
+                                         middle[1] - state.anchor[1]) > self.still_ratio * size:
+                state = _State((middle[0], middle[1]), t, None)  # (re)started: it moved
                 self._state[track.id] = state
             attended = any(
-                np.hypot(*(np.array(_centre(p)) - centre)) <= self.owner_distance * (p[3] - p[1])
+                np.hypot(*(centre(p) - middle)) <= self.owner_distance * (p[3] - p[1])
                 for p in people)
             if attended:
                 state.alone_since = None
@@ -106,10 +104,3 @@ class AbandonedWatch:
                 state.fired = True
                 events.append(AbandonedEvent(t, track.id, str(track.label), round(t - since, 1)))
         return events
-
-
-def abandoned_enabled(config: dict[str, Any] | None, camera: str) -> bool:
-    if not config or not config.get("enabled"):
-        return False
-    cameras = config.get("cameras") or []
-    return not cameras or camera in cameras

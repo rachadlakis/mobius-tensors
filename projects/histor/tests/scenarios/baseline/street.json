@@ -1,0 +1,775 @@
+{
+ "suite": "street",
+ "made": "2026-10-21T07:11:34",
+ "quick": false,
+ "set": [],
+ "runs": [
+  {
+   "spec": "street_cart",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.347,
+     "t": 22.6
+    }
+   ],
+   "sightings": {
+    "scene": 6,
+    "tile": 24,
+    "object": 148,
+    "motion": 14
+   },
+   "frames": 300,
+   "seconds": 30.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 52.71,
+     "median": 50.92,
+     "p95": 124.13
+    },
+    "change": {
+     "mean": 10.6,
+     "median": 5.45,
+     "p95": 43.14
+    },
+    "track": {
+     "mean": 1.78,
+     "median": 0.84,
+     "p95": 2.22
+    },
+    "tamper": {
+     "mean": 2.1,
+     "median": 0.02,
+     "p95": 7.77
+    },
+    "fire": {
+     "mean": 239.24,
+     "median": 217.92,
+     "p95": 735.96
+    }
+   },
+   "fire_checks": 157,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 14,
+    "blobs": 10,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 20.2,
+      "delay": 0.2,
+      "lag": 0.63,
+      "fire": false
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.347,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_cover",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.347,
+     "t": 22.6
+    },
+    {
+     "type": "tamper",
+     "rule": "blocked",
+     "label": "camera",
+     "score": 0.6,
+     "t": 50.0
+    }
+   ],
+   "sightings": {
+    "scene": 12,
+    "tile": 48,
+    "object": 191,
+    "motion": 17
+   },
+   "frames": 600,
+   "seconds": 60.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 40.92,
+     "median": 34.45,
+     "p95": 93.02
+    },
+    "change": {
+     "mean": 9.7,
+     "median": 5.56,
+     "p95": 35.02
+    },
+    "track": {
+     "mean": 1.35,
+     "median": 0.68,
+     "p95": 1.56
+    },
+    "tamper": {
+     "mean": 3.6,
+     "median": 0.02,
+     "p95": 26.55
+    },
+    "fire": {
+     "mean": 150.73,
+     "median": 0.02,
+     "p95": 625.99
+    }
+   },
+   "fire_checks": 217,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 17,
+    "blobs": 11,
+    "light_changes": 32,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 50.0,
+      "delay": 10.0,
+      "lag": 10.05,
+      "fire": false
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.347,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_lamp",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.345,
+     "t": 22.6
+    }
+   ],
+   "sightings": {
+    "scene": 8,
+    "tile": 32,
+    "object": 191,
+    "motion": 19
+   },
+   "frames": 400,
+   "seconds": 40.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 52.72,
+     "median": 51.19,
+     "p95": 119.05
+    },
+    "change": {
+     "mean": 10.44,
+     "median": 5.36,
+     "p95": 40.41
+    },
+    "track": {
+     "mean": 2.82,
+     "median": 0.84,
+     "p95": 2.87
+    },
+    "tamper": {
+     "mean": 1.79,
+     "median": 0.02,
+     "p95": 0.69
+    },
+    "fire": {
+     "mean": 203.6,
+     "median": 0.02,
+     "p95": 698.5
+    }
+   },
+   "fire_checks": 189,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 19,
+    "blobs": 13,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.345,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 0,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_motion_golden",
+   "variant": "colour",
+   "events": [],
+   "sightings": {
+    "scene": 1,
+    "tile": 4,
+    "motion": 89
+   },
+   "frames": 795,
+   "seconds": 79.5,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 36.49,
+     "median": 31.81,
+     "p95": 79.82
+    },
+    "change": {
+     "mean": 8.41,
+     "median": 5.96,
+     "p95": 22.15
+    },
+    "track": {
+     "mean": 2.48,
+     "median": 1.13,
+     "p95": 9.43
+    },
+    "tamper": {
+     "mean": 0.99,
+     "median": 0.03,
+     "p95": 3.27
+    }
+   },
+   "fire_checks": 0,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 89,
+    "blobs": 39,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 0,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_pan",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.347,
+     "t": 22.6
+    },
+    {
+     "type": "tamper",
+     "rule": "moved",
+     "label": "camera",
+     "score": 0.376,
+     "t": 35.0
+    }
+   ],
+   "sightings": {
+    "scene": 14,
+    "tile": 56,
+    "object": 273,
+    "motion": 62
+   },
+   "frames": 700,
+   "seconds": 70.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 57.29,
+     "median": 55.15,
+     "p95": 119.7
+    },
+    "change": {
+     "mean": 12.66,
+     "median": 7.15,
+     "p95": 37.97
+    },
+    "track": {
+     "mean": 2.51,
+     "median": 1.14,
+     "p95": 6.8
+    },
+    "tamper": {
+     "mean": 4.57,
+     "median": 0.02,
+     "p95": 28.12
+    },
+    "fire": {
+     "mean": 159.96,
+     "median": 0.02,
+     "p95": 633.52
+    }
+   },
+   "fire_checks": 237,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 62,
+    "blobs": 34,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 35.0,
+      "delay": 10.0,
+      "lag": 10.07,
+      "fire": false
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.347,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_quiet",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.347,
+     "t": 22.6
+    }
+   ],
+   "sightings": {
+    "scene": 16,
+    "tile": 64,
+    "object": 373,
+    "motion": 38
+   },
+   "frames": 795,
+   "seconds": 79.5,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 60.23,
+     "median": 61.69,
+     "p95": 86.34
+    },
+    "change": {
+     "mean": 14.02,
+     "median": 14.48,
+     "p95": 18.67
+    },
+    "track": {
+     "mean": 2.52,
+     "median": 1.29,
+     "p95": 6.58
+    },
+    "tamper": {
+     "mean": 1.2,
+     "median": 0.02,
+     "p95": 4.88
+    },
+    "fire": {
+     "mean": 134.9,
+     "median": 0.01,
+     "p95": 522.25
+    }
+   },
+   "fire_checks": 256,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 38,
+    "blobs": 27,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.347,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 0,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_red_coat",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.343,
+     "t": 22.6
+    }
+   ],
+   "sightings": {
+    "scene": 8,
+    "tile": 32,
+    "object": 191,
+    "motion": 20
+   },
+   "frames": 400,
+   "seconds": 40.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 65.12,
+     "median": 67.72,
+     "p95": 92.81
+    },
+    "change": {
+     "mean": 15.97,
+     "median": 16.38,
+     "p95": 20.36
+    },
+    "track": {
+     "mean": 3.08,
+     "median": 2.34,
+     "p95": 7.81
+    },
+    "tamper": {
+     "mean": 1.4,
+     "median": 0.02,
+     "p95": 3.92
+    },
+    "fire": {
+     "mean": 183.95,
+     "median": 0.02,
+     "p95": 534.35
+    }
+   },
+   "fire_checks": 177,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 20,
+    "blobs": 13,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.343,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 0,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_turn_signal",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.343,
+     "t": 22.6
+    }
+   ],
+   "sightings": {
+    "scene": 8,
+    "tile": 32,
+    "object": 191,
+    "motion": 17
+   },
+   "frames": 400,
+   "seconds": 40.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 64.34,
+     "median": 68.81,
+     "p95": 88.86
+    },
+    "change": {
+     "mean": 15.92,
+     "median": 16.39,
+     "p95": 20.49
+    },
+    "track": {
+     "mean": 2.6,
+     "median": 1.42,
+     "p95": 7.48
+    },
+    "tamper": {
+     "mean": 1.35,
+     "median": 0.02,
+     "p95": 3.28
+    },
+    "fire": {
+     "mean": 182.27,
+     "median": 0.02,
+     "p95": 546.67
+    }
+   },
+   "fire_checks": 177,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 17,
+    "blobs": 11,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.343,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 0,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "street_van_parks",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.347,
+     "t": 22.6
+    },
+    {
+     "type": "tamper",
+     "rule": "obstructed",
+     "label": "camera",
+     "score": 0.562,
+     "t": 48.5
+    }
+   ],
+   "sightings": {
+    "scene": 14,
+    "tile": 56,
+    "object": 262,
+    "motion": 35
+   },
+   "frames": 700,
+   "seconds": 70.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 54.65,
+     "median": 58.03,
+     "p95": 86.27
+    },
+    "change": {
+     "mean": 13.48,
+     "median": 13.92,
+     "p95": 19.84
+    },
+    "track": {
+     "mean": 2.18,
+     "median": 1.14,
+     "p95": 5.93
+    },
+    "tamper": {
+     "mean": 4.38,
+     "median": 0.02,
+     "p95": 27.22
+    },
+    "fire": {
+     "mean": 135.25,
+     "median": 0.02,
+     "p95": 525.22
+    }
+   },
+   "fire_checks": 237,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "motion": {
+    "reports": 35,
+    "blobs": 24,
+    "light_changes": 0,
+    "restarts": 0
+   },
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 48.5,
+      "delay": 20.5,
+      "lag": 20.65,
+      "fire": false
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [
+     {
+      "type": "fire",
+      "rule": "fire",
+      "label": "fire",
+      "score": 0.347,
+      "t": 22.6
+     }
+    ],
+    "early": [],
+    "still": [],
+    "motion": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  }
+ ],
+ "summary": {
+  "colour": {
+   "specs": 9,
+   "missing": [],
+   "recall": 1.0,
+   "early": 0,
+   "early_expects": 0,
+   "missed": [],
+   "still_only": 0,
+   "false_alarms": 0,
+   "known_false_alarms": 8,
+   "false_alarms_per_hour": 0.0,
+   "delay_median": 10.0,
+   "delay_max": 20.5,
+   "lag_median": 10.06,
+   "fire_checks_per_minute": 194.1,
+   "ms": {
+    "change": 12.66,
+    "detect": 54.65,
+    "fire": 171.12,
+    "tamper": 1.79,
+    "track": 2.51
+   }
+  }
+ }
+}

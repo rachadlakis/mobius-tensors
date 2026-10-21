@@ -296,10 +296,3 @@ class SoundListener:
         for event in self.rules.update(scores, start):
             self._events.put(event)
         self.seconds += len(scores) * HOP / SAMPLE_RATE
-
-
-def sounds_enabled(config: dict[str, Any] | None, camera: str) -> bool:
-    if not config or not config.get("enabled"):
-        return False
-    cameras = config.get("cameras") or []
-    return not cameras or camera in cameras

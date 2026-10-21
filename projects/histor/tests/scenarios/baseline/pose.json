@@ -1,0 +1,70 @@
+{
+ "suite": "pose",
+ "made": "2026-10-20T21:05:01",
+ "quick": false,
+ "set": [],
+ "runs": [
+  {
+   "spec": "pose_fall_sprite",
+   "variant": "colour",
+   "events": [],
+   "sightings": {},
+   "frames": 400,
+   "seconds": 40.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 40.45,
+     "median": 38.9,
+     "p95": 60.4
+    },
+    "track": {
+     "mean": 83.65,
+     "median": 0.97,
+     "p95": 332.61
+    }
+   },
+   "fire_checks": 0,
+   "realtime": false,
+   "skipped": 0,
+   "missing": null,
+   "score": {
+    "hits": [],
+    "missed": [
+     0
+    ],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": false,
+    "expects": 1,
+    "early_expects": 0
+   }
+  }
+ ],
+ "summary": {
+  "colour": {
+   "specs": 1,
+   "missing": [],
+   "recall": 0.0,
+   "early": 0,
+   "early_expects": 0,
+   "missed": [
+    "pose_fall_sprite#0"
+   ],
+   "still_only": 0,
+   "false_alarms": 0,
+   "known_false_alarms": 0,
+   "false_alarms_per_hour": 0.0,
+   "delay_median": null,
+   "delay_max": null,
+   "lag_median": null,
+   "fire_checks_per_minute": 0.0,
+   "ms": {
+    "detect": 40.45,
+    "track": 83.65
+   }
+  }
+ }
+}

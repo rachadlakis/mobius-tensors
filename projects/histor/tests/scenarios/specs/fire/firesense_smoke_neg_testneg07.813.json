@@ -1,0 +1,5 @@
+{
+ "clip": "data/test_videos/firesense/smoke/neg/testneg07.813.avi",
+ "negative": true,
+ "notes": "FIRESENSE smoke video, negative."
+}

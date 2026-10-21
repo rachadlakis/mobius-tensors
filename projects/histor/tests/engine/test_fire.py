@@ -10,37 +10,14 @@ import numpy as np
 import pytest
 
 from histor.engine.alerts import AlertManager
-from histor.engine.detector import Detection, Yolov9OnnxDetector
-from histor.engine.fire import FireWatch, fire_enabled
+from histor.engine.detector import Yolov9OnnxDetector
+from histor.engine.fire import FireWatch
 from histor.engine.pipeline import Pipeline
-from histor.engine.store import EventStore
 from histor.engine.verify import AlertVerifier
+from kit import Clock, Scripted, fire_box, live
 
 ROOT = Path(__file__).resolve().parents[2]
 SMALL = ROOT / "models" / "fire_smoke_yolov9s_640.onnx"
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
-
-
-def fire_box(label: str = "fire", score: float = 0.8) -> Detection:
-    return Detection(100, 100, 200, 220, score, 0 if label == "fire" else 1, label)
-
-
-class Scripted:
-    """A detector that returns script(call number)."""
-
-    def __init__(self, script):
-        self.script, self.calls = script, 0
-
-    def detect(self, frame):
-        out = self.script(self.calls)
-        self.calls += 1
-        return out
 
 
 # ------------------------------------------------------------------ decoding
@@ -130,27 +107,6 @@ def test_checks_only_every_interval():
     assert calls.calls == 3
 
 
-class Clock:
-    """A detector that sees fire when burning(now) says so; counts its checks."""
-
-    def __init__(self, burning):
-        self.burning, self.now, self.times = burning, 0.0, []
-
-    def detect(self, frame):
-        self.times.append(self.now)
-        return [fire_box()] if self.burning(self.now) else []
-
-
-def live(watch: FireWatch, clock: Clock, seconds: float, fps: float = 25.0):
-    """Frames at `fps` for `seconds`, like a camera: the events with their times."""
-    frame = np.zeros((10, 10, 3), np.uint8)
-    events = []
-    for i in range(int(seconds * fps)):
-        clock.now = round(i / fps, 3)
-        events += watch.update(frame, clock.now)
-    return events
-
-
 def test_one_sighting_and_the_next_frames_are_checked_at_once():
     clock = Clock(lambda t: t >= 1.0)  # flames from 1.0 s
     events = live(FireWatch(clock), clock, 3.0)
@@ -185,9 +141,6 @@ def test_config():
     assert FireWatch(Scripted(lambda i: []), window=5).window == 2.5  # old configs still load
     with pytest.raises(ValueError):
         FireWatch(Scripted(lambda i: []), classes=["flames"])
-    assert fire_enabled({"enabled": True}, "gate")
-    assert not fire_enabled({"enabled": True, "cameras": ["yard"]}, "gate")
-    assert not fire_enabled(None, "gate")
 
 
 # ------------------------------------------------------------------ pipeline

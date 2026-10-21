@@ -39,7 +39,7 @@ import numpy as np
 from histor.engine.cameras import camera_about, expand_env
 from histor.engine.detector import COCO_CLASSES
 from histor.engine.faces import choose_face
-from histor.engine.indexer import faces_enabled
+from histor.engine.cameras import section_enabled
 from histor.llm import Tool, ToolCall, ToolResult
 from histor.engine.pose import CARRIED, COLOURS, MOTIONS, POSTURES
 from histor.engine.search import SearchEngine, group_visits
@@ -554,7 +554,7 @@ class Toolbox:
         for name in rng.cameras or sorted(set(self.about) | set(counts)):
             c: dict[str, Any] = {"camera": name, "faces_recorded": counts.get(name, 0)}
             if self.faces_config is not None:
-                c["face_recording_on"] = faces_enabled(self.faces_config, name)
+                c["face_recording_on"] = section_enabled(self.faces_config, name)
             if self.about.get(name, {}).get("faces"):
                 c["face_view"] = self.about[name]["faces"]
             checked.append(c)

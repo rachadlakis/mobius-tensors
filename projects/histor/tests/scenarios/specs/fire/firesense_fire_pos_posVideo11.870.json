@@ -1,0 +1,12 @@
+{
+ "clip": "data/test_videos/firesense/fire/pos/posVideo11.870.avi",
+ "expect": [
+  {
+   "type": "fire",
+   "from": 0.0,
+   "max_delay": 30.0,
+   "early": 3.0
+  }
+ ],
+ "notes": "FIRESENSE fire video, positive."
+}

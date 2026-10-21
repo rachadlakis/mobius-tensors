@@ -1,17 +1,27 @@
 import cv2
 import numpy as np
+import pytest
+from histor.engine.change import ChangeAnalyser
 from histor.engine.motion import MotionWatch
+from kit import scene_noise
 
 W, H = 640, 360
 
 
-def scene(seed: int = 0) -> np.ndarray:
-    """A textured still view (edges everywhere, like a real yard)."""
-    noise = np.random.default_rng(seed).integers(0, 255, (H // 8, W // 8, 3), dtype=np.uint8)
-    return cv2.resize(noise, (W, H), interpolation=cv2.INTER_CUBIC)
+class Watch:
+    """MotionWatch fed by its camera's change analysis, as in the Pipeline."""
+
+    def __init__(self) -> None:
+        self.analyser, self.motion = ChangeAnalyser(), MotionWatch()
+
+    def update(self, frame: np.ndarray, t: float, covered=None):
+        return self.motion.update(self.analyser.update(frame, t), t, covered)
+
+    def retry(self, ids):
+        self.motion.retry(ids)
 
 
-def learned(watch: MotionWatch, base: np.ndarray, frames: int = 40) -> float:
+def learned(watch: Watch, base: np.ndarray, frames: int = 40) -> float:
     t = 0.0
     for _ in range(frames):
         assert watch.update(base, t) == []
@@ -20,7 +30,7 @@ def learned(watch: MotionWatch, base: np.ndarray, frames: int = 40) -> float:
 
 
 def test_fast_object_crossing_in_half_a_second_is_reported():
-    watch, base = MotionWatch(), scene()
+    watch, base = Watch(), scene_noise()
     t = learned(watch, base)
     reported = []
     for x in range(0, W - 40, 100):  # 40 px square, 100 px a frame: 6 frames at 12.5 fps
@@ -34,7 +44,7 @@ def test_fast_object_crossing_in_half_a_second_is_reported():
 
 
 def test_tracked_objects_are_left_to_the_indexer():
-    watch, base = MotionWatch(), scene()
+    watch, base = Watch(), scene_noise()
     t = learned(watch, base)
     for x in range(0, 400, 50):
         frame = base.copy()
@@ -44,7 +54,7 @@ def test_tracked_objects_are_left_to_the_indexer():
 
 
 def test_camera_shake_is_not_motion():
-    watch, base = MotionWatch(), scene()
+    watch, base = Watch(), scene_noise()
     t = learned(watch, base)
     for i in range(20):
         dx, dy = (3, -2) if i % 2 else (-2, 3)  # swaying in the wind
@@ -55,7 +65,7 @@ def test_camera_shake_is_not_motion():
 
 
 def test_light_change_is_not_motion():
-    watch, base = MotionWatch(), scene()
+    watch, base = Watch(), scene_noise()
     t = learned(watch, base)
     darker = (base * 0.5).astype(np.uint8)  # a cloud: taken as shadow
     for _ in range(5):
@@ -65,11 +75,11 @@ def test_light_change_is_not_motion():
     for _ in range(5):
         assert watch.update(brighter, t) == []
         t += 0.08
-    assert watch.light_changes > 0
+    assert watch.analyser.light_changes > 0
 
 
 def test_busy_indexer_gets_the_blob_again():
-    watch, base = MotionWatch(), scene()
+    watch, base = Watch(), scene_noise()
     t = learned(watch, base)
     first = []
     x = 0
@@ -82,3 +92,26 @@ def test_busy_indexer_gets_the_blob_again():
     frame = base.copy()
     cv2.rectangle(frame, (x, 150), (x + 40, 190), (255, 255, 255), -1)
     assert [i for i, _ in watch.update(frame, t)] == [first[0][0]]
+
+
+def test_turned_camera_forgets_its_blobs():
+    watch, base = Watch(), scene_noise()
+    t = learned(watch, base)
+    for x in (0, 30):
+        watch.update(with_square(base, x), t)
+        t += 0.08
+    assert watch.motion._blobs
+    watch.update(np.roll(base, 100, axis=1), t)  # a new view
+    assert not watch.motion._blobs and watch.analyser.restarts == 1
+
+
+def test_old_analysis_keys_are_accepted_and_unknown_ones_are_not():
+    MotionWatch(width=320, history=100, min_area=0.004)  # read by change.py now
+    with pytest.raises(TypeError, match="unknown"):
+        MotionWatch(colour=True)
+
+
+def with_square(base: np.ndarray, x: int) -> np.ndarray:
+    frame = base.copy()
+    cv2.rectangle(frame, (x, 150), (x + 40, 190), (255, 255, 255), -1)
+    return frame

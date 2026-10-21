@@ -1,0 +1,4 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 40,
+             "layers": [{"kind": "turn_signal", "at": [0.3, 0.55], "hz": 1.5, "from": 5}]},
+ "negative": true, "scored_types": ["fire"],
+ "notes": "An orange light blinking at 1.5 Hz (a parked car's indicator): no fire alert."}

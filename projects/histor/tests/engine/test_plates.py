@@ -21,29 +21,17 @@ from histor.engine.indexer import HiResFrame
 from histor.engine.pipeline import Pipeline
 from histor.engine.plate_index import PlateIndexer, parse_watchlist
 from histor.engine.plates import (PlateDetector, PlateRead, PlateReader, crop_box, letterbox,
-                                 normalize_plate, plate_distance, plate_key, plates_enabled)
+                                 normalize_plate, plate_distance, plate_key)
 from histor.engine.search import SearchEngine, plate_visits
 from histor.engine.store import EventStore
-from histor.engine.tracker import Track, Tracker
+from histor.engine.tracker import Tracker
 from histor.llm import ToolCall
 from histor.tools import Toolbox
+from kit import track
 
 ROOT = Path(__file__).resolve().parents[2]
 NOW = datetime(2026, 10, 9, 12, 0)
 T0 = NOW.timestamp() - 3600  # 11:00 today
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
-
-
-def track(tid: int, box, label: str = "car", missed: int = 0) -> Track:
-    t = Track(id=tid, box=np.array(box, float), score=0.9, label_votes={label: 1.0})
-    t.missed = missed
-    return t
 
 
 class FakeDetector:
@@ -88,7 +76,7 @@ def indexer(store, reads, **options) -> PlateIndexer:
 
 def run(idx: PlateIndexer, seconds: int, tracks=None, start: float = T0, fps: int = 2):
     frame = np.full((480, 640, 3), 120, np.uint8)
-    tracks = tracks if tracks is not None else [track(1, [100, 100, 400, 300])]
+    tracks = tracks if tracks is not None else [track(1, [100, 100, 400, 300], "car")]
     for i in range(seconds * fps):
         idx.update(frame, tracks, start + i / fps)
 
@@ -215,13 +203,6 @@ def test_crop_box_padding_and_edges():
     assert crop_box(image, (50, 50, 51, 51)) is None
 
 
-def test_plates_enabled():
-    assert not plates_enabled(None, "gate") and not plates_enabled({"enabled": False}, "gate")
-    assert plates_enabled({"enabled": True}, "gate")
-    assert plates_enabled({"enabled": True, "cameras": ["gate"]}, "gate")
-    assert not plates_enabled({"enabled": True, "cameras": ["yard"]}, "gate")
-
-
 def test_download_names_match_config_defaults():
     names = set(download_model.PLATE_MODELS)
     assert {"plate_ocr_cct_s_v2.onnx", "plate_ocr_cct_s_v2.yaml", "plate_yolov9_t_384.onnx"} == names
@@ -241,7 +222,7 @@ def test_watchlist_parsing():
 
 def test_samples_vehicles_once_per_interval(store):
     idx = indexer(store, [("AB123", 0.9)])
-    run(idx, 5, [track(1, [100, 100, 400, 300]), track(2, [10, 10, 60, 200], "person"),
+    run(idx, 5, [track(1, [100, 100, 400, 300], "car"), track(2, [10, 10, 60, 200], "person"),
                  track(3, [0, 0, 300, 20], "truck"),               # too small (20 px tall)
                  track(4, [300, 100, 600, 300], "bus", missed=1)])  # not seen this frame
     idx.close()
@@ -282,7 +263,7 @@ def test_reads_from_hires_keyframe_when_matched(store):
     frame = np.full((360, 640, 3), 50, np.uint8)
     key = np.full((1080, 1920, 3), 200, np.uint8)
     hires = HiResFrame(T0, key, {1: np.array([300, 300, 1200, 900])})
-    idx.update(frame, [track(1, [100, 100, 400, 300])], T0, hires)
+    idx.update(frame, [track(1, [100, 100, 400, 300], "car")], T0, hires)
     idx.close()
     h, w = idx.detector.calls[0]
     assert (h, w) == (660, 990)  # the hi-res box, padded 5%: not the sub-stream one
@@ -329,7 +310,7 @@ def test_live_queue_drops_instead_of_blocking(store):
                        interval_seconds=0, blocking=False, max_queue=1, min_plate_width=1)
     frame = np.zeros((480, 640, 3), np.uint8)
     for i in range(10):
-        idx.update(frame, [track(1, [100, 100, 400, 300])], T0 + i)
+        idx.update(frame, [track(1, [100, 100, 400, 300], "car")], T0 + i)
     gate.set()
     idx.close()
     assert idx.dropped > 0
@@ -620,7 +601,7 @@ def test_real_models_end_to_end_in_the_indexer(store):
     frame = np.full((720, 1280, 3), 60, np.uint8)
     frame[300:600, 400:900] = synthetic_car("AB12CD")
     for i in range(3):
-        idx.update(frame, [track(5, [400, 300, 900, 600])], T0 + i)
+        idx.update(frame, [track(5, [400, 300, 900, 600], "car")], T0 + i)
     idx.close()
     rows = store.plate_rows()
     assert rows and {r["text"] for r in rows} == {"AB12CD"}

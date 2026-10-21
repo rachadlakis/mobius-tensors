@@ -1,0 +1,4 @@
+{"compose": {"base": "data/vtest.avi", "seconds": 30,
+             "layers": [{"kind": "fast", "from": 20, "seconds": 0.8, "y": 0.6, "size": [60, 40]}]},
+ "expect_sightings": [{"kind": "motion", "from": 20, "max_delay": 1, "near": [0, 330, 768, 400]}],
+ "notes": "A white cart (no detector class) crosses the whole picture in 0.8 s at 20 s: a motion row overlapping it within 1 s."}

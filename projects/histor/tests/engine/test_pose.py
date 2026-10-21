@@ -3,6 +3,7 @@ people search. Synthetic keypoints and a fake model; the real models only in the
 
 from __future__ import annotations
 
+import functools
 from datetime import datetime
 from pathlib import Path
 
@@ -11,12 +12,13 @@ import numpy as np
 import pytest
 
 from histor.engine.pose import (L_ANK, L_EYE, L_HIP, L_KNEE, L_SHO, L_WRI, NOSE, R_ANK, R_EYE, R_HIP, R_KNEE,
-                  R_SHO, R_WRI, _decode_heatmaps, describe, pack_keypoints, pose_enabled,
+                  R_SHO, R_WRI, _decode_heatmaps, describe, pack_keypoints,
                   unpack_keypoints)
 from histor.engine.pose_index import PoseIndexer, _carrying, _motion
 from histor.engine.search import SearchEngine, match_people, person_visits
 from histor.engine.store import EventStore
 from histor.engine.tracker import Track
+from kit import track
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -32,13 +34,6 @@ def person(**moves: tuple[float, float]) -> np.ndarray:
         "right_ankle": (40, 180)}
     pts.update(moves)
     return np.array([[x, y, 0.9] for x, y in pts.values()], dtype=np.float32)
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
 
 
 def test_postures():
@@ -120,12 +115,6 @@ def test_pack_and_decode():
     assert decoded[0, NOSE, 1] == pytest.approx((10 + 0.5) * 4 - 0.5)
 
 
-def test_pose_enabled_rules():
-    assert not pose_enabled(None, "gate") and not pose_enabled({"enabled": False}, "gate")
-    assert pose_enabled({"enabled": True}, "gate")
-    assert not pose_enabled({"enabled": True, "cameras": ["lobby"]}, "gate")
-
-
 class FakePose:
     """`pose_for(box)` decides each person's keypoints (relative to the box). The worker runs
     later than update(), so the pose must come from the job itself, not from a shared value."""
@@ -141,9 +130,7 @@ class FakePose:
         return [self.pose_for(b) + np.array([b[0], b[1], 0], np.float32) for b in boxes]
 
 
-def track(box: list[float]) -> Track:
-    return Track(id=7, box=np.array(box, dtype=float), score=0.9, label_votes={"person": 1.0},
-                 hits=5)
+walker = functools.partial(track, 7, hits=5)  # the one person these tests follow
 
 
 def test_indexer_stores_changes_and_fires_down(store):
@@ -155,7 +142,7 @@ def test_indexer_stores_changes_and_fires_down(store):
     t0 = datetime(2026, 10, 8, 9).timestamp()
     for i in range(30):
         box = [10 + i * 20, 10, 110 + i * 20, 210]  # walking: sampled every second
-        indexer.update(frame, [track(box)], t0 + i)
+        indexer.update(frame, [walker(box)], t0 + i)
     indexer.close()
     rows = store.pose_rows()
     postures = [r["posture"] for r in rows]
@@ -191,7 +178,7 @@ def test_indexer_records_motion_and_carrying(store):
     frame = np.zeros((300, 1200, 3), np.uint8)
     for i in range(6):
         x = 10 + i * 150  # 0.75 body heights a second
-        person_track = track([x, 10, x + 100, 210])
+        person_track = walker([x, 10, x + 100, 210])
         suitcase = Track(id=8, box=np.array([x + 60, 120, x + 110, 200], dtype=float), score=0.8,
                          label_votes={"suitcase": 1.0}, hits=5)
         indexer.update(frame, [person_track, suitcase], 1000.0 + i)
@@ -230,11 +217,11 @@ def test_indexer_samples_still_people_less(store):
                           blocking=True)
     frame = np.zeros((300, 300, 3), np.uint8)
     for i in range(12):
-        indexer.update(frame, [track([10, 10, 110, 210])], 1000.0 + i)  # not moving
+        indexer.update(frame, [walker([10, 10, 110, 210])], 1000.0 + i)  # not moving
     indexer.close()
     assert fake.calls == 4  # every 3 s instead of every second
     small = PoseIndexer(store, "lobby", fake, min_box_height=80, blocking=True)
-    small.update(frame, [track([10, 10, 40, 60])], 2000.0)  # 50 px tall: skipped
+    small.update(frame, [walker([10, 10, 40, 60])], 2000.0)  # 50 px tall: skipped
     small.close()
     assert fake.calls == 4
 

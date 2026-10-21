@@ -1,0 +1,4 @@
+{"clip": "data/test_videos/fire_poster.mp4",
+ "expect": [{"type": "fire", "rule": "fire", "from": 0, "max_delay": 30}],
+ "expect_note": "not moving",
+ "notes": "One fire picture held still for 30 s (make_test_video.py): a poster or a screen. Recorded as it is now; the still-spot rule (S3) may alert later with the note 'not moving', which this spec allows."}

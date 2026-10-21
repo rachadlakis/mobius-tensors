@@ -13,26 +13,14 @@ import pytest
 
 from histor.engine.alerts import AlertManager, EmailSink
 from histor.engine.faces import FaceQuality, PhotoFace
-from histor.engine.indexer import SearchIndexer, faces_enabled
+from histor.engine.indexer import SearchIndexer
 from histor.engine.query import parse_query
 from histor.engine.search import SearchEngine, group_visits
 from histor.engine.store import EventStore
-from histor.engine.tracker import Track
 from histor.engine.zones import ZoneEvent
+from kit import FakeEmbedder, track, unit
 
 NOW = datetime(2026, 9, 29, 15, 30)  # a Tuesday
-
-
-def unit(*values: float) -> np.ndarray:
-    v = np.array(values, dtype=np.float32)
-    return v / np.linalg.norm(v)
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite", retention_days=30, face_retention_days=7)
-    yield s
-    s.close()
 
 
 # ------------------------------------------------------------------ query parsing
@@ -108,19 +96,6 @@ def test_store_purge_respects_face_retention(store, tmp_path):
 
 # ------------------------------------------------------------------ indexer
 
-class FakeEmbedder:
-    def __init__(self):
-        self.calls = 0
-
-    def embed_images(self, images):
-        self.calls += len(images)
-        return np.stack([unit(float(im.mean()) + 1, 1) for im in images])
-
-
-def track(tid, box, label="person"):
-    return Track(id=tid, box=np.array(box, float), score=0.9, label_votes={label: 1.0})
-
-
 def test_indexer_intervals_scene_tiles_and_no_faces_by_default(store):
     emb = FakeEmbedder()
     idx = SearchIndexer(store, "gate", emb, object_interval_seconds=2, scene_interval_seconds=5,
@@ -153,14 +128,6 @@ def test_indexer_stores_fast_things_the_detector_missed(store):
     rows = store._db.execute("SELECT track_id, thumb, box FROM sightings WHERE kind = 'motion'"
                              ).fetchall()
     assert rows and all(tid is None and thumb for tid, thumb, _ in rows)  # + the first scene
-
-
-def test_faces_enabled_rules():
-    assert not faces_enabled(None, "shop")
-    assert not faces_enabled({"enabled": False}, "shop")
-    assert faces_enabled({"enabled": True}, "shop")
-    assert faces_enabled({"enabled": True, "cameras": ["shop"]}, "shop")
-    assert not faces_enabled({"enabled": True, "cameras": ["shop"]}, "gate")
 
 
 def test_group_visits_merges_track(store):

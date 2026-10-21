@@ -8,66 +8,19 @@ import cv2
 import numpy as np
 import pytest
 
-from histor.engine.abandoned import AbandonedWatch, abandoned_enabled
+from histor.engine.abandoned import AbandonedWatch
 from histor.engine.alerts import AlertManager, alert_message
+from histor.engine.change import ChangeAnalyser
 from histor.engine.detector import Detection
 from histor.engine.pipeline import Pipeline
 from histor.engine.search import SearchEngine
-from histor.engine.store import EventStore
-from histor.engine.tamper import TamperCheck, measure, similarity, tamper_enabled
+from histor.engine.tamper import TamperCheck, measure, similarity
 from histor.engine.tracker import Track, Tracker
 from histor.engine.zones import Zone, ZoneMonitor
 from histor.tools import Toolbox
+from kit import Scripted, feed, learned, noisy, scene_shapes, track
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
-
-
-def scene(seed: int = 0, shape=(360, 640)) -> np.ndarray:
-    """A textured view: rectangles and lines, like a street with buildings."""
-    rng = np.random.default_rng(seed)
-    image = np.full((*shape, 3), 110, np.uint8)
-    for _ in range(60):
-        x, y = int(rng.integers(0, shape[1] - 60)), int(rng.integers(0, shape[0] - 40))
-        w, h = int(rng.integers(15, 80)), int(rng.integers(10, 60))
-        cv2.rectangle(image, (x, y), (x + w, y + h), tuple(int(c) for c in rng.integers(0, 255, 3)), -1)
-    for _ in range(30):
-        p = tuple(int(v) for v in rng.integers(0, 640, 2))
-        q = tuple(int(v) for v in rng.integers(0, 360, 2))
-        cv2.line(image, (p[0], q[0]), (p[1], q[1]), (240, 240, 240), 2)
-    return image
-
-
-def noisy(image: np.ndarray, seed: int) -> np.ndarray:
-    noise = np.random.default_rng(seed).normal(0, 3, image.shape)
-    return np.clip(image + noise, 0, 255).astype(np.uint8)
-
-
-def feed(check: TamperCheck, frames, start: float, seconds: float, step: float = 1.0):
-    events = []
-    t = start
-    i = 0
-    while t < start + seconds:
-        frame = frames(i) if callable(frames) else frames
-        events += check.update(frame, t)
-        t += step
-        i += 1
-    return events, t
-
-
-def learned(**options) -> tuple[TamperCheck, np.ndarray, float]:
-    """A check that has learned its normal view (60 s of a noisy textured scene)."""
-    check = TamperCheck(interval_seconds=1, hold_seconds=10, learn_seconds=30, **options)
-    view = scene()
-    events, t = feed(check, lambda i: noisy(view, i), 0, 60)
-    assert events == [] and check.sharpness is not None and check.reference is not None
-    return check, view, t
 
 
 # ------------------------------------------------------------------ tamper
@@ -117,7 +70,7 @@ def test_defocused_is_blurred():
 
 def test_turned_camera_is_moved_once_then_the_new_view_is_normal():
     check, view, t = learned()
-    other = scene(seed=7)
+    other = scene_shapes(seed=7)
     events, t = feed(check, lambda i: noisy(other, i), t, 40)
     assert [e.kind for e in events] == ["moved"] and events[0].value < 0.5
     events, _ = feed(check, lambda i: noisy(other, i), t, 60)
@@ -134,7 +87,7 @@ def test_frozen_stream():
 def test_no_blur_verdict_while_learning_and_checks_subset():
     check = TamperCheck(interval_seconds=1, hold_seconds=5, learn_seconds=1000,
                         checks=["blurred", "blocked"])
-    view = scene()
+    view = scene_shapes()
     events, t = feed(check, lambda i: noisy(view, i), 0, 20)
     events2, _ = feed(check, lambda i: cv2.GaussianBlur(view, (31, 31), 12), t, 20)
     assert events == events2 == [] and check.sharpness is None
@@ -144,25 +97,22 @@ def test_no_blur_verdict_while_learning_and_checks_subset():
 
 def test_interval_limits_work():
     check = TamperCheck(interval_seconds=2)
-    view = scene()
+    view = scene_shapes()
     for i in range(30):
         check.update(view, i * 0.1)
     assert check._last == pytest.approx(2.0)
 
 
-def test_tamper_config_errors_and_enabled():
+def test_tamper_config_errors():
     with pytest.raises(ValueError, match="unknown"):
         TamperCheck(checks=["smoke"])
-    assert tamper_enabled({"enabled": True}, "gate")
-    assert not tamper_enabled({"enabled": True, "cameras": ["yard"]}, "gate")
-    assert not tamper_enabled(None, "gate")
 
 
 def test_similarity_of_views():
-    view = scene()
+    view = scene_shapes()
     same = similarity(measure(view).gradient, measure(noisy(view, 1)).gradient)
     shifted = similarity(measure(view).gradient, measure(np.roll(view, 60, 1)).gradient)
-    other = similarity(measure(view).gradient, measure(scene(7)).gradient)
+    other = similarity(measure(view).gradient, measure(scene_shapes(7)).gradient)
     darker = similarity(measure(view).gradient, measure((view * 0.6).astype(np.uint8)).gradient)
     assert same > 0.95 and darker > 0.9 and shifted < 0.5 and other < 0.4
     flat = np.zeros((45, 80), np.float32)
@@ -175,7 +125,7 @@ def test_pointed_at_a_wall_is_blocked_and_learns_no_reference():
     wall[::40] = 140  # faint stripes
     events, t = feed(check, lambda i: noisy(wall, i), 0, 20)
     assert [e.kind for e in events] == ["blocked"] and check.reference is None
-    events, _ = feed(check, lambda i: noisy(scene(), i), t, 20)
+    events, _ = feed(check, lambda i: noisy(scene_shapes(), i), t, 20)
     assert events == [] and check.reference is not None  # a real view: learned, not "moved"
 
 
@@ -285,7 +235,7 @@ def test_on_screen_clock_does_not_hide_a_turn():
         return frame
 
     check = TamperCheck(interval_seconds=1, hold_seconds=10, learn_seconds=30)
-    view, other = scene(), scene(seed=7)
+    view, other = scene_shapes(), scene_shapes(seed=7)
     events, t = feed(check, lambda i: clock(noisy(view, i), i), 0, 60)
     assert events == [] and check._overlay is not None and check._overlay[:30].any()
     events, _ = feed(check, lambda i: clock(noisy(other, i), i), t, 30)
@@ -300,68 +250,11 @@ def test_night_look_of_the_same_view_is_not_moved():
     assert events == []
 
 
-VIDEO = ROOT / "data" / "vtest.avi"
-
-
-@pytest.mark.skipif(not VIDEO.exists(), reason="sample video data/vtest.avi")
-def test_real_street_video_no_false_alarm_then_covered():
-    cap = cv2.VideoCapture(str(VIDEO))
-    frames = []
-    while len(frames) < 400:
-        ok, frame = cap.read()
-        if not ok:
-            break
-        frames.append(frame)
-    cap.release()
-    assert len(frames) >= 300
-    check = TamperCheck(interval_seconds=0.5, hold_seconds=10, learn_seconds=20)
-    events = []
-    for i, frame in enumerate(frames):  # ~10 fps: ~40 s of pedestrians
-        events += check.update(frame, i * 0.1)
-    assert events == []
-    t = len(frames) * 0.1
-    hand = np.full_like(frames[-1], 25)
-    for i in range(150):
-        events += check.update(hand, t + i * 0.1)
-    assert [e.kind for e in events] == ["blocked"]
-
-
-@pytest.mark.skipif(not VIDEO.exists(), reason="sample video data/vtest.avi")
-@pytest.mark.parametrize("change, expected", [
-    ("truck", ["obstructed"]),  # a van parks over 60% of the street, people walk on
-    ("pan", ["moved"]),         # the camera is turned by 1/16 of its width
-])
-def test_real_street_video_truck_parks_or_camera_turns(change, expected):
-    cap = cv2.VideoCapture(str(VIDEO))
-    frames = []
-    while len(frames) < 700:
-        ok, frame = cap.read()
-        if not ok:
-            break
-        frames.append(frame)
-    cap.release()
-    check = TamperCheck(interval_seconds=0.5, hold_seconds=10, learn_seconds=20,
-                        obstructed_seconds=20)
-    h, w = frames[0].shape[:2]
-    events = []
-    for i, frame in enumerate(frames):  # ~10 fps: 70 s, the change after 25 s
-        if i >= 250 and change == "truck":
-            frame = frame.copy()
-            frame[:, : int(w * 0.6)] = (60, 70, 150)
-            cv2.rectangle(frame, (20, h // 3), (int(w * 0.6) - 20, h // 3 + 30), (230, 230, 230), -1)
-        elif i >= 250:
-            frame = shifted(frame, w // 16, 4)
-        events += check.update(frame, i * 0.1)
-    assert [e.kind for e in events] == expected
+# On the real street (data/vtest.avi): covered, a van parking, the camera turned are scenario
+# bench specs (tests/scenarios/specs/street: street_cover, street_van_parks, street_pan).
 
 
 # ------------------------------------------------------------------ abandoned
-
-def tr(tid: int, box, label: str, missed: int = 0) -> Track:
-    t = Track(id=tid, box=np.array(box, float), score=0.9, label_votes={label: 1.0})
-    t.missed = missed
-    return t
-
 
 BAG = [300, 300, 340, 340]
 
@@ -371,8 +264,8 @@ def run_watch(watch: AbandonedWatch, seconds: float, people, bag=BAG, start: flo
     events = []
     for i in range(int(seconds / step)):
         t = start + i * step
-        tracks = [tr(bag_id, bag(t) if callable(bag) else bag, "suitcase")]
-        tracks += [tr(100 + k, p(t), "person") for k, p in enumerate(people)]
+        tracks = [track(bag_id, bag(t) if callable(bag) else bag, "suitcase")]
+        tracks += [track(100 + k, p(t), "person") for k, p in enumerate(people)]
         events += watch.update(tracks, [], t)
     return events
 
@@ -423,11 +316,11 @@ def test_passer_by_resets_the_clock():
 def test_missed_frames_keep_state_and_removed_tracks_forget():
     watch = AbandonedWatch(seconds=10)
     for t in range(8):
-        watch.update([tr(9, BAG, "backpack")], [], t)
-    watch.update([tr(9, BAG, "backpack", missed=1)], [], 8)  # not detected for a frame
-    events = watch.update([tr(9, BAG, "backpack")], [], 10)
+        watch.update([track(9, BAG, "backpack")], [], t)
+    watch.update([track(9, BAG, "backpack", missed=1)], [], 8)  # not detected for a frame
+    events = watch.update([track(9, BAG, "backpack")], [], 10)
     assert len(events) == 1
-    watch.update([], [tr(9, BAG, "backpack")], 11)
+    watch.update([], [track(9, BAG, "backpack")], 11)
     assert 9 not in watch._state
 
 
@@ -447,13 +340,12 @@ def test_abandoned_from_config():
     assert watch.seconds == 45 and watch.zones == [zone] and watch.classes == {"suitcase"}
     with pytest.raises(ValueError, match="not areas"):
         AbandonedWatch.from_config({"zones": ["lobby"]}, [zone])
-    assert abandoned_enabled({"enabled": True}, "x") and not abandoned_enabled({}, "x")
 
 
 # ------------------------------------------------------------------ crowd
 
 def people(n: int, start: int = 0) -> list[Track]:
-    return [tr(start + i, [100 + 30 * i, 100, 120 + 30 * i, 200], "person") for i in range(n)]
+    return [track(start + i, [100 + 30 * i, 100, 120 + 30 * i, 200], "person") for i in range(n)]
 
 
 def test_crowd_fires_after_count_seconds_and_rearms():
@@ -479,8 +371,8 @@ def test_crowd_counts_only_its_classes_and_inside():
     zone = Zone("queue", [[0, 0], [0.5, 0], [0.5, 1], [0, 1]], classes=["person"],
                 max_count=2, count_seconds=0, confirm_frames=1)
     zone.resolve((640, 360))
-    outside = [tr(50, [500, 100, 520, 200], "person")]
-    cars = [tr(60, [10, 10, 60, 60], "car"), tr(61, [70, 10, 120, 60], "car")]
+    outside = [track(50, [500, 100, 520, 200], "person")]
+    cars = [track(60, [10, 10, 60, 60], "car"), track(61, [70, 10, 120, 60], "car")]
     events = zone.update(people(1) + outside + cars, [], 0)
     assert not [e for e in events if e.type == "crowd"]
 
@@ -494,15 +386,30 @@ def test_crowd_config():
 
 # ------------------------------------------------------------------ pipeline, store, chat
 
-class Scripted:
-    def __init__(self, script) -> None:
-        self.script = script
-        self.i = 0
+def test_tamper_with_shared_change_gives_identical_events():
+    view = scene_shapes()
+    frozen = noisy(view, 999)
 
-    def detect(self, frame):
-        out = self.script(self.i)
-        self.i += 1
-        return out
+    def frame(i: int) -> np.ndarray:
+        if i < 60:
+            return noisy(view, i)
+        if i < 80:
+            return noisy(np.roll(view, 80, 1), i)  # turned
+        if i < 100:
+            return np.full((360, 640, 3), 30, np.uint8)  # covered
+        return frozen  # a stuck stream
+
+    runs = []
+    for shared in (False, True):
+        check = TamperCheck(interval_seconds=1, hold_seconds=10, learn_seconds=30)
+        analyser = ChangeAnalyser()
+        events = []
+        for i in range(130):
+            change = analyser.update(frame(i), float(i)) if shared else None
+            events += check.update(frame(i), float(i), change=change)
+        runs.append([(e.time, e.kind, e.value, e.label) for e in events])
+    assert runs[0] == runs[1] and {kind for _, kind, _, _ in runs[0]} >= {
+        "moved", "blocked", "frozen"}
 
 
 def test_pipeline_tamper_without_any_tracker(store):
@@ -510,7 +417,7 @@ def test_pipeline_tamper_without_any_tracker(store):
     pipe = Pipeline(Scripted(lambda i: []), alerts=alerts, store=store, start_time=0.0,
                     tamper=TamperCheck(interval_seconds=1, hold_seconds=5, learn_seconds=5))
     assert pipe.tracker is None
-    view, covered = scene(), np.full((360, 640, 3), 30, np.uint8)
+    view, covered = scene_shapes(), np.full((360, 640, 3), 30, np.uint8)
     for i in range(20):
         pipe.process(noisy(view, i), float(i))
     for i in range(20, 30):

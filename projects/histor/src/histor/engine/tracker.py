@@ -10,7 +10,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from histor.engine.boxes import greedy_match, iou_matrix
 from histor.engine.detector import Detection
+
+__all__ = ["Track", "Tracker", "greedy_match", "iou_matrix"]  # the box helpers: boxes.py
 
 
 @dataclass
@@ -27,38 +30,6 @@ class Track:
     def label(self) -> str:
         """Most confident label seen so far (robust to car/truck flicker)."""
         return max(self.label_votes, key=lambda k: self.label_votes[k])
-
-
-def iou_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Pairwise IoU between (N, 4) and (M, 4) xyxy boxes."""
-    if len(a) == 0 or len(b) == 0:
-        return np.zeros((len(a), len(b)))
-    x1 = np.maximum(a[:, None, 0], b[None, :, 0])
-    y1 = np.maximum(a[:, None, 1], b[None, :, 1])
-    x2 = np.minimum(a[:, None, 2], b[None, :, 2])
-    y2 = np.minimum(a[:, None, 3], b[None, :, 3])
-    inter = np.clip(x2 - x1, 0, None) * np.clip(y2 - y1, 0, None)
-    area_a = (a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1])
-    area_b = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
-    return inter / (area_a[:, None] + area_b[None, :] - inter + 1e-9)
-
-
-def greedy_match(iou: np.ndarray, threshold: float) -> list[tuple[int, int]]:
-    """Match rows to columns by descending IoU; each row/column used at most once."""
-    pairs: list[tuple[int, int]] = []
-    if iou.size == 0:
-        return pairs
-    used_rows, used_cols = set(), set()
-    for flat in np.argsort(-iou, axis=None):
-        r, c = divmod(int(flat), iou.shape[1])
-        if iou[r, c] < threshold:
-            break
-        if r in used_rows or c in used_cols:
-            continue
-        pairs.append((r, c))
-        used_rows.add(r)
-        used_cols.add(c)
-    return pairs
 
 
 class Tracker:

@@ -13,6 +13,8 @@ from typing import Any, Protocol
 import cv2
 import numpy as np
 
+from histor.engine.boxes import iou_matrix
+
 COCO_CLASSES = (
     "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
     "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
@@ -81,18 +83,13 @@ def decode_yolox(outputs: np.ndarray, input_size: tuple[int, int], p6: bool = Fa
 
 def nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[int]:
     """Greedy single-class NMS on xyxy boxes."""
-    x1, y1, x2, y2 = boxes.T
-    areas = (x2 - x1) * (y2 - y1)
     order = scores.argsort()[::-1]
     keep: list[int] = []
     while order.size > 0:
         i = int(order[0])
         keep.append(i)
         rest = order[1:]
-        w = np.maximum(0.0, np.minimum(x2[i], x2[rest]) - np.maximum(x1[i], x1[rest]))
-        h = np.maximum(0.0, np.minimum(y2[i], y2[rest]) - np.maximum(y1[i], y1[rest]))
-        inter = w * h
-        iou = inter / (areas[i] + areas[rest] - inter + 1e-9)
+        iou = iou_matrix(boxes[i:i + 1], boxes[rest])[0]
         order = rest[iou <= iou_threshold]
     return keep
 

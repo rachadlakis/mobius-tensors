@@ -5,7 +5,8 @@ local stand-ins for what Histor talks to over the network.
                   from the question's words, then an answer quoting the last result) and the
                   vision model (`look`, alert checking)
     FakeTelegram  the Bot API: records each call, serves one photo for downloads
-    FakeWebhook   records every JSON POST
+    FakeWebhook   records every request: method, path and the JSON body (None when empty)
+    FakePing      a dead-man's switch (Healthchecks.io style): records path, method and time
 
 Nothing leaves this machine. The real ONNX models in models/ do the rest.
 """
@@ -19,6 +20,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -179,8 +181,15 @@ class FakeTelegram(Fake):
 
 class FakeWebhook(Fake):
     def reply(self, method: str, path: str, headers: Any, body: bytes) -> tuple[int, str, bytes]:
-        self.requests.append({"path": path, "body": json.loads(body)})
+        self.requests.append({"method": method, "path": path,
+                              "body": json.loads(body) if body else None})
         return _json({"ok": True})
+
+
+class FakePing(Fake):
+    def reply(self, method: str, path: str, headers: Any, body: bytes) -> tuple[int, str, bytes]:
+        self.requests.append({"path": path, "method": method, "time": time.time()})
+        return 200, "text/plain", b"OK"
 
 
 # ------------------------------------------------------------------ the recorded site

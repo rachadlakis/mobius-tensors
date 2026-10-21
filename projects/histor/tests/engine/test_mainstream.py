@@ -19,7 +19,8 @@ from histor.engine.indexer import HiResFrame, SearchIndexer
 from histor.engine.mainstream import Keyframe, MainStream, Recordings, prune_recordings, read_bmp
 from histor.engine.pipeline import Pipeline
 from histor.engine.store import EventStore
-from histor.engine.tracker import Track, Tracker
+from histor.engine.tracker import Tracker
+from kit import track
 
 URL = "rtsp://admin:s3cret@10.50.0.11:554/Streaming/Channels/101"
 
@@ -131,10 +132,6 @@ class ShapeEmbedder:
         return np.tile(np.array([1, 0], np.float32), (len(images), 1))
 
 
-def track(tid, box, label="person"):
-    return Track(id=tid, box=np.array(box, float), score=0.9, label_votes={label: 1.0})
-
-
 def test_indexer_upgrades_to_hires_and_keeps_fast_objects(tmp_path):
     store = EventStore(tmp_path / "db.sqlite")
     emb = ShapeEmbedder()
@@ -188,7 +185,7 @@ class CaptureIndexer:
     def __init__(self):
         self.hires = []
 
-    def update(self, frame, tracks, t, hires=None):
+    def update(self, frame, tracks, t, hires=None, change=None):
         self.hires.append(hires)
 
     def close(self):

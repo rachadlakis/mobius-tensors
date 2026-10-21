@@ -73,13 +73,6 @@ def server():
     s.close()
 
 
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
-
-
 def add_scene(store: EventStore, t: float, name: str, size=(480, 640), colour=(0, 0, 200)) -> str:
     image = np.full((*size, 3), colour, np.uint8)
     rel = store.save_image(image, "scenes", name, t)

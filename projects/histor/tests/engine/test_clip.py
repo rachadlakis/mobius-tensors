@@ -28,13 +28,6 @@ def unit(*values: float) -> np.ndarray:
     return v / np.linalg.norm(v)
 
 
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
-
-
 class FakeSession:
     def __init__(self, meta: dict[str, str] | None) -> None:
         self.meta = meta

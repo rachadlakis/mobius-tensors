@@ -1,0 +1,6 @@
+{"clip": "data/vtest.avi", "negative": true, "scored_types": ["tamper"],
+ "config": {"search": {"classes": ["toothbrush"], "scene_interval_seconds": 1000000},
+            "abandoned": {"enabled": false}, "fire": {"enabled": false}},
+ "expect_motion": {"reports": [85, 101], "blobs": [38, 48], "light_changes": [0, 0],
+                   "restarts": [0, 0]},
+ "notes": "Golden check of the change analysis + motion search over the whole sample street, with no tracked object covering anything (no class to embed): 93 reports of 43 blobs, no light change, no restart before the shared analysis (S2); 89 / 39 since (grey copy made from the colour copy, as tamper does)."}

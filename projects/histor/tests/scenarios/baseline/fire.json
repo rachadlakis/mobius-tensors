@@ -1,0 +1,815 @@
+{
+ "suite": "fire",
+ "made": "2026-10-20T20:45:16",
+ "quick": false,
+ "set": [],
+ "runs": [
+  {
+   "spec": "fire_loop",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.859,
+     "t": 9.7
+    },
+    {
+     "type": "fire",
+     "rule": "smoke",
+     "label": "smoke",
+     "score": 0.766,
+     "t": 25.0
+    }
+   ],
+   "sightings": {},
+   "frames": 196,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 28.18,
+     "median": 24.21,
+     "p95": 55.39
+    },
+    "fire": {
+     "mean": 106.42,
+     "median": 0.03,
+     "p95": 327.81
+    }
+   },
+   "fire_checks": 79,
+   "realtime": true,
+   "skipped": 194,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 9.7,
+      "delay": 0.7,
+      "lag": 0.9,
+      "fire": true
+     },
+     {
+      "expect": 1,
+      "t": 25.0,
+      "delay": 1.0,
+      "lag": 1.28,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [
+     0,
+     1
+    ],
+    "still": [],
+    "passed": true,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_loop",
+   "variant": "grey",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.86,
+     "t": 9.8
+    },
+    {
+     "type": "fire",
+     "rule": "smoke",
+     "label": "smoke",
+     "score": 0.788,
+     "t": 24.9
+    }
+   ],
+   "sightings": {},
+   "frames": 189,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 29.2,
+     "median": 23.97,
+     "p95": 62.55
+    },
+    "fire": {
+     "mean": 115.91,
+     "median": 0.03,
+     "p95": 350.34
+    }
+   },
+   "fire_checks": 80,
+   "realtime": true,
+   "skipped": 201,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 9.8,
+      "delay": 0.8,
+      "lag": 1.09,
+      "fire": true
+     },
+     {
+      "expect": 1,
+      "t": 24.9,
+      "delay": 0.9,
+      "lag": 1.24,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [
+     0,
+     1
+    ],
+    "still": [],
+    "passed": true,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_loop",
+   "variant": "low",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.863,
+     "t": 10.3
+    },
+    {
+     "type": "fire",
+     "rule": "smoke",
+     "label": "smoke",
+     "score": 0.766,
+     "t": 25.5
+    }
+   ],
+   "sightings": {},
+   "frames": 86,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 29.48,
+     "median": 27.75,
+     "p95": 57.93
+    },
+    "fire": {
+     "mean": 234.21,
+     "median": 270.67,
+     "p95": 366.45
+    }
+   },
+   "fire_checks": 72,
+   "realtime": true,
+   "skipped": 304,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 10.3,
+      "delay": 1.3,
+      "lag": 1.82,
+      "fire": true
+     },
+     {
+      "expect": 1,
+      "t": 25.5,
+      "delay": 1.5,
+      "lag": 1.83,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [
+     0,
+     1
+    ],
+    "still": [],
+    "passed": true,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_loop",
+   "variant": "ir",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.856,
+     "t": 10.1
+    },
+    {
+     "type": "fire",
+     "rule": "smoke",
+     "label": "smoke",
+     "score": 0.811,
+     "t": 25.3
+    }
+   ],
+   "sightings": {},
+   "frames": 120,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 30.38,
+     "median": 25.23,
+     "p95": 62.2
+    },
+    "fire": {
+     "mean": 172.54,
+     "median": 237.02,
+     "p95": 371.53
+    }
+   },
+   "fire_checks": 74,
+   "realtime": true,
+   "skipped": 270,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 10.1,
+      "delay": 1.1,
+      "lag": 1.52,
+      "fire": true
+     },
+     {
+      "expect": 1,
+      "t": 25.3,
+      "delay": 1.3,
+      "lag": 1.73,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [
+     0,
+     1
+    ],
+    "still": [],
+    "passed": true,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_loop_far4x",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.464,
+     "t": 9.8
+    },
+    {
+     "type": "fire",
+     "rule": "smoke",
+     "label": "smoke",
+     "score": 0.616,
+     "t": 13.0
+    }
+   ],
+   "sightings": {},
+   "frames": 156,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 32.77,
+     "median": 30.64,
+     "p95": 60.68
+    },
+    "fire": {
+     "mean": 159.05,
+     "median": 174.57,
+     "p95": 392.51
+    }
+   },
+   "fire_checks": 79,
+   "realtime": true,
+   "skipped": 234,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 9.8,
+      "delay": 0.8,
+      "lag": 1.22,
+      "fire": true
+     }
+    ],
+    "missed": [
+     1
+    ],
+    "false_alarms": [
+     {
+      "type": "fire",
+      "rule": "smoke",
+      "label": "smoke",
+      "score": 0.616,
+      "t": 13.0
+     }
+    ],
+    "known": [],
+    "early": [
+     0
+    ],
+    "still": [],
+    "passed": false,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_loop_far4x",
+   "variant": "grey",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.407,
+     "t": 13.7
+    }
+   ],
+   "sightings": {},
+   "frames": 163,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 35.01,
+     "median": 30.28,
+     "p95": 81.22
+    },
+    "fire": {
+     "mean": 143.9,
+     "median": 0.05,
+     "p95": 397.12
+    }
+   },
+   "fire_checks": 78,
+   "realtime": true,
+   "skipped": 227,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 13.7,
+      "delay": 4.7,
+      "lag": 5.2,
+      "fire": true
+     }
+    ],
+    "missed": [
+     1
+    ],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": false,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_loop_far4x",
+   "variant": "low",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.353,
+     "t": 14.4
+    }
+   ],
+   "sightings": {},
+   "frames": 102,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 28.75,
+     "median": 24.35,
+     "p95": 52.89
+    },
+    "fire": {
+     "mean": 173.11,
+     "median": 210.35,
+     "p95": 329.77
+    }
+   },
+   "fire_checks": 71,
+   "realtime": true,
+   "skipped": 288,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 14.4,
+      "delay": 5.4,
+      "lag": 5.81,
+      "fire": true
+     }
+    ],
+    "missed": [
+     1
+    ],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": false,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_loop_far4x",
+   "variant": "ir",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.603,
+     "t": 13.0
+    }
+   ],
+   "sightings": {},
+   "frames": 129,
+   "seconds": 39.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 26.34,
+     "median": 22.54,
+     "p95": 52.23
+    },
+    "fire": {
+     "mean": 153.5,
+     "median": 191.98,
+     "p95": 349.74
+    }
+   },
+   "fire_checks": 73,
+   "realtime": true,
+   "skipped": 261,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 13.0,
+      "delay": 4.0,
+      "lag": 4.38,
+      "fire": true
+     }
+    ],
+    "missed": [
+     1
+    ],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": false,
+    "expects": 2,
+    "early_expects": 2
+   }
+  },
+  {
+   "spec": "fire_poster",
+   "variant": "colour",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.854,
+     "t": 0.8
+    }
+   ],
+   "sightings": {},
+   "frames": 136,
+   "seconds": 30.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 29.43,
+     "median": 23.99,
+     "p95": 66.06
+    },
+    "fire": {
+     "mean": 134.18,
+     "median": 0.03,
+     "p95": 379.79
+    }
+   },
+   "fire_checks": 61,
+   "realtime": true,
+   "skipped": 164,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 0.8,
+      "delay": 0.8,
+      "lag": 1.12,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "fire_poster",
+   "variant": "grey",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.862,
+     "t": 0.5
+    }
+   ],
+   "sightings": {},
+   "frames": 150,
+   "seconds": 30.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 27.88,
+     "median": 22.06,
+     "p95": 56.01
+    },
+    "fire": {
+     "mean": 107.43,
+     "median": 0.03,
+     "p95": 341.87
+    }
+   },
+   "fire_checks": 61,
+   "realtime": true,
+   "skipped": 150,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 0.5,
+      "delay": 0.5,
+      "lag": 0.84,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "fire_poster",
+   "variant": "low",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.855,
+     "t": 0.9
+    }
+   ],
+   "sightings": {},
+   "frames": 60,
+   "seconds": 30.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 33.04,
+     "median": 24.5,
+     "p95": 75.49
+    },
+    "fire": {
+     "mean": 254.89,
+     "median": 269.06,
+     "p95": 365.76
+    }
+   },
+   "fire_checks": 55,
+   "realtime": true,
+   "skipped": 240,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 0.9,
+      "delay": 0.9,
+      "lag": 1.39,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  },
+  {
+   "spec": "fire_poster",
+   "variant": "ir",
+   "events": [
+    {
+     "type": "fire",
+     "rule": "fire",
+     "label": "fire",
+     "score": 0.853,
+     "t": 0.8
+    }
+   ],
+   "sightings": {},
+   "frames": 101,
+   "seconds": 30.0,
+   "fps": 10.0,
+   "timings": {
+    "detect": {
+     "mean": 31.96,
+     "median": 27.67,
+     "p95": 76.22
+    },
+    "fire": {
+     "mean": 134.04,
+     "median": 172.14,
+     "p95": 342.48
+    }
+   },
+   "fire_checks": 54,
+   "realtime": true,
+   "skipped": 199,
+   "missing": null,
+   "score": {
+    "hits": [
+     {
+      "expect": 0,
+      "t": 0.8,
+      "delay": 0.8,
+      "lag": 1.15,
+      "fire": true
+     }
+    ],
+    "missed": [],
+    "false_alarms": [],
+    "known": [],
+    "early": [],
+    "still": [],
+    "passed": true,
+    "expects": 1,
+    "early_expects": 0
+   }
+  }
+ ],
+ "summary": {
+  "colour": {
+   "specs": 3,
+   "missing": [],
+   "recall": 0.8,
+   "early": 3,
+   "early_expects": 4,
+   "missed": [
+    "fire_loop_far4x#1"
+   ],
+   "still_only": 0,
+   "false_alarms": 1,
+   "known_false_alarms": 0,
+   "false_alarms_per_hour": 33.3,
+   "delay_median": 0.8,
+   "delay_max": 1.0,
+   "lag_median": 1.17,
+   "fire_checks_per_minute": 121.7,
+   "ms": {
+    "detect": 29.43,
+    "fire": 134.18
+   }
+  },
+  "grey": {
+   "specs": 3,
+   "missing": [],
+   "recall": 0.8,
+   "early": 2,
+   "early_expects": 4,
+   "missed": [
+    "fire_loop_far4x#1"
+   ],
+   "still_only": 0,
+   "false_alarms": 0,
+   "known_false_alarms": 0,
+   "false_alarms_per_hour": 0.0,
+   "delay_median": 0.85,
+   "delay_max": 4.7,
+   "lag_median": 1.17,
+   "fire_checks_per_minute": 121.7,
+   "ms": {
+    "detect": 29.2,
+    "fire": 115.91
+   }
+  },
+  "low": {
+   "specs": 3,
+   "missing": [],
+   "recall": 0.8,
+   "early": 2,
+   "early_expects": 4,
+   "missed": [
+    "fire_loop_far4x#1"
+   ],
+   "still_only": 0,
+   "false_alarms": 0,
+   "known_false_alarms": 0,
+   "false_alarms_per_hour": 0.0,
+   "delay_median": 1.4,
+   "delay_max": 5.4,
+   "lag_median": 1.83,
+   "fire_checks_per_minute": 110.0,
+   "ms": {
+    "detect": 29.48,
+    "fire": 234.21
+   }
+  },
+  "ir": {
+   "specs": 3,
+   "missing": [],
+   "recall": 0.8,
+   "early": 2,
+   "early_expects": 4,
+   "missed": [
+    "fire_loop_far4x#1"
+   ],
+   "still_only": 0,
+   "false_alarms": 0,
+   "known_false_alarms": 0,
+   "false_alarms_per_hour": 0.0,
+   "delay_median": 1.2,
+   "delay_max": 4.0,
+   "lag_median": 1.62,
+   "fire_checks_per_minute": 111.7,
+   "ms": {
+    "detect": 30.38,
+    "fire": 153.5
+   }
+  }
+ }
+}

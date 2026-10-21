@@ -173,10 +173,3 @@ def snapshot_with_boxes(frame: np.ndarray, detections: list[Detection]) -> np.nd
     cv2.putText(image, "FIRE/SMOKE", (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2,
                 cv2.LINE_AA)
     return image
-
-
-def fire_enabled(config: dict[str, Any] | None, camera: str) -> bool:
-    if not config or not config.get("enabled"):
-        return False
-    cameras = config.get("cameras") or []
-    return not cameras or camera in cameras

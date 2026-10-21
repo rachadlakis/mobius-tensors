@@ -1,7 +1,7 @@
 import pytest
 
 from histor.engine.cameras import (_host_order, camera_url, load_cameras, mask_url,
-                                   parse_probe_match, resolve_source)
+                                   parse_probe_match, resolve_source, section_enabled)
 from histor.engine.main import default_camera_name
 
 
@@ -97,3 +97,12 @@ def test_load_cameras_reads_utf8_on_any_platform(tmp_path):
     config.write_text("cameras:\n  gate:\n    url: rtsp://10.0.0.5/live\n    about:\n"
                       "      description: البوابة الرئيسية · entrée\n", encoding="utf-8")
     assert load_cameras(config)["gate"]["about"]["description"] == "البوابة الرئيسية · entrée"
+
+
+def test_section_enabled_for_a_camera():
+    assert not section_enabled(None, "gate") and not section_enabled({}, "gate")
+    assert not section_enabled({"enabled": False}, "gate")
+    assert section_enabled({"enabled": True}, "gate")
+    assert section_enabled({"enabled": True, "cameras": []}, "gate")  # empty: every camera
+    assert section_enabled({"enabled": True, "cameras": ["gate"]}, "gate")
+    assert not section_enabled({"enabled": True, "cameras": ["yard"]}, "gate")

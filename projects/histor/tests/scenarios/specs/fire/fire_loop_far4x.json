@@ -1,0 +1,6 @@
+{"compose": {"base": "data/test_videos/fire_loop.mp4",
+             "layers": [{"kind": "shrink", "factor": 4, "at": [0.375, 0.375]}]},
+ "expect": [{"type": "fire", "rule": "fire", "from": 9, "to": 18, "max_delay": 3, "early": 3},
+            {"type": "fire", "rule": "smoke", "from": 24, "to": 33, "max_delay": 3, "early": 3}],
+ "xfail": "4x smaller: the smoke pictures are missed, and smoke is seen on a fire picture (baseline 2026-10-20)",
+ "notes": "fire_loop 4x smaller in the middle of a black frame (a far camera): fire and smoke while their pictures are in view."}

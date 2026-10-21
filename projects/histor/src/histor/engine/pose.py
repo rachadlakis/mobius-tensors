@@ -38,6 +38,8 @@ from typing import Any
 import cv2
 import numpy as np
 
+from histor.engine import colours
+
 KEYPOINTS = ("nose", "left_eye", "right_eye", "left_ear", "right_ear", "left_shoulder",
              "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist",
              "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle")
@@ -282,11 +284,9 @@ def colour_names(pixels: np.ndarray) -> np.ndarray:
     hsv = cv2.cvtColor(pixels.reshape(-1, 1, 3).astype(np.uint8), cv2.COLOR_BGR2HSV).reshape(-1, 3)
     h, s, v = (hsv[:, i].astype(int) for i in range(3))
     names = np.full(len(hsv), COLOURS.index("grey"))
-    chroma = (s >= 60) & (v >= 50)
-    hue_bins = [(8, "red"), (20, "orange"), (33, "yellow"), (85, "green"), (128, "blue"),
-                (150, "purple"), (170, "pink"), (180, "red")]
+    chroma = colours.chroma(s, v)
     lower = 0
-    for upper, name in hue_bins:
+    for upper, name in colours.HUE_BINS:
         names[chroma & (h >= lower) & (h < upper)] = COLOURS.index(name)
         lower = upper
     names[chroma & (h >= 8) & (h < 25) & (v < 150)] = COLOURS.index("brown")
@@ -341,11 +341,3 @@ def draw_skeleton(frame: np.ndarray, keypoints: np.ndarray, min_confidence: floa
         if c >= min_confidence:
             cv2.circle(frame, (int(x), int(y)), 3, (0, 0, 255), -1, cv2.LINE_AA)
     return frame
-
-
-def pose_enabled(config: dict[str, Any] | None, camera: str) -> bool:
-    """Pose is off unless `pose.enabled: true`; `pose.cameras` narrows it to some cameras."""
-    if not config or not config.get("enabled"):
-        return False
-    cameras = config.get("cameras")
-    return not cameras or camera in cameras

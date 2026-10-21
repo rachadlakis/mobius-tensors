@@ -1,0 +1,55 @@
+# The scenario bench's suites (src/histor/engine/scenarios.py; README "Scenario bench").
+# config: what every spec of the suite starts from (the spec's own `config` and --set are
+# merged over it; the store and the alert log go to the run's work folder). Paths as in
+# configs/default.yaml, from the project folder; what each key means is said there.
+# scored_types: the event types scored (a spec may narrow them); each needs its module built.
+# realtime: drop frames while the CPU is busy, like a live camera (delays include the lag).
+# variants: the night looks a baseline is made with (compose.variant).
+# known_false_alarms: alerts the current code raises on a clip that are known and reported apart
+# (engine/scenarios.py); a fix makes them disappear, a new one still fails.
+suites:
+  fire:
+    scored_types: [fire]
+    realtime: true
+    variants: [colour, grey, low, ir]
+    credits: >-
+      FIRESENSE fire and smoke videos (specs firesense_*): CC BY 4.0, Dimitropoulos et al.,
+      Zenodo record 836749. Held-out test pictures (fire_loop, fire_poster, the flame layer):
+      training/fire_smoke/data/v2_test, internal tests only.
+    config:
+      model: {path: models/yolox_nano.onnx}
+      fire:
+        enabled: true
+        model: {path: models/fire_smoke_yolov9s_640.onnx}
+  street:
+    scored_types: [tamper, abandoned, fire]
+    known_false_alarms:
+      - clip: data/vtest.avi
+        type: fire
+        rule: fire
+        from: 22
+        to: 23.5
+        why: >-
+          The fire model sees a small still spot of vtest.avi, (287,183)-(309,211), as fire at
+          0.25-0.43 now and then; the suspect checks confirm it at 22.6 s (baseline 2026-10-20).
+    config:
+      model: {path: models/yolox_nano.onnx}
+      tracking: {enabled: true}
+      search:
+        enabled: true
+        clip: {image: models/clip_image.onnx}
+        motion: {enabled: true}
+      tamper: {enabled: true}
+      abandoned: {enabled: true, seconds: 15}
+      fire:
+        enabled: true
+        model: {path: models/fire_smoke_yolov9s_640.onnx}
+  pose:
+    scored_types: [down]
+    config:
+      model: {path: models/yolox_nano.onnx}
+      pose:
+        enabled: true
+        model: models/pose_vitpose_b.onnx
+        alerts: [down]
+        min_box_height: 40   # a lying person's box is wide, not tall (pose_fall_sprite)

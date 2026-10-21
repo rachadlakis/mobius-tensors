@@ -68,10 +68,18 @@ the config), on every frame, and embedded as soon as they are seen twice.
 
 <img src="docs/images/fast-object-timeline.svg" alt="A cart crossing in 0.8 s: missed by the scenes and the detector, caught by motion" width="680" />
 
+What changed in the picture is worked out once per camera and frame (`engine/change.py`, the
+[`change` section](configs/default.yaml) of the config), and every feature that needs it reads
+that one analysis: moving things for search today, fire, new still items and scene changes
+next. It takes 2.5 ms for a 1280×720 frame on a laptop CPU (median, `test_cpu_budget`), and only
+runs when search motion or fire is on.
+
+<img src="docs/images/shared-change-analysis.svg" alt="One change analysis per camera and frame, read by moving-thing search, fire, still items and scene changes" width="680" />
+
 Each frame is first cleaned of what is not a new thing: camera shake, swaying leaves, light
 changes, and objects already tracked.
 
-<img src="docs/images/change-detection-flow.svg" alt="From camera frame to moving thing or new still item" width="680" />
+<img src="docs/images/change-detection-flow.svg" alt="From camera frame to moving thing or new still item; the first steps are the shared change analysis" width="680" />
 
 To tell a thing passing from a thing left behind, the frame is compared with two backgrounds:
 one that learns in seconds and one that learns in minutes.
@@ -83,15 +91,15 @@ Moving things are indexed today. New still items (the amber case) are planned: s
 
 ## Models and licences
 
-| Role                         | Model                                                                  | Licence                                   |
-| ---------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
-| Objects                      | YOLOX (size per machine: [Installing a site](#installing-a-site))      | Apache-2.0                                |
-| Search                       | CLIP ViT-B/32, OpenCLIP LAION-2B                                       | MIT                                       |
-| Body pose                    | ViTPose-B, COCO only (RTMPose-t: trials only, research training data) | Apache-2.0                                |
-| Fire and smoke               | our own YOLOv9 (`training/`)                                         | ours                                      |
-| Faces (opt-in)               | YuNet + SFace                                                          | MIT / Apache-2.0                          |
-| Plates (opt-in)              | finder open-image-models YOLOv9-t, reader fast-plate-ocr               | finder: trials only (see [Next](#next)); reader MIT |
-| Sounds (opt-in)              | YAMNet                                                                 | Apache-2.0                                |
+| Role            | Model                                                                 | Licence                                            |
+| --------------- | --------------------------------------------------------------------- | -------------------------------------------------- |
+| Objects         | YOLOX (size per machine: [Installing a site](#installing-a-site))      | Apache-2.0                                         |
+| Search          | CLIP ViT-B/32, OpenCLIP LAION-2B                                      | MIT                                                |
+| Body pose       | ViTPose-B, COCO only (RTMPose-t: trials only, research training data) | Apache-2.0                                         |
+| Fire and smoke  | our own YOLOv9 (`training/`)                                        | ours                                               |
+| Faces (opt-in)  | YuNet + SFace                                                         | MIT / Apache-2.0                                   |
+| Plates (opt-in) | finder open-image-models YOLOv9-t, reader fast-plate-ocr              | finder: trials only (see [Next](#next)); reader MIT |
+| Sounds (opt-in) | YAMNet                                                                | Apache-2.0                                         |
 
 Chat and vision models: [Chat](#chat). A model ships only if code, weights **and** training data allow commercial use (no AGPL/GPL,
 no research-only), it runs on a CPU through ONNX and ports to C++. No PyTorch at run time.
@@ -103,8 +111,8 @@ no research-only), it runs on a CPU through ONNX and ports to C++. No PyTorch at
 - The chat model is local by default. A cloud model (Claude) is opt-in and receives text only
   (question, times, cameras, labels, file names), never images; `look` and alert checking always
   run locally.
-- Faces are off until the client approves in writing (biometric data); face prints are deleted
-  after 7 days. Plates and sounds are off by default; audio is classified in memory, never stored.
+- Faces, plates and sounds are off by default, turned on per site when the client asks. Face
+  prints are deleted after 7 days; audio is classified in memory, never stored.
 - Retention: sightings and events 30 days, recordings 7 days (purged by the API server).
 
 ## Quick start
@@ -285,13 +293,13 @@ are planned.
 
 More event types, each in its own config section and through the same channels:
 
-| Event         | Rule                                                                                               | Section             | Default                      |
-| ------------- | -------------------------------------------------------------------------------------------------- | ------------------- | ---------------------------- |
-| `crowd`     | the area's name:`max_count` objects inside for `count_seconds` (queues, crowds)                | a zone in`zones:` | —                           |
-| `abandoned` | `abandoned_object`: a backpack, handbag or suitcase still and unattended for 60 s                | `abandoned:`      | off                          |
-| `tamper`    | `blocked` / `dark` / `blurred` / `moved` / `frozen`: the camera's own picture, for 20 s; `obstructed`: half the view hidden for 5 min (see [Camera tampering](#camera-tampering)) | `tamper:`         | on                           |
-| `plate`     | the watchlist entry's name: a listed plate read twice on a vehicle                                 | `plates:`         | off                          |
-| `sound`     | `smoke_alarm`, `glass_break`, `gunshot`, `explosion`, `scream`, `car_alarm`, `siren` | `sounds:`         | off                          |
+| Event         | Rule                                                                                                                                                                                         | Section             | Default |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ------- |
+| `crowd`     | the area's name:`max_count` objects inside for `count_seconds` (queues, crowds)                                                                                                          | a zone in`zones:` | —      |
+| `abandoned` | `abandoned_object`: a backpack, handbag or suitcase still and unattended for 60 s                                                                                                          | `abandoned:`      | off     |
+| `tamper`    | `blocked` / `dark` / `blurred` / `moved` / `frozen`: the camera's own picture, for 20 s; `obstructed`: half the view hidden for 5 min (see [Camera tampering](#camera-tampering)) | `tamper:`         | on      |
+| `plate`     | the watchlist entry's name: a listed plate read twice on a vehicle                                                                                                                           | `plates:`         | off     |
+| `sound`     | `smoke_alarm`, `glass_break`, `gunshot`, `explosion`, `scream`, `car_alarm`, `siren`                                                                                           | `sounds:`         | off     |
 
 A one-way line (`direction: in`) is a wrong-way alarm. Sounds need ffmpeg and a camera with a
 microphone.
@@ -460,13 +468,66 @@ The essentials:
 
 <img src="docs/images/site-network.svg" alt="Cameras on their own network cabled to the server only; the office network on the server's second port; nothing routed between them; no port open to the internet" width="680" />
 
-| Cameras | Server                                      | Detector                     | Disk (1080p, 7 days) |
-| ------- | ------------------------------------------- | ---------------------------- | -------------------- |
-| 1–4     | 8 cores, 16 GB RAM (32 with chat + vision) | `yolox_s`                  | 2 TB                 |
-| 5–12    | 16 cores, 32 GB RAM                         | `yolox_s` or `yolox_tiny` | 4–6 TB               |
-| 12+     | benchmark first; GPU server if needed       | `yolox_m`                  | ~0.3 TB per camera   |
+| Cameras | Server                                     | Detector                      | Disk (1080p, 7 days) |
+| ------- | ------------------------------------------ | ----------------------------- | -------------------- |
+| 1–4    | 8 cores, 16 GB RAM (32 with chat + vision) | `yolox_s`                   | 2 TB                 |
+| 5–12   | 16 cores, 32 GB RAM                        | `yolox_s` or `yolox_tiny` | 4–6 TB              |
+| 12+     | benchmark first; GPU server if needed      | `yolox_m`                   | ~0.3 TB per camera   |
 
 Starting points: run the site's cameras for an hour and watch the CPU before signing off.
+
+## Scenario bench
+
+Every engine change is scored on clips before it lands. A clip is a real video or a real case
+composed at run time over `data/vtest.avi` (a hand over the lens, a van parking, the camera
+turned, a cart crossing in 0.8 s, a red coat, a lamp, a blinking indicator, a person falling;
+flames that flicker and a poster that does not). Each runs through the whole recorder
+(`Pipeline`), and its alerts are compared with what should, and should not, happen.
+
+<img src="docs/images/scenario-bench.svg" alt="Clips (FIRESENSE videos, composed street cases, night looks) and their expected events go through the Pipeline; the score card shows recall, misses, false alarms and delay; against the baseline, a regression fails" width="680" />
+
+```bash
+uv run -m histor.scenarios --suite fire          # fire_loop, poster, far camera; colour, grey, low light, infrared
+uv run -m histor.scenarios --suite street --jobs 4 --compare tests/scenarios/baseline/street.json
+uv run -m histor.scenarios --only street_cart --quick --set search.motion.min_area=0.004
+uv run -m histor.scenarios --markdown --readme   # the table below, from the saved baselines
+uv run pytest -m scenario                        # each clip's own expectations, colour only
+```
+
+Each clip is a spec in `tests/scenarios/specs/<suite>/` (the format: `engine/scenarios.py`),
+over its suite's config in `tests/scenarios/suites.yaml`; the night looks are in
+`engine/compose.py`. *Recall*: the expected alerts that came within their `max_delay`;
+*early*: within 3 s; *false alarms*: any other alert of the types scored; *delay*: from the
+moment the thing is in view. The fire suite runs like a live camera: frames that arrive while
+the CPU is busy are dropped, so its delays include the CPU's lag. `--compare` exits 1 on a
+regression against the saved baseline (the rules: `compare()` in `engine/scenarios.py`),
+`--save-baseline` replaces it.
+
+FIRESENSE (Dimitropoulos et al., Zenodo 836749, CC BY 4.0: fire and smoke videos, positive and
+negative) joins the fire suite once both zips are in `data/test_videos/firesense/zips/`:
+`training/fire_smoke/get_firesense.py` checks them, unpacks them and writes one spec per video.
+Not run yet: the download is not complete.
+
+Baselines (this laptop, 20 threads; ms: CPU a frame, the middle clip's mean):
+
+<!-- bench:start -->
+| Suite | Look | Clips | Recall | Early | Missed | False alarms | Delay median / max (s) | Fire checks/min | Detect ms | Fire ms |
+|---|---|---|---|---|---|---|---|---|---|---|
+| fire | colour | 3 | 80% | 3/4 | fire_loop_far4x#1 | 1 | 0.8 / 1.0 | 122 | 29 | 134 |
+| fire | grey | 3 | 80% | 2/4 | fire_loop_far4x#1 | 0 | 0.85 / 4.7 | 122 | 29 | 116 |
+| fire | low | 3 | 80% | 2/4 | fire_loop_far4x#1 | 0 | 1.4 / 5.4 | 110 | 29 | 234 |
+| fire | ir | 3 | 80% | 2/4 | fire_loop_far4x#1 | 0 | 1.2 / 4.0 | 112 | 30 | 154 |
+| pose | colour | 1 | 0% | - | pose_fall_sprite#0 | 0 | - | 0 | 40 | - |
+| street | colour | 8 | 100% | - | none | 0 (+8 known) | 10.0 / 20.5 | 230 | 57 | 176 |
+<!-- bench:end -->
+
+What the misses are: fire_loop shown 4x smaller (a far camera) loses its smoke pictures; the
+falling person, once lying, scores 0.26 with YOLOX-nano, under its 0.35 threshold, so it is
+never tracked and its pose never read. The street's known false alarm: the fire model sees a
+small still spot of `vtest.avi` as fire (0.25-0.43 now and then), confirmed at 22.6 s.
+Fire checks are slow here because every model takes all 20 threads by default
+(`num_threads: 0`): with two models taking turns, a fire check takes ~235 ms, ~73 ms at 8
+threads.
 
 ## Limits
 
@@ -494,7 +555,7 @@ configs/laptop.yaml    test on a laptop: webcam = camera "laptop", faces on, own
 configs/engine/        engine-only examples (detection, zones, search)
 src/histor/
   engine/              detector, tracker, zones, alerts, store, CLIP / faces / pose / plates / sounds,
-                       tamper and abandoned rules, search, API
+                       change analysis, tamper and abandoned rules, search, API
   record.py            recorder (engine/main.py with this config)
   ask.py               question -> ranked sightings (no LLM)
   report.py            hourly / daily / weekly / monthly reports: exact counts + LLM summary, saved and sent
@@ -511,6 +572,7 @@ notebooks/             models_tour.ipynb: each model, step by step
 models/                .onnx weights (git-ignored)
 tests/                 uv run pytest (tests/engine/ for the engine)
 tests/smoke/           uv run pytest -m smoke: every entry point with the real models (~1 min)
+tests/scenarios/       the scenario bench: suites, specs, baselines (uv run pytest -m scenario)
 ```
 
 ## Next
@@ -539,8 +601,6 @@ tests/smoke/           uv run pytest -m smoke: every entry point with the real m
 
 ## Open questions
 
-- **Before the first paid site:** how updates reach client servers (signed releases, undo,
-  offline sites, what an unpaid site does), and how far to protect our code and models.
-- **Pilot offer:** what it costs, how long it lasts, and what result turns it into a sale.
-- **Contracts:** the face-search approval form; which countries allow plates and sound; what a
-  cloud chat model receives; how to word fire alerts.
+- Technical questions only for now
+- How train custom object detection models for some customers (defince steps in details and cost)
+-

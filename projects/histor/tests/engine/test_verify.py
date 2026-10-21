@@ -12,7 +12,6 @@ import pytest
 
 from histor.engine import alerts
 from histor.engine.alerts import AlertManager, Sink, alert_message
-from histor.engine.store import EventStore
 from histor.engine.tracker import Track
 from histor.engine.verify import QUESTIONS, AlertVerifier, close_up, parse_answer
 from histor.engine.zones import ZoneEvent
@@ -42,13 +41,6 @@ class FakeModel:
         if isinstance(self.answer, Exception):
             raise self.answer
         return self.answer
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "histor.db")
-    yield s
-    s.close()
 
 
 @pytest.fixture(autouse=True)

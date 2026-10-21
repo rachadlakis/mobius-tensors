@@ -16,8 +16,7 @@ from histor.engine.pipeline import Pipeline
 from histor.engine.search import SearchEngine
 from histor.engine.sound import (DEFAULT_GROUPS, HOP, PATCH, SAMPLE_RATE, SoundClassifier,
                                 SoundListener, SoundRules, ffmpeg_command, iter_audio,
-                                read_class_map, read_wav, sounds_enabled)
-from histor.engine.store import EventStore
+                                read_class_map, read_wav)
 from histor.engine.tracker import Tracker
 from histor.tools import ALERT_TYPES, Toolbox
 
@@ -25,13 +24,6 @@ ROOT = Path(__file__).resolve().parents[2]
 MODEL = ROOT / "models" / "sound_yamnet.onnx"
 CLASSES = ROOT / "models" / "sound_yamnet_classes.csv"
 NAMES = ["Speech", "Smoke detector, smoke alarm", "Fire alarm", "Shatter", "Glass", "Dog"]
-
-
-@pytest.fixture
-def store(tmp_path):
-    s = EventStore(tmp_path / "db.sqlite")
-    yield s
-    s.close()
 
 
 def scores(*rows: dict[str, float]) -> np.ndarray:
@@ -116,12 +108,6 @@ def test_default_groups_are_real_audioset_classes():
     SoundRules(classes)  # raises if a default name is wrong
     assert set(DEFAULT_GROUPS) == {"smoke_alarm", "glass_break", "gunshot", "explosion",
                                    "scream", "car_alarm", "siren"}
-
-
-def test_sounds_enabled():
-    assert not sounds_enabled(None, "gate") and not sounds_enabled({"enabled": False}, "gate")
-    assert sounds_enabled({"enabled": True}, "gate")
-    assert not sounds_enabled({"enabled": True, "cameras": ["yard"]}, "gate")
 
 
 def test_download_is_pinned():

@@ -23,17 +23,24 @@ With a `fire` section (fire.py), the frame also goes through Histor's own fire/s
 about twice a second; flames or smoke seen on several checks in a row raise a `fire` event
 through the same channels, with the boxes drawn on the snapshot.
 
+When search motion or fire is on, each frame is also analysed for change once (change.py:
+shake, background, light, flicker), and every part that needs it reads that one analysis.
+
 Two rules need no model: `tamper` (tamper.py: the picture covered, dark, blurred, turned or
 frozen) and `abandoned` (abandoned.py: a bag or suitcase left still with nobody near it).
 
 With `alerts.verify` (verify.py), a local vision model checks each alert's snapshot before it
 is sent, and can hold back false alarms.
+
+With `timings=True` (the scenario bench, scenarios.py), process() records how long each stage
+took (ms, the latest TIMINGS_KEPT per stage) in `timings`; off by default.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -41,10 +48,12 @@ import numpy as np
 
 from histor.engine.alerts import AlertManager
 from histor.engine.detector import Detection, Detector, create_detector, draw_detections
-from histor.engine.tracker import Track, Tracker, iou_matrix
+from histor.engine.boxes import greedy_match, iou_matrix
+from histor.engine.tracker import Track, Tracker
 from histor.engine.zones import ZoneEvent, ZoneMonitor
 
 if TYPE_CHECKING:
+    from histor.engine.change import Change, ChangeAnalyser
     from histor.engine.indexer import HiResFrame, SearchIndexer
     from histor.engine.plate_index import PlateIndexer
     from histor.engine.pose_index import PoseIndexer
@@ -57,6 +66,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 KEYFRAME_MIN_IOU = 0.3  # keyframe detection <-> track; the two streams are not frame-synced
+TIMINGS_KEPT = 10_000  # per stage, with `timings` on
 
 
 @dataclass
@@ -65,6 +75,7 @@ class FrameResult:
     tracks: list[Track] = field(default_factory=list)
     events: list[ZoneEvent] = field(default_factory=list)
     timestamp: float = 0.0
+    change: Change | None = None  # the frame's change analysis, when the Pipeline has one
 
 
 class Pipeline:
@@ -84,9 +95,13 @@ class Pipeline:
         tamper: TamperCheck | None = None,
         abandoned: AbandonedWatch | None = None,
         fire: FireWatch | None = None,
+        timings: bool = False,
+        change: ChangeAnalyser | None = None,
     ) -> None:
         """start_time: unix time of timestamp 0 (live: now; a recorded file: when it was filmed).
-        mainstream: the camera's main stream (recording + keyframes for hi-res crops)."""
+        mainstream: the camera's main stream (recording + keyframes for hi-res crops).
+        timings: record each stage's time per frame in `timings` (stage -> ms).
+        change: the camera's change analysis (change.py), read by search motion and tamper."""
         if (monitor and monitor.rules or indexer or pose or plates or abandoned) and \
                 tracker is None:
             tracker = Tracker()  # zones, the search index and poses need object IDs
@@ -103,7 +118,9 @@ class Pipeline:
         self.tamper = tamper
         self.abandoned = abandoned
         self.fire = fire
+        self.change = change
         self.start_time = time.time() if start_time is None else start_time
+        self.timings: dict[str, deque[float]] | None = {} if timings else None
 
     def wall_time(self, timestamp: float) -> float:
         return self.start_time + timestamp
@@ -112,7 +129,7 @@ class Pipeline:
     def from_config(cls, config: dict[str, Any], source: str | None = None,
                     start_time: float | None = None, live: bool = True,
                     main_url: str | None = None,
-                    audio_source: str | None = None) -> Pipeline:
+                    audio_source: str | None = None, timings: bool = False) -> Pipeline:
         """source: the camera *name* (used in events and the index, never the URL).
         live: False for video files, so indexing processes every step instead of skipping.
         main_url: the camera's main stream, for the `recording` section (live cameras only).
@@ -127,12 +144,12 @@ class Pipeline:
 
             indexer = SearchIndexer.from_config(search, config.get("faces"), store,
                                                 camera=str(source or "camera"), blocking=not live)
+        from histor.engine.cameras import expand_env, section_enabled
+
+        camera = str(source or "camera")
         pose = None
         if store is not None:
-            from histor.engine.pose import pose_enabled
-
-            camera = str(source or "camera")
-            if pose_enabled(config.get("pose"), camera):
+            if section_enabled(config.get("pose"), camera):
                 from histor.engine.pose_index import PoseIndexer
 
                 try:
@@ -142,10 +159,7 @@ class Pipeline:
                     log.warning("No pose for camera %s: %s", camera, e)
         plates = None
         if store is not None:
-            from histor.engine.plates import plates_enabled
-
-            camera = str(source or "camera")
-            if plates_enabled(config.get("plates"), camera):
+            if section_enabled(config.get("plates"), camera):
                 from histor.engine.plate_index import PlateIndexer
 
                 try:
@@ -154,9 +168,7 @@ class Pipeline:
                 except FileNotFoundError as e:  # record the rest anyway
                     log.warning("No plate reading for camera %s: %s", camera, e)
         sounds = None
-        from histor.engine.sound import sounds_enabled
-
-        if sounds_enabled(config.get("sounds"), str(source or "camera")):
+        if section_enabled(config.get("sounds"), camera):
             if not audio_source:
                 log.warning("sounds: no audio for camera %s (a webcam, or no stream URL)", source)
             else:
@@ -166,19 +178,13 @@ class Pipeline:
                     sounds = SoundListener.from_config(config["sounds"], audio_source, live)
                 except FileNotFoundError as e:
                     log.warning("No sound events for camera %s: %s", source, e)
-        from histor.engine.abandoned import abandoned_enabled
-        from histor.engine.tamper import tamper_enabled
-
-        camera = str(source or "camera")
         tamper = None
-        if tamper_enabled(config.get("tamper"), camera):
+        if section_enabled(config.get("tamper"), camera):
             from histor.engine.tamper import TamperCheck
 
             tamper = TamperCheck.from_config(config["tamper"])
         fire = None
-        from histor.engine.fire import fire_enabled
-
-        if fire_enabled(config.get("fire"), camera):
+        if section_enabled(config.get("fire"), camera):
             from histor.engine.fire import FireWatch
 
             try:
@@ -187,7 +193,7 @@ class Pipeline:
                 log.error("NO FIRE DETECTION for camera %s: %s", camera, e)
         monitor = ZoneMonitor.from_config(config.get("zones")) if config.get("zones") else None
         abandoned = None
-        if abandoned_enabled(config.get("abandoned"), camera):
+        if section_enabled(config.get("abandoned"), camera):
             from histor.engine.abandoned import AbandonedWatch
             from histor.engine.zones import Zone
 
@@ -198,8 +204,6 @@ class Pipeline:
             tracking.get("enabled") or config.get("zones") or indexer or pose or plates
             or abandoned
         ) else None
-        from histor.engine.cameras import expand_env
-
         vision = {k: expand_env(v) if isinstance(v, str) else v  # alerts.verify's defaults
                   for k, v in ((config.get("chat") or {}).get("vision") or {}).items()}
         alerts = AlertManager.from_config(config.get("alerts"), source=source, store=store,
@@ -215,8 +219,14 @@ class Pipeline:
                                                 camera=str(source or "camera"),
                                                 keyframes=indexer is not None or pose is not None
                                                 or plates is not None)
+        change = None
+        if (indexer is not None and indexer.motion is not None) or fire is not None:
+            from histor.engine.change import ChangeAnalyser
+
+            change = ChangeAnalyser.from_config(config, fire_masks=fire is not None)
         return cls(create_detector(config["model"]), tracker, monitor, alerts, store, indexer,
-                   start_time, mainstream, pose, plates, sounds, tamper, abandoned, fire)
+                   start_time, mainstream, pose, plates, sounds, tamper, abandoned, fire, timings,
+                   change)
 
     def close(self) -> None:
         """Flush the search index and pending alerts (call when the source ends)."""
@@ -237,16 +247,35 @@ class Pipeline:
             self.alerts.close()
 
     def process(self, frame: np.ndarray, timestamp: float) -> FrameResult:
+        lap = self._lap("", 0.0)
         result = FrameResult(self.detector.detect(frame), timestamp=timestamp)
+        lap = self._lap("detect", lap)
+        if self.change is not None:
+            result.change = self.change.update(frame, timestamp)
+            lap = self._lap("change", lap)
         if self.tracker is not None:
             self._track(frame, result)
+            lap = self._lap("track", lap)
         if self.tamper is not None:
             result.events += self._tamper_events(frame, result, timestamp)
+            lap = self._lap("tamper", lap)
         if self.fire is not None:
             result.events += self._fire_events(frame, result.tracks, timestamp)
+            lap = self._lap("fire", lap)
         if self.sounds is not None:
             result.events += self._sound_events(frame, result.tracks, timestamp)
+            self._lap("sounds", lap)
         return result
+
+    def _lap(self, stage: str, since: float) -> float:
+        """With `timings` on: the time since `since` goes to `stage` (none for ""); now."""
+        if self.timings is None:
+            return 0.0
+        now = time.perf_counter()
+        if stage:
+            self.timings.setdefault(stage, deque(maxlen=TIMINGS_KEPT)).append(
+                (now - since) * 1000)
+        return now
 
     def _track(self, frame: np.ndarray, result: FrameResult) -> None:
         """Tracking and everything that needs object IDs."""
@@ -262,7 +291,7 @@ class Pipeline:
         hires = self._match_keyframe(frame, result) if (
             self.indexer or self.pose or self.plates) else None
         if self.indexer is not None:
-            self.indexer.update(frame, result.tracks, wall, hires)
+            self.indexer.update(frame, result.tracks, wall, hires, result.change)
         if self.pose is not None:
             self.pose.update(frame, result.tracks, wall, hires)
             result.events += self._pose_events(frame, result.tracks)
@@ -287,7 +316,7 @@ class Pipeline:
         objects = [(d.label, (d.x1, d.y1, d.x2, d.y2)) for d in result.detections]
         found = [ZoneEvent(timestamp, EVENT_TYPE, e.kind, None, e.label or "camera",
                            score=e.value)
-                 for e in self.tamper.update(frame, timestamp, objects)]
+                 for e in self.tamper.update(frame, timestamp, objects, result.change)]
         if self.alerts is None or not found:
             return found
         return self.alerts.handle(found, frame, result.tracks, self.wall_time(timestamp))
@@ -368,14 +397,8 @@ class Pipeline:
             # sub streams may be squeezed (704x576 of a 16:9 view): scale x and y separately
             scaled = hires * np.array([w / kw, h / kh, w / kw, h / kh])
             iou = iou_matrix(np.array([t.box for t in tracks], dtype=float), scaled)
-            used: set[int] = set()
-            for ti, di in sorted(np.ndindex(iou.shape), key=lambda ij: -float(iou[ij])):  # greedy
-                if iou[ti, di] < KEYFRAME_MIN_IOU:
-                    break
-                if tracks[ti].id in boxes or di in used:
-                    continue
+            for ti, di in greedy_match(iou, KEYFRAME_MIN_IOU):
                 boxes[tracks[ti].id] = hires[di]
-                used.add(di)
         return HiResFrame(keyframe.time, keyframe.image, boxes)
 
     def draw(self, frame: np.ndarray, result: FrameResult) -> np.ndarray:
