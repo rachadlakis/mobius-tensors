@@ -1,6 +1,6 @@
-# Mobius Tensors services
+# Gradient Labs services
 
-Mobius Tensors is a company that sells computer vision and AI solutions. Histor is the flagship
+Gradient Labs is a company that sells computer vision and AI solutions. Histor is the flagship
 product (see histor.md). The services below are listed with their status: only Histor and the
 computer vision behind it have delivered work; "scoping" means no project has been delivered yet,
 so describe what we can do, never past results.

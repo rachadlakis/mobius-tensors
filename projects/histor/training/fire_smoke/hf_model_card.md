@@ -1,12 +1,12 @@
 ---
 license: other
-license_name: mobius-tensors-internal
+license_name: gradient-labs-internal
 tags: [fire, smoke, object-detection, yolov9, onnx]
 ---
 
 # Histor fire and smoke detectors (private)
 
-Mobius Tensors' own fire/smoke detectors for Histor. YOLOv9 trained with
+Gradient Labs' own fire/smoke detectors for Histor. YOLOv9 trained with
 [LibreYOLO](https://github.com/LibreYOLO/libreyolo) (MIT) from the YOLOv9 authors' MIT COCO
 weights ([MultimediaTechLab/YOLO](https://github.com/MultimediaTechLab/YOLO)). Classes:
 `0 = fire`, `1 = smoke`. Keep this repository private.
@@ -28,7 +28,7 @@ default model:
 - **Pictures with smoke:** 85 % raise a smoke alarm.
 - **Clean pictures:** 96 % stay quiet.
 
-Full comparison, method and caveats: `projects/histor/training/README.md` in the Mobius Tensors
+Full comparison, method and caveats: `projects/histor/training/README.md` in the Gradient Labs
 repository.
 
 ## ONNX format

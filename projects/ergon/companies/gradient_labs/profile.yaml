@@ -1,13 +1,13 @@
-# Mobius Tensors, as an Ergon company. Select it with ERGON_COMPANY=mobius_tensors in .env.
+# Gradient Labs, as an Ergon company. Select it with ERGON_COMPANY=gradient_labs in .env.
 # Every employee (and the Chief of Staff) reads this on every turn, so edits take effect
 # without a restart. Keep it short: longer material goes in knowledge/, which employees
 # search with search_company_knowledge.
 
-name: Mobius Tensors
+name: Gradient Labs
 summary: A company that sells computer vision and AI solutions.
 
 about: |
-  Mobius Tensors builds computer vision and AI solutions for businesses. Our flagship product
+  Gradient Labs builds computer vision and AI solutions for businesses. Our flagship product
   is Histor: ask your cameras what happened, in plain language, and get the frames as evidence.
   Around it we offer computer vision, AI agent rollout, custom AI agents and chatbots,
   automations, model training and fine-tuning, and forecasting. Under the hood we deliver
@@ -27,8 +27,8 @@ voice: |
   ("revolutionary", "cutting-edge"), no invented numbers, no claims we cannot back.
 
 rules:
-  - "Call Mobius Tensors a company that sells computer vision and AI solutions. Never call it an 'AI platform'."
-  - "Histor is a Mobius Tensors product. Always write 'Histor', never any other name."
+  - "Call Gradient Labs a company that sells computer vision and AI solutions. Never call it an 'AI platform'."
+  - "Histor is a Gradient Labs product. Always write 'Histor', never any other name."
   - "Say that Histor runs on a standard server without a GPU; a GPU can be added but is not needed."
   - "Fire and smoke detection in Histor complements certified smoke and heat detectors; never present it as a replacement."
   - "Prices in the knowledge documents are INTERNAL. Give them to our own team freely. Put them in customer- or partner-facing drafts only when the user asks for a quote or estimate."

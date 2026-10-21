@@ -1,6 +1,6 @@
 # Ergon — plan
 
-**Ergon by Mobius Tensors** is a team of AI employees that any company can run. Each employee is a role with a job
+**Ergon by Gradient Labs** is a team of AI employees that any company can run. Each employee is a role with a job
 description, tools and permissions. A **Chief of Staff** takes your request, hands the work to the
 right people and gives you back one result. Everything specific to a company lives in its own
 `companies/<id>/` folder, never in code.
@@ -8,7 +8,7 @@ right people and gives you back one result. Everything specific to a company liv
 **Rule:** nothing from the client project this started as may come back: no client names, their
 domain concepts, keys, data or docs.
 
-**Companies configured:** a made-up sample (`example`) and Mobius Tensors, so we use the team
+**Companies configured:** a made-up sample (`example`) and Gradient Labs, so we use the team
 ourselves first. A client is just another `companies/<id>/` folder.
 
 ---
@@ -28,7 +28,7 @@ registry maps tool names to functions, and `run_all.py` and the Chief of Staff b
 `companies/<id>/` with a `profile.yaml` (put at the top of every instruction, live) and a
 `knowledge/` folder that employees search (`search_company_knowledge`, `read_company_document`).
 `ERGON_COMPANY` picks one: `example` (a made-up sample, the default and the template) or
-`mobius_tensors` (Histor, services, internal pricing).
+`gradient_labs` (Histor, services, internal pricing).
 
 **Phase 3 (done):** the core team. New employees **Writer**, **Sales Rep** and **Support
 Agent**; the **Data Analyst** now runs Python on the task's files (`run_python`, a local
@@ -61,7 +61,7 @@ request when `ENGINEER_OPEN_PR=true`. Employees can now set their own `timeout_s
 ergon/
 ├── companies/               # the ONLY thing you edit per company; ERGON_COMPANY picks one
 │   ├── example/             # made-up sample company: the default and the template
-│   └── mobius_tensors/      # profile.yaml (who we are, offer, voice, rules) + knowledge/
+│   └── gradient_labs/      # profile.yaml (who we are, offer, voice, rules) + knowledge/
 ├── employees/               # one YAML file per AI employee
 │   ├── researcher.yaml, data_analyst.yaml
 │   └── writer.yaml, sales_rep.yaml, support_agent.yaml
@@ -157,7 +157,7 @@ Chief of Staff → **Researcher** (list with sources) → **Data Analyst** (clea
 |---|---|---|---|
 | 0 | ~~**Remove the client project:** delete its code, data and keys, strip config and web tools, rename the package to `ergon`~~ **done** | 1 day | no client trace left; engine tests pass |
 | 1 | ~~**Employee engine:** YAML employees, generic `employee_server.py`, tool registry, `run_all.py` reads `employees/`. Port Researcher and Data Analyst~~ **done** | 2–3 days | two employees running from YAML, Chief of Staff routes between them |
-| 2 | ~~**Company brain:** `profile.yaml`, `knowledge/`, knowledge search, profile in every prompt. Fill in Mobius Tensors~~ **done** (general: `companies/<id>/`) | 2 days | "What does Histor cost for 12 cameras?" is answered correctly from the knowledge |
+| 2 | ~~**Company brain:** `profile.yaml`, `knowledge/`, knowledge search, profile in every prompt. Fill in Gradient Labs~~ **done** (general: `companies/<id>/`) | 2 days | "What does Histor cost for 12 cameras?" is answered correctly from the knowledge |
 | 3 | ~~**Core team:** Writer, Sales Rep, Support Agent, document output, Python sandbox for the Analyst~~ **done** (live run of the UAE example still to do) | 3–4 days | the UAE example above runs end to end |
 | 4 | **Approvals and work log:** draft/act permissions with pause-and-approve, run records, cost per request | 3–4 days | an `act` tool cannot run without your yes; every request has a cost line |
 | 5 | **Connectors and v2 employees:** one employee at a time via MCP | 2–3 days each | — |

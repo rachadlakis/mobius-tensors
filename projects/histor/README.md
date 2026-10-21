@@ -1,8 +1,8 @@
-<img src="../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors" width="200" align="right" />
+<img src="../../Images/brand-kit/logo/logo-horizontal-light.png" alt="Gradient Labs" width="200" align="right" />
 
 # Histor
 
-*Histor is a Mobius Tensors product.*
+*Histor is a Gradient Labs product.*
 
 *Greek ἵστωρ: "witness, one who knows by having seen". The root of "history".*
 

@@ -62,7 +62,7 @@ SOUND_MODELS = {
 }
 
 
-# Fire and smoke: Mobius Tensors' own YOLOv9 detectors (training/fire_smoke, LibreYOLO, MIT),
+# Fire and smoke: Gradient Labs' own YOLOv9 detectors (training/fire_smoke, LibreYOLO, MIT),
 # kept in a private Hugging Face model repo, not in git. Needs a token with read access:
 # HF_TOKEN, or HUGGINGFACE_API_KEY in .env. Pinned revision; the repo's README is the model card.
 FIRE_REPO = "Rachad/histor-fire-smoke-models"

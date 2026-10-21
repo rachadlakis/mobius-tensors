@@ -1,6 +1,6 @@
 # Histor
 
-Histor is a Mobius Tensors product. Ask your cameras what happened, in plain language, and get
+Histor is a Gradient Labs product. Ask your cameras what happened, in plain language, and get
 the frames as evidence. Status: working code, pilot-ready on recorded footage; live alerts to be
 validated at a pilot site.
 

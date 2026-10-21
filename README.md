@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="Images/brand-kit/logo/logo-horizontal-light.png" alt="Mobius Tensors logo" width="420" />
+<img src="Images/brand-kit/logo/logo-horizontal-light.png" alt="Gradient Labs logo" width="420" />
 
-# Mobius Tensors
+# Gradient Labs
 
 A computer vision and AI solutions company. One tested core, configured per use case.
 
@@ -28,7 +28,7 @@ The website lives in its own repo, next to this one: `../mobius-website`.
 
 Company-wide, in [docs/mobius-tensors](docs/mobius-tensors/):
 
-- [Mobius Tensors — AI Solution Platform](docs/mobius-tensors/Mobius%20Tensors%20—%20AI%20Solution%20Platform.md): company, use cases and ideas, architecture, roadmap and build plan, risks, glossary
+- [Gradient Labs — AI Solution Platform](docs/mobius-tensors/Mobius%20Tensors%20—%20AI%20Solution%20Platform.md): company, use cases and ideas, architecture, roadmap and build plan, risks, glossary
 
 Per project, next to its code:
 
@@ -42,7 +42,7 @@ mobius-tensors/
 │   ├── mobius-tensors/   company, architecture and roadmap docs
 │   └── <project>/        one folder per project: <project>.md (what it is, status, links), and room
 │                         for decks and PDFs
-├── Images/      logo, banner and brand kit (Mobius Tensors in brand-kit/, Histor in histor/)
+├── Images/      logo, banner and brand kit (Gradient Labs in brand-kit/, Histor in histor/)
 └── projects/    one folder per product, each with its own uv environment
 ```
 

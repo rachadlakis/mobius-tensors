@@ -4,7 +4,7 @@ Guidance for Claude Code in this project.
 
 ## What this is
 
-**Ergon** (by Mobius Tensors): a team of AI employees on Google ADK + A2A. A Chief of Staff
+**Ergon** (by Gradient Labs): a team of AI employees on Google ADK + A2A. A Chief of Staff
 (`orchestrator_agent/`) delegates to employees, each a standalone A2A server defined by one YAML
 file in `employees/`. `README.md` is the overview; `PLAN.md` is the roadmap and the roster.
 

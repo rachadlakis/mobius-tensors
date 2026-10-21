@@ -1,6 +1,6 @@
 # Ergon
 
-**Ergon by Mobius Tensors**: a team of AI employees for any company. You talk to a **Chief of
+**Ergon by Gradient Labs**: a team of AI employees for any company. You talk to a **Chief of
 Staff**; it splits your request into tasks, hands each one to the right employee, and gives you
 back one result. Every employee knows the company it works for: its profile and its documents.
 
@@ -42,7 +42,7 @@ Ergon works for one company at a time, chosen with `ERGON_COMPANY` in `.env`:
 | Folder | What |
 |---|---|
 | `companies/example/` | Example Co., a made-up sample (the default). Copy it to start your own |
-| `companies/mobius_tensors/` | Mobius Tensors: Histor, services, internal pricing |
+| `companies/gradient_labs/` | Gradient Labs: Histor, services, internal pricing |
 | `companies/<id>/profile.yaml` | name, summary, about, offer, voice, rules: put at the top of every employee's instructions |
 | `companies/<id>/knowledge/` | Markdown or text documents employees search (keyword ranking, no database) |
 

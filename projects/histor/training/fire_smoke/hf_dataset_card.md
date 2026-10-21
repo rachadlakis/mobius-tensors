@@ -6,7 +6,7 @@ tags: [fire, smoke, object-detection, yolo]
 
 # Histor fire and smoke, v2 (private)
 
-The exact training set of Histor's fire/smoke detector (Mobius Tensors), run 3 onwards.
+The exact training set of Histor's fire/smoke detector (Gradient Labs), run 3 onwards.
 Built by `prepare_data.py` in `projects/histor/training/fire_smoke/` from the sources below:
 near-duplicates grouped into scenes and split 80/10/10 by scene, 20 % of train images replaced by
 a CCTV-like copy, Pyro-SDIS split by camera.

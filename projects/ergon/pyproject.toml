@@ -1,7 +1,7 @@
 [project]
 name = "ergon"
 version = "0.1.0"
-description = "Ergon by Mobius Tensors: a team of AI employees led by a Chief of Staff."
+description = "Ergon by Gradient Labs: a team of AI employees led by a Chief of Staff."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
